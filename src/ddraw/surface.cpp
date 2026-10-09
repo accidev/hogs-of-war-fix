@@ -1,6 +1,7 @@
 #include "objects.h"
 #include "d3d7.h"
 #include <algorithm>
+#include <intrin.h>
 #include <string.h>
 
 std::vector<Surface *> g_surfaces;
@@ -120,6 +121,8 @@ void Surface::sync_from_gpu()
 void Surface::wrote_cpu()
 {
     version++;
+    if (g_capturing && kind == Kind::Back)
+        capture_note("CPU write to the back buffer (Lock, GetDC or blit): whole frame uploaded");
     if (kind == Kind::Back && bits && gpu::ready()) {
         gpu::write_back((const uint16_t *)bits, pitch);
         cpu_valid = true;
@@ -247,6 +250,9 @@ static HRESULT do_blit(Surface *dst, RECT d, Surface *src, RECT s, int key, bool
 HRESULT STDMETHODCALLTYPE Surface::Blt(LPRECT dr, LPDIRECTDRAWSURFACE7 srcp, LPRECT sr, DWORD flags, LPDDBLTFX fx)
 {
     RECT d = dr ? *dr : RECT{ 0, 0, w, h };
+    if (g_capturing)
+        capture_note("Blt from %p to kind %d %dx%d (%ld,%ld)-(%ld,%ld) src %p flags %08lX", _ReturnAddress(), (int)kind,
+                     w, h, d.left, d.top, d.right, d.bottom, (void *)srcp, flags);
     if (flags & DDBLT_COLORFILL) {
         DWORD color = fx ? fx->dwFillColor : 0;
         RECT s = d;
@@ -288,6 +294,9 @@ HRESULT STDMETHODCALLTYPE Surface::BltFast(DWORD x, DWORD y, LPDIRECTDRAWSURFACE
     RECT s = sr ? *sr : RECT{ 0, 0, src->w, src->h };
     RECT d = { (LONG)x, (LONG)y, (LONG)x + s.right - s.left, (LONG)y + s.bottom - s.top };
     int key = (flags & DDBLTFAST_SRCCOLORKEY) && src->has_src_key ? src->key_value() : -1;
+    if (g_capturing)
+        capture_note("BltFast from %p to kind %d (%ld,%ld)-(%ld,%ld) src %p %dx%d key %d", _ReturnAddress(), (int)kind,
+                     d.left, d.top, d.right, d.bottom, (void *)src, src->w, src->h, key);
     return do_blit(this, d, src, s, key, false, false);
 }
 

@@ -14,6 +14,7 @@ static HWND game_window()
 
 void present_frame()
 {
+    capture_frame_end();
     gpu::present(g_config.vsync != 0);
 }
 

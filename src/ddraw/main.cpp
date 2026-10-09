@@ -54,7 +54,10 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
         snprintf(path, sizeof path, "%shogs.ini", dir);
         g_config.scale = GetPrivateProfileIntA("Render", "Scale", 0, path);
         g_config.vsync = GetPrivateProfileIntA("Render", "VSync", 1, path);
-        log_printf("hogsdraw %s %s: scale %d, vsync %d", __DATE__, __TIME__, g_config.scale, g_config.vsync);
+        g_config.frame_dump = GetPrivateProfileIntA("Debug", "FrameDump", 0, path);
+        g_config.frame_dump_at = GetPrivateProfileIntA("Debug", "FrameDumpAt", 0, path);
+        log_printf("hogsdraw %s %s: scale %d, vsync %d, frame dump %d", __DATE__, __TIME__, g_config.scale,
+                   g_config.vsync, g_config.frame_dump);
     } else if (reason == DLL_PROCESS_DETACH && g_log) {
         fclose(g_log);
         g_log = nullptr;

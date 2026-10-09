@@ -1,6 +1,7 @@
 #include "d3d7.h"
 #include <algorithm>
 #include <float.h>
+#include <intrin.h>
 #include <string.h>
 
 std::vector<Device *> g_devices;
@@ -189,6 +190,8 @@ HRESULT STDMETHODCALLTYPE Device::GetRenderTarget(LPDIRECTDRAWSURFACE7 *out)
 
 HRESULT STDMETHODCALLTYPE Device::Clear(DWORD, LPD3DRECT, DWORD flags, D3DCOLOR color, D3DVALUE z, DWORD)
 {
+    if (g_capturing)
+        capture_note("clear flags %lu color %08lX z %.3f", flags, color, z);
     if (flags & D3DCLEAR_ZBUFFER)
         gpu::clear_depth(z);
     if (flags & D3DCLEAR_TARGET) {
@@ -202,6 +205,8 @@ HRESULT STDMETHODCALLTYPE Device::Clear(DWORD, LPD3DRECT, DWORD flags, D3DCOLOR 
 HRESULT STDMETHODCALLTYPE Device::SetViewport(LPD3DVIEWPORT7 v)
 {
     vp = *v;
+    if (g_capturing)
+        capture_note("viewport %lu %lu %lu %lu", v->dwX, v->dwY, v->dwWidth, v->dwHeight);
     gpu::set_clip(v->dwX, v->dwY, v->dwWidth, v->dwHeight);
     return D3D_OK;
 }
@@ -306,6 +311,8 @@ HRESULT STDMETHODCALLTYPE Device::DrawPrimitive(D3DPRIMITIVETYPE type, DWORD fvf
     s.alpha_arg2 = (uint8_t)t0[D3DTSS_ALPHAARG2];
     s.linear = t0[D3DTSS_MAGFILTER] >= D3DTFG_LINEAR || t0[D3DTSS_MINFILTER] >= D3DTFN_LINEAR;
     s.wrap = t0[D3DTSS_ADDRESSU] == D3DTADDRESS_WRAP;
+    if (g_capturing)
+        capture_draw(_ReturnAddress(), type, (const D3DTLVERTEX *)verts, count, s, tex[0]);
     gpu::draw(type, verts, count, s, tex[0] ? tex[0]->texture() : nullptr);
     if (target)
         target->cpu_valid = false;

@@ -56,7 +56,10 @@ struct VOut {
 VOut vs_tl(VIn v)
 {
     VOut o;
-    float w = v.pos.w > 0 ? 1.0 / v.pos.w : 1.0;
+    /* rhw < 0 is a point behind the camera: footprints and other ground decals near the eye
+     * are projected that way (PlacePolyInWorld). A negative w keeps it behind, so the
+     * rasterizer clips the polygon at the eye plane instead of stretching it over the screen. */
+    float w = v.pos.w != 0 ? 1.0 / v.pos.w : 1.0;
     /* D3D7 pixel centres sit on integer coordinates, D3D11 ones on .5 */
     float2 ndc = float2((v.pos.x + 0.5) / g_size.x * 2 - 1, 1 - (v.pos.y + 0.5) / g_size.y * 2);
     o.pos = float4(ndc * w, v.pos.z * w, w);

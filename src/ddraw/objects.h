@@ -137,6 +137,8 @@ struct DirectDraw : IDirectDraw7Stubs {
 struct Config {
     int scale = 0;      /* back buffer = game resolution x scale; 0 = as large as the monitor allows */
     int vsync = 1;
+    int frame_dump = 0; /* [Debug] FrameDump: F12 dumps a frame, see capture.cpp */
+    int frame_dump_at = 0; /* [Debug] FrameDumpAt: also dump this frame number by itself */
 };
 extern Config g_config;
 extern DirectDraw *g_ddraw;  /* the one the game created last */
@@ -149,3 +151,10 @@ extern std::vector<Device *> g_devices;
 void rgb565_format(DDPIXELFORMAT &pf);
 /* present the back buffer (windowed Blt to the primary, or Flip) */
 void present_frame();
+
+/* frame dump (capture.cpp): while g_capturing, every draw, blit and clear is written out */
+extern bool g_capturing;
+void capture_note(const char *fmt, ...);
+void capture_draw(const void *caller, D3DPRIMITIVETYPE type, const D3DTLVERTEX *v, DWORD count,
+                  const gpu::DrawState &s, Surface *tex);
+void capture_frame_end(); /* before each present: finish a running dump, start one on F12 */

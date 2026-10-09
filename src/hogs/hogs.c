@@ -128,6 +128,16 @@ static void fix_renderer(HMODULE renderer)
     /* GetBitmapBits has one caller, the nview mask loader FUN_10014120 */
     hook_import(base + 0x1ED719C, "gdi32.dll", "GetBitmapBits", bitmap_bits_16bpp, NULL,
                 "renderer: 16-bit terrain masks");
+
+    /* Objects (trees, buildings, the sky dome) are transformed by FUN_10011810, which clamps
+     * view z to at least 1.527e-5. A vertex behind the camera then projects to a huge screen
+     * position, and its triangle is stretched across the screen. With the occluder fade, a tree
+     * next to the camera became flickering translucent bands. The triangle emitters already skip
+     * any triangle with a vertex at z < 0 (that is how hog models are drawn), so store -1.0
+     * instead of the clamp value: triangles that reach behind the camera are dropped. The
+     * visibility test, the other caller, needs z > 15 either way. */
+    patch(base + 0x118D8, "\xC7\x02\x13\x18\x80\x37", "\xC7\x02\x00\x00\x80\xBF", 6,
+          "renderer: drop objects behind the camera");
 }
 
 static HMODULE WINAPI load_library(LPCSTR name)
