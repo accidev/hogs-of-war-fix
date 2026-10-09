@@ -48,7 +48,7 @@ struct Surface : IDirectDrawSurface7Stubs {
     Palette *palette = nullptr;    /* weak */
     Surface *attached = nullptr;   /* primary -> back buffer, back buffer -> z buffer */
     bool owns_attached = false;    /* the flip chain's back buffer, created with the primary */
-    bool locked = false, dc_out = false;
+    bool locked = false;
 
     gpu::Texture *gpu_tex = nullptr; /* textures only */
     uint32_t gpu_tex_version = 0;
@@ -113,7 +113,7 @@ struct DirectDraw : IDirectDraw7Stubs {
     Direct3D *d3d = nullptr;       /* same COM object: shares this reference count, owned */
     HWND hwnd = nullptr;
     DWORD coop = 0;
-    int mode_w = 640, mode_h = 480, mode_bpp = 16;
+    int mode_w = 640, mode_h = 480;
 
     HRESULT STDMETHODCALLTYPE CreateClipper(DWORD, LPDIRECTDRAWCLIPPER FAR *, IUnknown FAR *) override;
     HRESULT STDMETHODCALLTYPE CreatePalette(DWORD, LPPALETTEENTRY, LPDIRECTDRAWPALETTE FAR *, IUnknown FAR *) override;
@@ -133,7 +133,7 @@ struct DirectDraw : IDirectDraw7Stubs {
     HRESULT STDMETHODCALLTYPE GetVerticalBlankStatus(LPBOOL b) override { *b = TRUE; return DD_OK; }
 };
 
-/* settings from hogs.ini [Render] */
+/* settings from hogs.ini [Render] and [Debug] */
 struct Config {
     int scale = 0;      /* back buffer = game resolution x scale; 0 = as large as the monitor allows */
     int vsync = 1;

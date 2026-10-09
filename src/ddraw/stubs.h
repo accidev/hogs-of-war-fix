@@ -97,11 +97,6 @@ struct IDirectDrawClipperStubs : IDirectDrawClipper {
     HRESULT STDMETHODCALLTYPE SetHWnd(DWORD, HWND) override { unimplemented("IDirectDrawClipper::SetHWnd"); return E_NOTIMPL; }
 };
 
-struct IDirectDrawGammaControlStubs : IDirectDrawGammaControl {
-    HRESULT STDMETHODCALLTYPE GetGammaRamp(DWORD, LPDDGAMMARAMP) override { unimplemented("IDirectDrawGammaControl::GetGammaRamp"); return E_NOTIMPL; }
-    HRESULT STDMETHODCALLTYPE SetGammaRamp(DWORD, LPDDGAMMARAMP) override { unimplemented("IDirectDrawGammaControl::SetGammaRamp"); return E_NOTIMPL; }
-};
-
 struct IDirect3D7Stubs : IDirect3D7 {
     HRESULT STDMETHODCALLTYPE EnumDevices(LPD3DENUMDEVICESCALLBACK7,LPVOID) override { unimplemented("IDirect3D7::EnumDevices"); return E_NOTIMPL; }
     HRESULT STDMETHODCALLTYPE CreateDevice(REFCLSID,LPDIRECTDRAWSURFACE7,LPDIRECT3DDEVICE7*) override { unimplemented("IDirect3D7::CreateDevice"); return E_NOTIMPL; }
@@ -157,13 +152,4 @@ struct IDirect3DDevice7Stubs : IDirect3DDevice7 {
     HRESULT STDMETHODCALLTYPE SetClipPlane(DWORD,D3DVALUE*) override { unimplemented("IDirect3DDevice7::SetClipPlane"); return E_NOTIMPL; }
     HRESULT STDMETHODCALLTYPE GetClipPlane(DWORD,D3DVALUE*) override { unimplemented("IDirect3DDevice7::GetClipPlane"); return E_NOTIMPL; }
     HRESULT STDMETHODCALLTYPE GetInfo(DWORD,LPVOID,DWORD) override { unimplemented("IDirect3DDevice7::GetInfo"); return E_NOTIMPL; }
-};
-
-struct IDirect3DVertexBuffer7Stubs : IDirect3DVertexBuffer7 {
-    HRESULT STDMETHODCALLTYPE Lock(DWORD,LPVOID*,LPDWORD) override { unimplemented("IDirect3DVertexBuffer7::Lock"); return E_NOTIMPL; }
-    HRESULT STDMETHODCALLTYPE Unlock() override { unimplemented("IDirect3DVertexBuffer7::Unlock"); return E_NOTIMPL; }
-    HRESULT STDMETHODCALLTYPE ProcessVertices(DWORD,DWORD,DWORD,LPDIRECT3DVERTEXBUFFER7,DWORD,LPDIRECT3DDEVICE7,DWORD) override { unimplemented("IDirect3DVertexBuffer7::ProcessVertices"); return E_NOTIMPL; }
-    HRESULT STDMETHODCALLTYPE GetVertexBufferDesc(LPD3DVERTEXBUFFERDESC) override { unimplemented("IDirect3DVertexBuffer7::GetVertexBufferDesc"); return E_NOTIMPL; }
-    HRESULT STDMETHODCALLTYPE Optimize(LPDIRECT3DDEVICE7,DWORD) override { unimplemented("IDirect3DVertexBuffer7::Optimize"); return E_NOTIMPL; }
-    HRESULT STDMETHODCALLTYPE ProcessVerticesStrided(DWORD,DWORD,DWORD,LPD3DDRAWPRIMITIVESTRIDEDDATA,DWORD,LPDIRECT3DDEVICE7,DWORD) override { unimplemented("IDirect3DVertexBuffer7::ProcessVerticesStrided"); return E_NOTIMPL; }
 };

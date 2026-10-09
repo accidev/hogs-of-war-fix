@@ -10,9 +10,8 @@ makes that we have not implemented shows up in hogsdraw.log instead of crashing.
 import os, re, sys
 
 INTERFACES = {
-    'ddraw.h': ['IDirectDraw7', 'IDirectDrawSurface7', 'IDirectDrawPalette', 'IDirectDrawClipper',
-                'IDirectDrawGammaControl'],
-    'd3d.h': ['IDirect3D7', 'IDirect3DDevice7', 'IDirect3DVertexBuffer7'],
+    'ddraw.h': ['IDirectDraw7', 'IDirectDrawSurface7', 'IDirectDrawPalette', 'IDirectDrawClipper'],
+    'd3d.h': ['IDirect3D7', 'IDirect3DDevice7'],
 }
 METHOD = re.compile(r'STDMETHOD(?:_\((?P<rtype>[^,]+),\s*(?P<rname>\w+)\)|\((?P<name>\w+)\))\s*\((?P<args>[^;]*?)\)\s*PURE\s*;', re.S)
 

@@ -36,7 +36,8 @@ void set_clip(int x, int y, int w, int h);       /* D3D7 viewport: 3D primitives
 void clear_depth(float z);
 void clear_target(uint32_t color);               /* D3DCOLOR */
 void draw(D3DPRIMITIVETYPE type, const void *tlvertices, uint32_t count, const DrawState &s,
-          Texture *tex);
+          Texture *tex);                         /* merged with the previous draw when the state matches */
+int frame_draws();                               /* Direct3D 11 draws issued since the last present */
 
 /* DirectDraw on the back buffer; rectangles in game pixels, pixels RGB565 */
 void fill(const RECT &dst, uint16_t rgb565);

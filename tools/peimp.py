@@ -1,3 +1,4 @@
+"""List the imports of PE files: peimp.py <file>..."""
 import struct, sys, datetime
 
 def imports(path):
@@ -20,7 +21,9 @@ def imports(path):
     def cstr(o):
         return d[o:d.index(b'\0', o)].decode('latin1')
 
-    print(f'== {path}\n machine={machine:#x} built={datetime.datetime.utcfromtimestamp(ts)} sections={[s[0].rstrip(b"\0").decode() for s in secs]}')
+    built = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc)
+    names = [s[0].rstrip(b'\0').decode() for s in secs]
+    print(f'== {path}\n machine={machine:#x} built={built} sections={names}')
     o = off(imp_rva)
     while True:
         oft, _, _, name, ft = struct.unpack_from('<IIIII', d, o)

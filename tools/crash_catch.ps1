@@ -1,8 +1,14 @@
 # Run under 32-bit Windows PowerShell.
-# Starts the game under a minimal debugger, presses Start in the launcher dialog, waits,
-# minimizes the game window (what Alt+Tab does to it) and reports access violations with
-# registers and a stack scan, mapped to modules.
-param([string]$Exe, [int]$RunSec = 10, [int]$AfterSec = 6, [string]$Action = "minimize", [string]$Shot, [int]$EscRounds = 2)
+# Starts the game under a minimal debugger, presses Start in the launcher dialog, waits RunSec,
+# then acts on the game window and reports access violations with registers and a stack scan,
+# mapped to modules. Puts back windows the game moved.
+#   -Action minimize  minimize the window (what Alt+Tab does to it), wait AfterSec, kill
+#   -Action alttab    Alt+Tab away and back
+#   -Action tour      every 4 s a PrintWindow shot (-Shot x.png gives x_0.png ...), the first
+#                     -EscRounds of them with Esc posted to skip the intro videos; 8 rounds
+#   -Action none      only wait AfterSec, kill
+param([string]$Exe, [int]$RunSec = 10, [int]$AfterSec = 6,
+      [ValidateSet('minimize', 'alttab', 'tour', 'none')][string]$Action = 'minimize', [string]$Shot, [int]$EscRounds = 2)
 
 Add-Type -ReferencedAssemblies System.Drawing @"
 using System; using System.Text; using System.Collections.Generic; using System.Runtime.InteropServices;
@@ -33,16 +39,6 @@ public static class Dbg {
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
     [DllImport("user32.dll")] static extern int GetWindowLongW(IntPtr h, int i);
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr hdc, int flags);
-    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
-    [DllImport("user32.dll")] static extern bool AttachThreadInput(int a, int b, bool attach);
-    [DllImport("kernel32.dll")] static extern int GetCurrentThreadId();
-    // Bring a window to the front without synthesizing Alt+Tab (which shows the task switcher).
-    static void Focus(IntPtr w) {
-        int dummy, fg = GetWindowThreadProcessId(GetForegroundWindow(), out dummy), me = GetCurrentThreadId();
-        AttachThreadInput(me, fg, true); SetForegroundWindow(w); AttachThreadInput(me, fg, false);
-        if (GetForegroundWindow() != w) SwitchToThisWindow(w, true);
-    }
-    [DllImport("user32.dll")] static extern void SwitchToThisWindow(IntPtr h, bool altTab);
     static void AltTab() {
         keybd_event(0x12, 0, 0, IntPtr.Zero); keybd_event(0x09, 0, 0, IntPtr.Zero);
         System.Threading.Thread.Sleep(50);

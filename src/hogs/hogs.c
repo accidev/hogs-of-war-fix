@@ -6,6 +6,7 @@
  * Settings: hogs.ini next to the exe. Log: hogs.log next to the exe.
  */
 #include <windows.h>
+#include <mmsystem.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -118,6 +119,13 @@ static LONG WINAPI bitmap_bits_16bpp(HBITMAP bm, LONG size, LPVOID out)
 static void fix_renderer(HMODULE renderer)
 {
     DWORD base = (DWORD)(ULONG_PTR)renderer;
+    const IMAGE_NT_HEADERS *nt = (const IMAGE_NT_HEADERS *)(base + ((const IMAGE_DOS_HEADER *)renderer)->e_lfanew);
+
+    /* every RVA below must lie inside the image before patch() compares its bytes */
+    if (nt->OptionalHeader.SizeOfImage != 0x1EE9000) {
+        say("skip renderer fixes: unknown _d3d.dll (image size %08X)", nt->OptionalHeader.SizeOfImage);
+        return;
+    }
 
     /* CopyToScreen, windowed path: the client origin comes from
      * AdjustWindowRectEx(&rc, style, bMenu=TRUE, exstyle), but the game window has no menu,
@@ -186,6 +194,59 @@ static BOOL CALLBACK keep_foreign_windows(HWND hwnd, LPARAM arg)
     return TRUE;
 }
 
+/* Music volume. The game sets the CD-audio volume with mixerSetControlDetails on the mixer's
+ * CD line, and at start-up takes its music volume from that control (FUN_004398E0). Windows
+ * 10/11 has no CD line: the calls reach the game's own slider in the Windows volume mixer, so
+ * every music fade faded all sound, and a game closed during a fade-out started the next time
+ * with all sound at 0. ogg-winmm plays the CD tracks and has its own CD volume (auxSetVolume),
+ * so the value goes there. The game's control details are one channel, one DWORD, 0..0xFFDC. */
+static MMRESULT WINAPI cd_volume_set(HMIXEROBJ mixer, LPMIXERCONTROLDETAILS d, DWORD flags)
+{
+    DWORD v = *(DWORD *)d->paDetails;
+
+    (void)mixer;
+    (void)flags;
+    return auxSetVolume(0, v | v << 16);
+}
+
+static MMRESULT WINAPI cd_volume_get(HMIXEROBJ mixer, LPMIXERCONTROLDETAILS d, DWORD flags)
+{
+    DWORD v;
+
+    (void)mixer;
+    (void)flags;
+    if (auxGetVolume(0, &v) != MMSYSERR_NOERROR)
+        v = 0xFFFF;
+    *(DWORD *)d->paDetails = LOWORD(v);
+    return MMSYSERR_NOERROR;
+}
+
+/* [Cheats] PromotionPoints=1: F11 gives the team on screen 10 more promotion points. [0x51C560]
+ * is the record of the team being edited (0x2A8 bytes, as saved in savearmyN); its promotion
+ * points are the int16 at +0x50 that the promote code checks and spends (0x42BDB6, 0x42BDD5). */
+static DWORD WINAPI promotion_points_key(LPVOID unused)
+{
+    BOOL was = FALSE;
+
+    (void)unused;
+    for (;;) {
+        BOOL down = (GetAsyncKeyState(VK_F11) & 0x8000) != 0;
+        BYTE *team = *(BYTE **)0x51C560;
+        DWORD pid = 0;
+
+        GetWindowThreadProcessId(GetForegroundWindow(), &pid);
+        if (down && !was && team && pid == GetCurrentProcessId()) {
+            short *pp = (short *)(team + 0x50);
+            short old = *pp;
+
+            *pp = old < 989 ? old + 10 : 999;
+            say("cheat: promotion points %d -> %d", old, *pp);
+        }
+        was = down;
+        Sleep(30);
+    }
+}
+
 static void apply_fixes(void)
 {
     /* call [SystemParametersInfoA] -> add esp,16 (the stdcall's 4 arguments) */
@@ -220,6 +281,18 @@ static void apply_fixes(void)
 
     hook_import(0x54F434, "kernel32.dll", "LoadLibraryA", load_library, &g_load_library,
                 "fix the renderer when it is loaded");
+
+    hook_import(0x54F60C, "winmm.dll", "mixerSetControlDetails", cd_volume_set, NULL,
+                "music volume: set on the CD player");
+    hook_import(0x54F608, "winmm.dll", "mixerGetControlDetailsA", cd_volume_get, NULL,
+                "music volume: read from the CD player");
+
+    if (GetPrivateProfileIntA("Cheats", "PromotionPoints", 0, g_ini)) {
+        if (memcmp((void *)0x42BDB6, "\x8B\x15\x60\xC5\x51\x00", 6) || memcmp((void *)0x42BDD5, "\x66\x8B\x42\x50", 4))
+            say("skip %-40s %08X: unexpected bytes, unknown game build?", "cheat: F11 adds promotion points", 0x42BDB6);
+        else if (CreateThread(NULL, 0, promotion_points_key, NULL, 0, NULL))
+            say("ok   %-40s %08X", "cheat: F11 adds promotion points", 0x51C560);
+    }
 }
 
 /* The exe still imports CallDLL (LaserLock's old entry point). All 325 call sites that went
@@ -232,19 +305,18 @@ int CallDLL(void)
 
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved)
 {
-    char log[MAX_PATH];
+    char dir[MAX_PATH], log[MAX_PATH];
     char *slash;
 
     (void)reserved;
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(inst);
-        GetModuleFileNameA(NULL, g_ini, MAX_PATH);
-        slash = strrchr(g_ini, '\\');
+        GetModuleFileNameA(NULL, dir, MAX_PATH);
+        slash = strrchr(dir, '\\');
         if (slash)
             slash[1] = '\0';
-        strcpy(log, g_ini);
-        strcat(g_ini, "hogs.ini");
-        strcat(log, "hogs.log");
+        snprintf(g_ini, sizeof g_ini, "%shogs.ini", dir);
+        snprintf(log, sizeof log, "%shogs.log", dir);
         g_log = fopen(log, "w");
         say("hogs.dll %s %s", __DATE__, __TIME__);
         apply_fixes();

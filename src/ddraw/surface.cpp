@@ -185,6 +185,13 @@ static void cpu_blit(Surface *dst, const RECT &d, Surface *src, const RECT &s, i
         return;
     }
     int dw = d.right - d.left, dh = d.bottom - d.top, sw = s.right - s.left, sh = s.bottom - s.top;
+    if (sw == dw && sh == dh && key < 0 && !mx && !my) { /* plain copy, e.g. a texture page upload */
+        int bytes = dw * dst->bpp / 8;
+        for (int y = 0; y < dh; y++)
+            memmove(dst->bits + (d.top + y) * dst->pitch + d.left * dst->bpp / 8,
+                    src->bits + (s.top + y) * src->pitch + s.left * src->bpp / 8, bytes);
+        return;
+    }
     for (int y = 0; y < dh; y++) {
         int sy = s.top + (my ? (dh - 1 - y) : y) * sh / dh;
         uint8_t *drow = dst->bits + (d.top + y) * dst->pitch;
@@ -370,7 +377,6 @@ HRESULT STDMETHODCALLTYPE Surface::GetDC(HDC FAR *out)
     if (!dc)
         return DDERR_CANTCREATEDC;
     sync_from_gpu();
-    dc_out = true;
     *out = dc;
     return DD_OK;
 }
@@ -378,7 +384,6 @@ HRESULT STDMETHODCALLTYPE Surface::GetDC(HDC FAR *out)
 HRESULT STDMETHODCALLTYPE Surface::ReleaseDC(HDC)
 {
     GdiFlush();
-    dc_out = false;
     wrote_cpu();
     return DD_OK;
 }

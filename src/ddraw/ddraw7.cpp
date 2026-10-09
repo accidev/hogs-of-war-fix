@@ -64,7 +64,6 @@ HRESULT STDMETHODCALLTYPE DirectDraw::SetDisplayMode(DWORD w, DWORD h, DWORD bpp
     log_printf("SetDisplayMode(%lu, %lu, %lu)", w, h, bpp);
     mode_w = w;
     mode_h = h;
-    mode_bpp = bpp;
     return DD_OK;
 }
 

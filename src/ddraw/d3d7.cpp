@@ -1,6 +1,7 @@
 #include "d3d7.h"
 #include <algorithm>
 #include <float.h>
+#include <initializer_list>
 #include <intrin.h>
 #include <string.h>
 
@@ -277,18 +278,25 @@ HRESULT STDMETHODCALLTYPE Device::DrawPrimitive(D3DPRIMITIVETYPE type, DWORD fvf
         once = true;
         return D3D_OK;
     }
+    /* States that cannot change the picture stay 0, so that more draws match and merge (gpu::draw). */
     gpu::DrawState s = {};
     s.blend = rs[D3DRENDERSTATE_ALPHABLENDENABLE] != 0;
-    s.src_blend = (uint8_t)rs[D3DRENDERSTATE_SRCBLEND];
-    s.dst_blend = (uint8_t)rs[D3DRENDERSTATE_DESTBLEND];
+    if (s.blend) {
+        s.src_blend = (uint8_t)rs[D3DRENDERSTATE_SRCBLEND];
+        s.dst_blend = (uint8_t)rs[D3DRENDERSTATE_DESTBLEND];
+    }
     s.ztest = rs[D3DRENDERSTATE_ZENABLE] != 0;
-    s.zwrite = rs[D3DRENDERSTATE_ZWRITEENABLE] != 0;
-    s.zfunc = (uint8_t)rs[D3DRENDERSTATE_ZFUNC];
+    if (s.ztest) {
+        s.zwrite = rs[D3DRENDERSTATE_ZWRITEENABLE] != 0;
+        s.zfunc = (uint8_t)rs[D3DRENDERSTATE_ZFUNC];
+    }
     s.cull = (uint8_t)rs[D3DRENDERSTATE_CULLMODE];
     s.flat = rs[D3DRENDERSTATE_SHADEMODE] == D3DSHADE_FLAT;
     s.alpha_test = rs[D3DRENDERSTATE_ALPHATESTENABLE] != 0;
-    s.alpha_func = (uint8_t)rs[D3DRENDERSTATE_ALPHAFUNC];
-    s.alpha_ref = (uint8_t)rs[D3DRENDERSTATE_ALPHAREF];
+    if (s.alpha_test) {
+        s.alpha_func = (uint8_t)rs[D3DRENDERSTATE_ALPHAFUNC];
+        s.alpha_ref = (uint8_t)rs[D3DRENDERSTATE_ALPHAREF];
+    }
     if (rs[D3DRENDERSTATE_FOGENABLE] && rs[D3DRENDERSTATE_FOGTABLEMODE] != D3DFOG_NONE) {
         if (rs[D3DRENDERSTATE_FOGTABLEMODE] != D3DFOG_LINEAR) {
             static bool once;
@@ -299,9 +307,8 @@ HRESULT STDMETHODCALLTYPE Device::DrawPrimitive(D3DPRIMITIVETYPE type, DWORD fvf
         s.fog = 1;
         s.fog_start = as_float(rs[D3DRENDERSTATE_FOGSTART]);
         s.fog_end = as_float(rs[D3DRENDERSTATE_FOGEND]);
+        s.fog_color = rs[D3DRENDERSTATE_FOGCOLOR];
     }
-    s.fog_color = rs[D3DRENDERSTATE_FOGCOLOR];
-    s.tfactor = rs[D3DRENDERSTATE_TEXTUREFACTOR];
     const DWORD *t0 = tss[0];
     s.color_op = (uint8_t)t0[D3DTSS_COLOROP];
     s.color_arg1 = (uint8_t)t0[D3DTSS_COLORARG1];
@@ -309,11 +316,17 @@ HRESULT STDMETHODCALLTYPE Device::DrawPrimitive(D3DPRIMITIVETYPE type, DWORD fvf
     s.alpha_op = (uint8_t)t0[D3DTSS_ALPHAOP];
     s.alpha_arg1 = (uint8_t)t0[D3DTSS_ALPHAARG1];
     s.alpha_arg2 = (uint8_t)t0[D3DTSS_ALPHAARG2];
-    s.linear = t0[D3DTSS_MAGFILTER] >= D3DTFG_LINEAR || t0[D3DTSS_MINFILTER] >= D3DTFN_LINEAR;
-    s.wrap = t0[D3DTSS_ADDRESSU] == D3DTADDRESS_WRAP;
+    for (uint8_t a : { s.color_arg1, s.color_arg2, s.alpha_arg1, s.alpha_arg2 })
+        if ((a & D3DTA_SELECTMASK) == D3DTA_TFACTOR)
+            s.tfactor = rs[D3DRENDERSTATE_TEXTUREFACTOR];
+    gpu::Texture *gt = tex[0] ? tex[0]->texture() : nullptr;
+    if (gt) {
+        s.linear = t0[D3DTSS_MAGFILTER] >= D3DTFG_LINEAR || t0[D3DTSS_MINFILTER] >= D3DTFN_LINEAR;
+        s.wrap = t0[D3DTSS_ADDRESSU] == D3DTADDRESS_WRAP;
+    }
     if (g_capturing)
         capture_draw(_ReturnAddress(), type, (const D3DTLVERTEX *)verts, count, s, tex[0]);
-    gpu::draw(type, verts, count, s, tex[0] ? tex[0]->texture() : nullptr);
+    gpu::draw(type, verts, count, s, gt);
     if (target)
         target->cpu_valid = false;
     return D3D_OK;

@@ -27,7 +27,7 @@ cbuffer Draw : register(b1) {
     uint4 g_color;      /* stage 0: colorop, colorarg1, colorarg2, has_texture */
     uint4 g_alpha;      /* stage 0: alphaop, alphaarg1, alphaarg2, alphafunc (0 = no test) */
     float4 g_fog;       /* enabled, start, end, alpharef (0..255) */
-    float4 g_fog_color;
+    float4 g_fog_color; /* rgb, a = 1 / (end - start) */
     float4 g_tfactor;
 };
 
@@ -123,8 +123,8 @@ float4 ps_tl(VOut i) : SV_Target
         if (!ok)
             discard;
     }
-    if (g_fog.x > 0) {
-        float f = saturate((g_fog.z - i.depth) / max(g_fog.z - g_fog.y, 1e-6));
+    [branch] if (g_fog.x > 0) { /* a real branch: the compiler would otherwise always do the fog maths */
+        float f = saturate((g_fog.z - i.depth) * g_fog_color.a);
         r.rgb = lerp(g_fog_color.rgb, r.rgb, f);
     }
     return r;
@@ -153,7 +153,23 @@ float4 ps_blit(BOut i) : SV_Target
     return float4(rgb565(p), 1);
 }
 
-float4 ps_present(BOut i) : SV_Target { return float4(g_tex.Sample(g_smp, i.st).rgb, 1); }
+/* Back buffer to window (or to the game-sized copy for read_back). Up to about 2:1 one bilinear
+ * tap is enough (at exactly 2:1 it is the 2x2 average); from 3:1 on it would read 1 texel of 9,
+ * so a 3x3 grid over the pixel's footprint is averaged instead (exact at 3:1). */
+float4 ps_present(BOut i) : SV_Target
+{
+    uint w, h;
+    g_tex.GetDimensions(w, h);
+    float2 d = float2(ddx(i.st.x), ddy(i.st.y));
+    [branch] if (max(abs(d.x) * w, abs(d.y) * h) < 2.5)
+        return float4(g_tex.Sample(g_smp, i.st).rgb, 1);
+    d /= 3;
+    float3 s = 0;
+    [unroll] for (int y = -1; y <= 1; y++)
+        [unroll] for (int x = -1; x <= 1; x++)
+            s += g_tex.SampleLevel(g_smp, i.st + float2(x, y) * d, 0).rgb;
+    return float4(s / 9, 1);
+}
 )HLSL";
 
 struct BlitSource {
@@ -197,7 +213,7 @@ static ID3D11VertexShader *g_vs_tl[2], *g_vs_quad;
 static ID3D11PixelShader *g_ps_tl[2], *g_ps_blit, *g_ps_present;
 static ID3D11InputLayout *g_layout;
 static ID3D11Buffer *g_cb_frame, *g_cb_draw, *g_cb_blit, *g_vb;
-static ID3D11SamplerState *g_samplers[4];  /* [linear][wrap] */
+static ID3D11SamplerState *g_samplers[4];  /* index: linear | wrap << 1 */
 static ID3D11RasterizerState *g_raster[3]; /* D3DCULL_NONE, CW, CCW */
 static ID3D11DepthStencilState *g_no_depth;
 static ID3D11BlendState *g_no_blend;
@@ -206,7 +222,9 @@ static std::map<uint32_t, ID3D11DepthStencilState *> g_depth_states;
 static std::map<const void *, BlitSource> g_sources;
 
 static const UINT kVbBytes = 4 << 20;
-static UINT g_vb_pos;
+static UINT g_vb_pos = kVbBytes; /* full: the first push maps with DISCARD */
+
+static void flush(); /* draws merged so far, see draw() */
 
 static bool check(HRESULT hr, const char *what)
 {
@@ -344,7 +362,8 @@ bool init(HWND hwnd, int scale)
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     sd.BufferCount = 2;
     sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    bool ok = check(fac->CreateSwapChainForHwnd(g_dev, hwnd, &sd, nullptr, nullptr, &g_swap), "CreateSwapChainForHwnd");
+    bool ok = fac && check(fac->CreateSwapChainForHwnd(g_dev, hwnd, &sd, nullptr, nullptr, &g_swap),
+                           "CreateSwapChainForHwnd"); /* no IDXGIFactory2 before Windows 8 */
     if (ok)
         fac->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER | DXGI_MWA_NO_WINDOW_CHANGES);
     release(fac);
@@ -375,6 +394,7 @@ void set_mode(int w, int h)
 {
     if (!g_dev || (w == g_w && h == g_h && g_back))
         return;
+    flush();
     release(g_back_srv);
     release(g_back_rtv);
     release(g_back);
@@ -391,9 +411,11 @@ void set_mode(int w, int h)
         GetMonitorInfo(MonitorFromWindow(g_hwnd, MONITOR_DEFAULTTONEAREST), &mi);
         int sx = (mi.rcMonitor.right - mi.rcMonitor.left) / w, sy = (mi.rcMonitor.bottom - mi.rcMonitor.top) / h;
         g_scale = sx < sy ? sx : sy;
-        if (g_scale < 1)
-            g_scale = 1;
     }
+    while (g_scale > 1 && (w * g_scale > 8192 || h * g_scale > 8192)) /* texture limit of feature level 10 */
+        g_scale--;
+    if (g_scale < 1)
+        g_scale = 1;
     D3D11_TEXTURE2D_DESC d = {};
     d.Width = w * g_scale;
     d.Height = h * g_scale;
@@ -439,6 +461,7 @@ void set_clip(int x, int y, int w, int h)
 
 void clear_depth(float z)
 {
+    flush();
     if (g_dsv)
         g_ctx->ClearDepthStencilView(g_dsv, D3D11_CLEAR_DEPTH, z, 0);
 }
@@ -456,6 +479,7 @@ void clear_target(uint32_t color)
     float c[4];
     unpack(color, c);
     c[3] = 1;
+    flush();
     if (g_back_rtv)
         g_ctx->ClearRenderTargetView(g_back_rtv, c);
 }
@@ -520,42 +544,30 @@ static UINT push_vertices(const void *data, UINT bytes)
     return at;
 }
 
-void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawState &s, Texture *tex)
-{
-    if (!ready() || !count)
-        return;
-    static std::vector<D3DTLVERTEX> fan;
-    D3D11_PRIMITIVE_TOPOLOGY topo;
-    const D3DTLVERTEX *v = (const D3DTLVERTEX *)verts;
-    switch (type) {
-    case D3DPT_POINTLIST: topo = D3D11_PRIMITIVE_TOPOLOGY_POINTLIST; break;
-    case D3DPT_LINELIST: topo = D3D11_PRIMITIVE_TOPOLOGY_LINELIST; break;
-    case D3DPT_LINESTRIP: topo = D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP; break;
-    case D3DPT_TRIANGLELIST: topo = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST; break;
-    case D3DPT_TRIANGLESTRIP: topo = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP; break;
-    case D3DPT_TRIANGLEFAN: /* no fans in D3D11: expand to a list, keeping the first vertex first */
-        if (count < 3)
-            return;
-        fan.clear();
-        for (uint32_t i = 1; i + 1 < count; i++) {
-            fan.push_back(v[0]);
-            fan.push_back(v[i]);
-            fan.push_back(v[i + 1]);
-        }
-        v = fan.data();
-        count = (uint32_t)fan.size();
-        topo = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-        break;
-    default:
-        log_printf("gpu: primitive type %d not supported", type);
-        return;
-    }
+/* Consecutive draws with the same state, texture and clip reach the GPU as one draw: the game
+ * sends its water as 1024 four-vertex fans per frame and its snow as 128, all alike. Anything
+ * else that renders or changes a resource calls flush() first, so the order is kept. */
+static_assert(sizeof(DrawState) == 36, "DrawState is compared with memcmp: keep it free of padding");
+static const size_t kBatchMax = kVbBytes / sizeof(D3DTLVERTEX);
+static std::vector<D3DTLVERTEX> g_batch; /* as a triangle or line list */
+static int g_gpu_draws;                  /* Direct3D 11 draws this frame, for the frame dump */
+static DrawState g_batch_state;
+static Texture *g_batch_tex;
+static D3D11_PRIMITIVE_TOPOLOGY g_batch_topo;
+static RECT g_batch_clip;
 
+static void flush()
+{
+    if (g_batch.empty())
+        return;
+    const DrawState &s = g_batch_state;
+    static DrawConstants last;           /* g_cb_draw holds this; most batches share it */
+    static bool have_last;
     DrawConstants dc = {};
     dc.color[0] = s.color_op;
     dc.color[1] = s.color_arg1;
     dc.color[2] = s.color_arg2;
-    dc.color[3] = tex != nullptr;
+    dc.color[3] = g_batch_tex != nullptr;
     dc.alpha[0] = s.alpha_op;
     dc.alpha[1] = s.alpha_arg1;
     dc.alpha[2] = s.alpha_arg2;
@@ -565,33 +577,85 @@ void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawSt
     dc.fog[2] = s.fog_end;
     dc.fog[3] = s.alpha_ref;
     unpack(s.fog_color, dc.fog_color);
+    float range = s.fog_end - s.fog_start;
+    dc.fog_color[3] = s.fog ? 1.f / (range > 1e-6f ? range : 1e-6f) : 0.f;
     unpack(s.tfactor, dc.tfactor);
-    upload(g_cb_draw, &dc, sizeof dc);
+    if (!have_last || memcmp(&dc, &last, sizeof dc)) {
+        upload(g_cb_draw, &dc, sizeof dc);
+        last = dc;
+        have_last = true;
+    }
 
-    UINT at = push_vertices(v, count * sizeof(D3DTLVERTEX));
+    UINT count = (UINT)g_batch.size(), at = push_vertices(g_batch.data(), count * sizeof(D3DTLVERTEX));
+    g_batch.clear();
     if (at == ~0u)
         return;
     UINT stride = sizeof(D3DTLVERTEX), offset = 0;
     bind_back(true);
     g_ctx->IASetInputLayout(g_layout);
     g_ctx->IASetVertexBuffers(0, 1, &g_vb, &stride, &offset);
-    g_ctx->IASetPrimitiveTopology(topo);
+    g_ctx->IASetPrimitiveTopology(g_batch_topo);
     g_ctx->VSSetShader(g_vs_tl[s.flat ? 1 : 0], nullptr, 0);
     g_ctx->VSSetConstantBuffers(0, 1, &g_cb_frame);
     g_ctx->PSSetShader(g_ps_tl[s.flat ? 1 : 0], nullptr, 0);
     g_ctx->PSSetConstantBuffers(1, 1, &g_cb_draw);
-    ID3D11ShaderResourceView *srv = tex ? tex->srv : nullptr;
+    ID3D11ShaderResourceView *srv = g_batch_tex ? g_batch_tex->srv : nullptr;
     g_ctx->PSSetShaderResources(0, 1, &srv);
     g_ctx->PSSetSamplers(0, 1, &g_samplers[(s.linear ? 1 : 0) | (s.wrap ? 2 : 0)]);
     g_ctx->RSSetState(g_raster[s.cull >= 1 && s.cull <= 3 ? s.cull - 1 : 0]);
-    D3D11_RECT sc = { g_clip.left * g_scale, g_clip.top * g_scale, g_clip.right * g_scale, g_clip.bottom * g_scale };
+    const RECT &c = g_batch_clip;
+    D3D11_RECT sc = { c.left * g_scale, c.top * g_scale, c.right * g_scale, c.bottom * g_scale };
     g_ctx->RSSetScissorRects(1, &sc);
     g_ctx->OMSetBlendState(blend_state(s), nullptr, 0xFFFFFFFF);
     g_ctx->OMSetDepthStencilState(depth_state(s), 0);
     g_ctx->Draw(count, at / sizeof(D3DTLVERTEX));
+    g_gpu_draws++;
 }
 
-/* A 4-vertex strip over dst (game pixels) with the blit pixel shader or present shader. */
+int frame_draws()
+{
+    flush();
+    return g_gpu_draws;
+}
+
+void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawState &s, Texture *tex)
+{
+    if (!ready())
+        return;
+    const D3DTLVERTEX *v = (const D3DTLVERTEX *)verts;
+    D3D11_PRIMITIVE_TOPOLOGY topo = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    size_t need; /* vertices once converted to a list; D3D7 ignores an incomplete last primitive */
+    switch (type) {
+    case D3DPT_TRIANGLELIST: need = count / 3 * 3; break;
+    case D3DPT_TRIANGLEFAN: need = count > 2 ? (count - 2) * 3 : 0; break;
+    case D3DPT_LINELIST: topo = D3D11_PRIMITIVE_TOPOLOGY_LINELIST; need = count / 2 * 2; break;
+    default: /* points and strips: the game never draws them */
+        need = 0;
+        static bool once;
+        if (!once)
+            log_printf("gpu: primitive type %d not implemented", type);
+        once = true;
+    }
+    if (!need || need > kBatchMax)
+        return;
+    if (!g_batch.empty() && (topo != g_batch_topo || tex != g_batch_tex || memcmp(&s, &g_batch_state, sizeof s) ||
+                             memcmp(&g_clip, &g_batch_clip, sizeof g_clip) || g_batch.size() + need > kBatchMax))
+        flush();
+    if (g_batch.empty()) {
+        g_batch_state = s;
+        g_batch_tex = tex;
+        g_batch_topo = topo;
+        g_batch_clip = g_clip;
+    }
+    if (type == D3DPT_TRIANGLEFAN) /* first vertex first, as D3D7 flat shading expects */
+        for (uint32_t i = 1; i + 1 < count; i++)
+            g_batch.insert(g_batch.end(), { v[0], v[i], v[i + 1] });
+    else
+        g_batch.insert(g_batch.end(), v, v + need);
+}
+
+/* A 4-vertex strip over dst (game pixels) with the blit pixel shader or present shader.
+ * Callers flush() before they bind their target and shader. */
 static void quad(const RECT &dst, float tw, float th, const float src[4], const uint32_t key[4])
 {
     BlitConstants bc;
@@ -621,6 +685,7 @@ void fill(const RECT &dst, uint16_t rgb565)
         return;
     float src[4] = {};
     uint32_t key[4] = { 0, 0, 1, rgb565 };
+    flush();
     bind_back(false);
     g_ctx->PSSetShader(g_ps_blit, nullptr, 0);
     quad(dst, (float)g_w, (float)g_h, src, key);
@@ -660,6 +725,7 @@ void blit(const RECT &dst, const void *owner, uint32_t version, const uint16_t *
 {
     if (!ready())
         return;
+    flush();
     BlitSource *s = source(owner, version, bits, pitch, w, h);
     if (!s)
         return;
@@ -689,23 +755,29 @@ void forget(const void *owner)
     g_sources.erase(it);
 }
 
-void read_back(uint16_t *bits, int pitch)
+/* The whole back buffer, filtered by ps_present, into dst of a w x h target. */
+static void draw_back_buffer(ID3D11RenderTargetView *rtv, int w, int h, const RECT &dst)
 {
-    if (!ready())
-        return;
-    /* scale down into g_small with the present shader, then copy to the CPU */
-    D3D11_VIEWPORT vp = { 0, 0, (float)g_w, (float)g_h, 0, 1 };
-    g_ctx->OMSetRenderTargets(1, &g_small_rtv, nullptr);
+    D3D11_VIEWPORT vp = { 0, 0, (float)w, (float)h, 0, 1 };
+    g_ctx->OMSetRenderTargets(1, &rtv, nullptr);
     g_ctx->RSSetViewports(1, &vp);
     g_ctx->PSSetShader(g_ps_present, nullptr, 0);
     g_ctx->PSSetShaderResources(0, 1, &g_back_srv);
     g_ctx->PSSetSamplers(0, 1, &g_samplers[1]);
-    RECT all = { 0, 0, g_w, g_h };
     float uv[4] = { 0, 0, 1, 1 };
     uint32_t k[4] = {};
-    quad(all, (float)g_w, (float)g_h, uv, k);
+    quad(dst, (float)w, (float)h, uv, k);
     ID3D11ShaderResourceView *none = nullptr;
-    g_ctx->PSSetShaderResources(0, 1, &none);
+    g_ctx->PSSetShaderResources(0, 1, &none); /* the back buffer is a render target again next */
+}
+
+void read_back(uint16_t *bits, int pitch)
+{
+    if (!ready() || !g_small_rtv || !g_staging)
+        return;
+    flush();
+    /* scale down into g_small, then copy to the CPU */
+    draw_back_buffer(g_small_rtv, g_w, g_h, RECT{ 0, 0, g_w, g_h });
     g_ctx->CopyResource(g_staging, g_small);
     D3D11_MAPPED_SUBRESOURCE m;
     if (FAILED(g_ctx->Map(g_staging, 0, D3D11_MAP_READ, 0, &m)))
@@ -748,8 +820,14 @@ static void resize_swap_chain()
 
 void present(bool vsync)
 {
-    if (!ready() || IsIconic(g_hwnd))
+    flush();
+    g_gpu_draws = 0;
+    if (!ready())
         return;
+    if (IsIconic(g_hwnd)) {
+        Sleep(16); /* nothing to show; without a vsynced Present the game loop would spin */
+        return;
+    }
     resize_swap_chain();
     if (!g_swap_rtv)
         return;
@@ -762,17 +840,7 @@ void present(bool vsync)
         w = g_swap_h * g_w / g_h;
     }
     RECT dst = { (g_swap_w - w) / 2, (g_swap_h - h) / 2, (g_swap_w - w) / 2 + w, (g_swap_h - h) / 2 + h };
-    D3D11_VIEWPORT vp = { 0, 0, (float)g_swap_w, (float)g_swap_h, 0, 1 };
-    g_ctx->OMSetRenderTargets(1, &g_swap_rtv, nullptr);
-    g_ctx->RSSetViewports(1, &vp);
-    g_ctx->PSSetShader(g_ps_present, nullptr, 0);
-    g_ctx->PSSetShaderResources(0, 1, &g_back_srv);
-    g_ctx->PSSetSamplers(0, 1, &g_samplers[1]);
-    float uv[4] = { 0, 0, 1, 1 };
-    uint32_t k[4] = {};
-    quad(dst, (float)g_swap_w, (float)g_swap_h, uv, k);
-    ID3D11ShaderResourceView *none = nullptr;
-    g_ctx->PSSetShaderResources(0, 1, &none);
+    draw_back_buffer(g_swap_rtv, g_swap_w, g_swap_h, dst);
     g_swap->Present(vsync ? 1 : 0, 0);
 }
 
@@ -800,6 +868,8 @@ Texture *texture_create(int w, int h)
 
 void texture_upload(Texture *t, const uint16_t *bits, int pitch)
 {
+    if (t == g_batch_tex)
+        flush(); /* draws already merged must still sample the old pixels */
     static std::vector<uint32_t> px;
     px.resize((size_t)t->w * t->h);
     for (int y = 0; y < t->h; y++) {
@@ -817,6 +887,8 @@ void texture_free(Texture *t)
 {
     if (!t)
         return;
+    if (t == g_batch_tex)
+        flush();
     release(t->srv);
     release(t->tex);
     delete t;

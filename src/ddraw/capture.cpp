@@ -99,6 +99,7 @@ static uint32_t expand(uint32_t r, uint32_t g, uint32_t b, int gbits)
 static void finish()
 {
     char path[MAX_PATH];
+    capture_note("end of frame: %d game draws sent as %d Direct3D 11 draws", g_draws, gpu::frame_draws());
     fclose(g_file);
     g_file = nullptr;
     g_capturing = false;
@@ -128,11 +129,13 @@ void capture_frame_end()
 {
     if (g_capturing)
         finish();
+    if (!g_config.frame_dump)
+        return;
     static bool was_down;
     static int frames;
     bool down = (GetAsyncKeyState(VK_F12) & 0x8000) != 0;
     bool at = g_config.frame_dump_at && ++frames == g_config.frame_dump_at; /* for unattended tests */
-    if (g_config.frame_dump && ((down && !was_down) || at) && gpu::ready()) {
+    if (((down && !was_down) || at) && gpu::ready()) {
         char path[MAX_PATH];
         if (!g_dir[0]) {
             GetModuleFileNameA(nullptr, g_dir, MAX_PATH);
