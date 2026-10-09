@@ -1,0 +1,3 @@
+LIBRARY hogs
+EXPORTS
+    CallDLL

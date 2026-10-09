@@ -1,0 +1,2290 @@
+{
+ "game": "Hogs of War v1.2 (Steam)",
+ "file": "warhogs_.exe",
+ "input_sha256": "32EB8C28B383D532091DCAE2057D98593BE4DC064F2117212A65CED41509E246",
+ "output_sha256": "CF03028F3D5A023281667D77AF26DAC3A92D3C5F13A4831385F15F4D64C222D6",
+ "changes": [
+  {
+   "offset": 157655,
+   "va": "0x4273d9",
+   "old": "ff1538025500",
+   "new": "ff1564f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetMessageA]"
+  },
+  {
+   "offset": 157701,
+   "va": "0x427407",
+   "old": "ff1538025500",
+   "new": "ff1568f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!TranslateAcceleratorA]"
+  },
+  {
+   "offset": 157744,
+   "va": "0x427432",
+   "old": "ff1538025500",
+   "new": "ff1568f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!TranslateAcceleratorA]"
+  },
+  {
+   "offset": 187165,
+   "va": "0x42e71f",
+   "old": "ff1538025500",
+   "new": "ff1554f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeGetTime]"
+  },
+  {
+   "offset": 187721,
+   "va": "0x42e94b",
+   "old": "ff1538025500",
+   "new": "ff1554f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeGetTime]"
+  },
+  {
+   "offset": 233809,
+   "va": "0x439d53",
+   "old": "ff1538025500",
+   "new": "ff1550f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeBeginPeriod]"
+  },
+  {
+   "offset": 233890,
+   "va": "0x439da4",
+   "old": "ff1538025500",
+   "new": "ff154cf65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeEndPeriod]"
+  },
+  {
+   "offset": 246593,
+   "va": "0x43cf43",
+   "old": "ff1538025500",
+   "new": "ff1548f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeSetEvent]"
+  },
+  {
+   "offset": 249048,
+   "va": "0x43d8da",
+   "old": "ff1538025500",
+   "new": "ff1594f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!InterlockedExchange]"
+  },
+  {
+   "offset": 249105,
+   "va": "0x43d913",
+   "old": "ff1538025500",
+   "new": "ff158cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!PostMessageA]"
+  },
+  {
+   "offset": 249114,
+   "va": "0x43d91c",
+   "old": "ff1538025500",
+   "new": "ff1594f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!InterlockedExchange]"
+  },
+  {
+   "offset": 249449,
+   "va": "0x43da6b",
+   "old": "ff1538025500",
+   "new": "ff1594f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!InterlockedExchange]"
+  },
+  {
+   "offset": 250199,
+   "va": "0x43dd59",
+   "old": "ff1538025500",
+   "new": "ff1594f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!InterlockedExchange]"
+  },
+  {
+   "offset": 250287,
+   "va": "0x43ddb1",
+   "old": "ff1538025500",
+   "new": "ff1594f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!InterlockedExchange]"
+  },
+  {
+   "offset": 250299,
+   "va": "0x43ddbe",
+   "old": "ff1538025500",
+   "new": "ff1538f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!Sleep]"
+  },
+  {
+   "offset": 250311,
+   "va": "0x43ddc9",
+   "old": "ff1538025500",
+   "new": "ff1544f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeKillEvent]"
+  },
+  {
+   "offset": 251373,
+   "va": "0x43e1f0",
+   "old": "ff1538025500",
+   "new": "ff1538f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mmioOpenA]"
+  },
+  {
+   "offset": 251575,
+   "va": "0x43e2b9",
+   "old": "ff1538025500",
+   "new": "ff1560f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GlobalAlloc]"
+  },
+  {
+   "offset": 251682,
+   "va": "0x43e324",
+   "old": "ff1538025500",
+   "new": "ff1558f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mmioAscend]"
+  },
+  {
+   "offset": 251726,
+   "va": "0x43e350",
+   "old": "ff1538025500",
+   "new": "ff1564f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GlobalFree]"
+  },
+  {
+   "offset": 251745,
+   "va": "0x43e363",
+   "old": "ff1538025500",
+   "new": "ff1540f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mmioClose]"
+  },
+  {
+   "offset": 251798,
+   "va": "0x43e398",
+   "old": "ff1538025500",
+   "new": "ff1534f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mmioSeek]"
+  },
+  {
+   "offset": 251823,
+   "va": "0x43e3b1",
+   "old": "ff1538025500",
+   "new": "ff1578f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!MessageBoxA]"
+  },
+  {
+   "offset": 251846,
+   "va": "0x43e3c8",
+   "old": "ff1538025500",
+   "new": "ff153cf65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mmioDescend]"
+  },
+  {
+   "offset": 251875,
+   "va": "0x43e3e5",
+   "old": "ff1538025500",
+   "new": "ff152cf65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mmioGetInfo]"
+  },
+  {
+   "offset": 251945,
+   "va": "0x43e42b",
+   "old": "ff1538025500",
+   "new": "ff1504f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mmioAdvance]"
+  },
+  {
+   "offset": 252030,
+   "va": "0x43e480",
+   "old": "ff1538025500",
+   "new": "ff1530f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mmioSetInfo]"
+  },
+  {
+   "offset": 252108,
+   "va": "0x43e4ce",
+   "old": "ff1538025500",
+   "new": "ff1564f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GlobalFree]"
+  },
+  {
+   "offset": 252133,
+   "va": "0x43e4e7",
+   "old": "ff1538025500",
+   "new": "ff1540f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mmioClose]"
+  },
+  {
+   "offset": 254693,
+   "va": "0x43eee7",
+   "old": "ff1538025500",
+   "new": "ff1578f65400",
+   "note": "LaserLock: call [CallDLL] -> call [binkw32.dll!_BinkSetSoundSystem@8]"
+  },
+  {
+   "offset": 254706,
+   "va": "0x43eef4",
+   "old": "ff1538025500",
+   "new": "ff157cf65400",
+   "note": "LaserLock: call [CallDLL] -> call [binkw32.dll!_BinkDDSurfaceType@4]"
+  },
+  {
+   "offset": 254741,
+   "va": "0x43ef17",
+   "old": "ff1538025500",
+   "new": "ff1564f65400",
+   "note": "LaserLock: call [CallDLL] -> call [binkw32.dll!_BinkOpen@8]"
+  },
+  {
+   "offset": 254756,
+   "va": "0x43ef26",
+   "old": "ff1538025500",
+   "new": "ff1580f65400",
+   "note": "LaserLock: call [CallDLL] -> call [binkw32.dll!_BinkGetError@0]"
+  },
+  {
+   "offset": 254976,
+   "va": "0x43f002",
+   "old": "ff1538025500",
+   "new": "ff1588f65400",
+   "note": "LaserLock: call [CallDLL] -> call [binkw32.dll!_BinkClose@4]"
+  },
+  {
+   "offset": 255138,
+   "va": "0x43f0a4",
+   "old": "ff1538025500",
+   "new": "ff1568f65400",
+   "note": "LaserLock: call [CallDLL] -> call [binkw32.dll!_BinkDoFrame@4]"
+  },
+  {
+   "offset": 255252,
+   "va": "0x43f116",
+   "old": "ff1538025500",
+   "new": "ff156cf65400",
+   "note": "LaserLock: call [CallDLL] -> call [binkw32.dll!_BinkCopyToBuffer@28]"
+  },
+  {
+   "offset": 255293,
+   "va": "0x43f13f",
+   "old": "ff1538025500",
+   "new": "ff1570f65400",
+   "note": "LaserLock: call [CallDLL] -> call [binkw32.dll!_BinkNextFrame@4]"
+  },
+  {
+   "offset": 295635,
+   "va": "0x448ed5",
+   "old": "ff1538025500",
+   "new": "ff1554f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeGetTime]"
+  },
+  {
+   "offset": 299819,
+   "va": "0x449f2d",
+   "old": "ff1538025500",
+   "new": "ff1554f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeGetTime]"
+  },
+  {
+   "offset": 303243,
+   "va": "0x44ac8d",
+   "old": "ff1538025500",
+   "new": "ff155cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetModuleHandleA]"
+  },
+  {
+   "offset": 303250,
+   "va": "0x44ac94",
+   "old": "ff1538025500",
+   "new": "ff1574f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!LoadImageA]"
+  },
+  {
+   "offset": 303272,
+   "va": "0x44acaa",
+   "old": "ff1538025500",
+   "new": "ff1574f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!LoadImageA]"
+  },
+  {
+   "offset": 303303,
+   "va": "0x44acc9",
+   "old": "ff1538025500",
+   "new": "ff1504f45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!GetObjectA]"
+  },
+  {
+   "offset": 303430,
+   "va": "0x44ad48",
+   "old": "ff1538025500",
+   "new": "ff15fcf35400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!DeleteObject]"
+  },
+  {
+   "offset": 303504,
+   "va": "0x44ad92",
+   "old": "ff1538025500",
+   "new": "ff1508f45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!CreateCompatibleDC]"
+  },
+  {
+   "offset": 303521,
+   "va": "0x44ada3",
+   "old": "ff1538025500",
+   "new": "ff1558f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!OutputDebugStringA]"
+  },
+  {
+   "offset": 303529,
+   "va": "0x44adab",
+   "old": "ff1538025500",
+   "new": "ff1500f45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!SelectObject]"
+  },
+  {
+   "offset": 303543,
+   "va": "0x44adb9",
+   "old": "ff1538025500",
+   "new": "ff1504f45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!GetObjectA]"
+  },
+  {
+   "offset": 303678,
+   "va": "0x44ae40",
+   "old": "ff1538025500",
+   "new": "ff150cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!StretchBlt]"
+  },
+  {
+   "offset": 303694,
+   "va": "0x44ae50",
+   "old": "ff1538025500",
+   "new": "ff1520f45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!DeleteDC]"
+  },
+  {
+   "offset": 303899,
+   "va": "0x44af1d",
+   "old": "ff1538025500",
+   "new": "ff1588f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FindResourceA]"
+  },
+  {
+   "offset": 303916,
+   "va": "0x44af2e",
+   "old": "ff1538025500",
+   "new": "ff1544f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!LoadResource]"
+  },
+  {
+   "offset": 303923,
+   "va": "0x44af35",
+   "old": "ff1538025500",
+   "new": "ff1548f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!LockResource]"
+  },
+  {
+   "offset": 303940,
+   "va": "0x44af46",
+   "old": "ff1538025500",
+   "new": "ff1558f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!OutputDebugStringA]"
+  },
+  {
+   "offset": 304066,
+   "va": "0x44afc4",
+   "old": "ff1538025500",
+   "new": "ff154cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!_lopen]"
+  },
+  {
+   "offset": 304119,
+   "va": "0x44aff9",
+   "old": "ff1538025500",
+   "new": "ff1554f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!_lclose]"
+  },
+  {
+   "offset": 304299,
+   "va": "0x44b0ad",
+   "old": "ff1538025500",
+   "new": "ff1514f45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!GetPixel]"
+  },
+  {
+   "offset": 304319,
+   "va": "0x44b0c1",
+   "old": "ff1538025500",
+   "new": "ff1510f45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!SetPixel]"
+  },
+  {
+   "offset": 304463,
+   "va": "0x44b151",
+   "old": "ff1538025500",
+   "new": "ff1510f45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!SetPixel]"
+  },
+  {
+   "offset": 304780,
+   "va": "0x44b28e",
+   "old": "ff1538025500",
+   "new": "ff1578f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!MessageBoxA]"
+  },
+  {
+   "offset": 311551,
+   "va": "0x44cd01",
+   "old": "ff1538025500",
+   "new": "ff1590f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!ShowWindow]"
+  },
+  {
+   "offset": 311571,
+   "va": "0x44cd15",
+   "old": "ff1538025500",
+   "new": "ff159cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!ReleaseDC]"
+  },
+  {
+   "offset": 311587,
+   "va": "0x44cd25",
+   "old": "ff1538025500",
+   "new": "ff1598f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!DestroyMenu]"
+  },
+  {
+   "offset": 311600,
+   "va": "0x44cd32",
+   "old": "ff1538025500",
+   "new": "ff1588f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!DestroyWindow]"
+  },
+  {
+   "offset": 311681,
+   "va": "0x44cd83",
+   "old": "ff1538025500",
+   "new": "ff15a0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!LoadIconA]"
+  },
+  {
+   "offset": 311707,
+   "va": "0x44cd9d",
+   "old": "ff1538025500",
+   "new": "ff15a8f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!LoadCursorA]"
+  },
+  {
+   "offset": 311725,
+   "va": "0x44cdaf",
+   "old": "ff1538025500",
+   "new": "ff1518f45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!GetStockObject]"
+  },
+  {
+   "offset": 311754,
+   "va": "0x44cdcc",
+   "old": "ff1538025500",
+   "new": "ff15a4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!RegisterClassA]"
+  },
+  {
+   "offset": 311788,
+   "va": "0x44cdee",
+   "old": "ff1538025500",
+   "new": "ff157cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetDC]"
+  },
+  {
+   "offset": 311802,
+   "va": "0x44cdfc",
+   "old": "ff1538025500",
+   "new": "ff1594f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetWindowRect]"
+  },
+  {
+   "offset": 311831,
+   "va": "0x44ce19",
+   "old": "ff1538025500",
+   "new": "ff151cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!GetDeviceCaps]"
+  },
+  {
+   "offset": 311844,
+   "va": "0x44ce26",
+   "old": "ff1538025500",
+   "new": "ff151cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!GetDeviceCaps]"
+  },
+  {
+   "offset": 311897,
+   "va": "0x44ce5b",
+   "old": "ff1538025500",
+   "new": "ff15acf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetWindowPos]"
+  },
+  {
+   "offset": 311905,
+   "va": "0x44ce63",
+   "old": "ff1538025500",
+   "new": "ff159cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!ReleaseDC]"
+  },
+  {
+   "offset": 311976,
+   "va": "0x44ceaa",
+   "old": "ff1538025500",
+   "new": "ff15fcf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!EnableWindow]"
+  },
+  {
+   "offset": 312020,
+   "va": "0x44ced6",
+   "old": "ff1538025500",
+   "new": "ff159cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!ReleaseDC]"
+  },
+  {
+   "offset": 312033,
+   "va": "0x44cee3",
+   "old": "ff1538025500",
+   "new": "ff1588f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!DestroyWindow]"
+  },
+  {
+   "offset": 312078,
+   "va": "0x44cf10",
+   "old": "ff1538025500",
+   "new": "ff15e4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetRect]"
+  },
+  {
+   "offset": 312096,
+   "va": "0x44cf22",
+   "old": "ff1538025500",
+   "new": "ff15dcf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!AdjustWindowRect]"
+  },
+  {
+   "offset": 312165,
+   "va": "0x44cf67",
+   "old": "ff1538025500",
+   "new": "ff15ecf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!CreateWindowExA]"
+  },
+  {
+   "offset": 312203,
+   "va": "0x44cf8d",
+   "old": "ff1538025500",
+   "new": "ff157cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetDC]"
+  },
+  {
+   "offset": 312240,
+   "va": "0x44cfb2",
+   "old": "ff1538025500",
+   "new": "ff15f0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!EnumWindows]"
+  },
+  {
+   "offset": 312257,
+   "va": "0x44cfc3",
+   "old": "ff1538025500",
+   "new": "ff15e8f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SystemParametersInfoA]"
+  },
+  {
+   "offset": 312272,
+   "va": "0x44cfd2",
+   "old": "ff1538025500",
+   "new": "ff1590f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!ShowWindow]"
+  },
+  {
+   "offset": 312285,
+   "va": "0x44cfdf",
+   "old": "ff1538025500",
+   "new": "ff1580f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!UpdateWindow]"
+  },
+  {
+   "offset": 312319,
+   "va": "0x44d001",
+   "old": "ff1538025500",
+   "new": "ff1594f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetWindowRect]"
+  },
+  {
+   "offset": 312336,
+   "va": "0x44d012",
+   "old": "ff1538025500",
+   "new": "ff15d4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetClientRect]"
+  },
+  {
+   "offset": 312405,
+   "va": "0x44d057",
+   "old": "ff1538025500",
+   "new": "ff157cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetDC]"
+  },
+  {
+   "offset": 312564,
+   "va": "0x44d0f6",
+   "old": "ff1538025500",
+   "new": "ff15acf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetWindowPos]"
+  },
+  {
+   "offset": 312577,
+   "va": "0x44d103",
+   "old": "ff1538025500",
+   "new": "ff159cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!ReleaseDC]"
+  },
+  {
+   "offset": 313221,
+   "va": "0x44d387",
+   "old": "ff1538025500",
+   "new": "ff157cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetDC]"
+  },
+  {
+   "offset": 313259,
+   "va": "0x44d3ad",
+   "old": "ff1538025500",
+   "new": "ff159cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!ReleaseDC]"
+  },
+  {
+   "offset": 313651,
+   "va": "0x44d535",
+   "old": "ff1538025500",
+   "new": "ff15e4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetRect]"
+  },
+  {
+   "offset": 313798,
+   "va": "0x44d5c8",
+   "old": "ff1538025500",
+   "new": "ff15e4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetRect]"
+  },
+  {
+   "offset": 314166,
+   "va": "0x44d738",
+   "old": "ff1538025500",
+   "new": "ff150cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [GDI32.dll!StretchBlt]"
+  },
+  {
+   "offset": 314290,
+   "va": "0x44d7b4",
+   "old": "ff1538025500",
+   "new": "ff15e4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetRect]"
+  },
+  {
+   "offset": 314435,
+   "va": "0x44d845",
+   "old": "ff1538025500",
+   "new": "ff15e4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetRect]"
+  },
+  {
+   "offset": 314611,
+   "va": "0x44d8f5",
+   "old": "ff1538025500",
+   "new": "ff15e4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetRect]"
+  },
+  {
+   "offset": 314877,
+   "va": "0x44d9ff",
+   "old": "ff1538025500",
+   "new": "ff1578f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!MessageBoxA]"
+  },
+  {
+   "offset": 316245,
+   "va": "0x44df57",
+   "old": "ff1538025500",
+   "new": "ff1558f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!OutputDebugStringA]"
+  },
+  {
+   "offset": 316493,
+   "va": "0x44e04f",
+   "old": "ff1538025500",
+   "new": "ff1558f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!OutputDebugStringA]"
+  },
+  {
+   "offset": 316521,
+   "va": "0x44e06b",
+   "old": "ff1538025500",
+   "new": "ff1558f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!OutputDebugStringA]"
+  },
+  {
+   "offset": 325337,
+   "va": "0x4502db",
+   "old": "ff1538025500",
+   "new": "ff157cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CreateFileA]"
+  },
+  {
+   "offset": 325348,
+   "va": "0x4502e6",
+   "old": "ff1538025500",
+   "new": "ff1580f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetFileSize]"
+  },
+  {
+   "offset": 325370,
+   "va": "0x4502fc",
+   "old": "ff1538025500",
+   "new": "ff1584f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!ReadFile]"
+  },
+  {
+   "offset": 325377,
+   "va": "0x450304",
+   "old": "ff1538025500",
+   "new": "ff1538f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CloseHandle]"
+  },
+  {
+   "offset": 325417,
+   "va": "0x45032b",
+   "old": "ff1538025500",
+   "new": "ff157cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CreateFileA]"
+  },
+  {
+   "offset": 325428,
+   "va": "0x450336",
+   "old": "ff1538025500",
+   "new": "ff1580f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetFileSize]"
+  },
+  {
+   "offset": 325437,
+   "va": "0x450340",
+   "old": "ff1538025500",
+   "new": "ff1538f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CloseHandle]"
+  },
+  {
+   "offset": 325480,
+   "va": "0x45036a",
+   "old": "ff1538025500",
+   "new": "ff157cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CreateFileA]"
+  },
+  {
+   "offset": 325499,
+   "va": "0x45037e",
+   "old": "ff1538025500",
+   "new": "ff1538f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CloseHandle]"
+  },
+  {
+   "offset": 325544,
+   "va": "0x4503aa",
+   "old": "ff1538025500",
+   "new": "ff157cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CreateFileA]"
+  },
+  {
+   "offset": 325563,
+   "va": "0x4503be",
+   "old": "ff1538025500",
+   "new": "ff1538f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CloseHandle]"
+  },
+  {
+   "offset": 325612,
+   "va": "0x4503ee",
+   "old": "ff1538025500",
+   "new": "ff157cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CreateFileA]"
+  },
+  {
+   "offset": 325624,
+   "va": "0x4503fa",
+   "old": "ff1538025500",
+   "new": "ff1580f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetFileSize]"
+  },
+  {
+   "offset": 325714,
+   "va": "0x450454",
+   "old": "ff1538025500",
+   "new": "ff1578f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetFilePointer]"
+  },
+  {
+   "offset": 325741,
+   "va": "0x45046f",
+   "old": "ff1538025500",
+   "new": "ff1584f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!ReadFile]"
+  },
+  {
+   "offset": 325800,
+   "va": "0x4504aa",
+   "old": "ff1538025500",
+   "new": "ff157cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CreateFileA]"
+  },
+  {
+   "offset": 325826,
+   "va": "0x4504c4",
+   "old": "ff1538025500",
+   "new": "ff1574f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WriteFile]"
+  },
+  {
+   "offset": 325833,
+   "va": "0x4504cc",
+   "old": "ff1538025500",
+   "new": "ff1538f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CloseHandle]"
+  },
+  {
+   "offset": 325863,
+   "va": "0x4504ea",
+   "old": "ff1538025500",
+   "new": "ff1538f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CloseHandle]"
+  },
+  {
+   "offset": 363634,
+   "va": "0x459874",
+   "old": "ff1538025500",
+   "new": "ff15e4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetRect]"
+  },
+  {
+   "offset": 363702,
+   "va": "0x4598b8",
+   "old": "ff1538025500",
+   "new": "ff15e4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetRect]"
+  },
+  {
+   "offset": 371135,
+   "va": "0x45b5c1",
+   "old": "ff1538025500",
+   "new": "ff15d8f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!CopyRect]"
+  },
+  {
+   "offset": 388388,
+   "va": "0x45f926",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 388449,
+   "va": "0x45f963",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 388513,
+   "va": "0x45f9a3",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 388689,
+   "va": "0x45fa53",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 388761,
+   "va": "0x45fa9b",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 388841,
+   "va": "0x45faeb",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 389131,
+   "va": "0x45fc0d",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 389166,
+   "va": "0x45fc30",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 389204,
+   "va": "0x45fc56",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 389252,
+   "va": "0x45fc86",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 389321,
+   "va": "0x45fccb",
+   "old": "ff1538025500",
+   "new": "ff1528f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mciSendCommandA]"
+  },
+  {
+   "offset": 389351,
+   "va": "0x45fce9",
+   "old": "ff1538025500",
+   "new": "ff1514f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mixerGetNumDevs]"
+  },
+  {
+   "offset": 389384,
+   "va": "0x45fd0a",
+   "old": "ff1538025500",
+   "new": "ff1518f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mixerGetDevCapsA]"
+  },
+  {
+   "offset": 389420,
+   "va": "0x45fd2e",
+   "old": "ff1538025500",
+   "new": "ff151cf65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mixerOpen]"
+  },
+  {
+   "offset": 389470,
+   "va": "0x45fd60",
+   "old": "ff1538025500",
+   "new": "ff1520f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mixerGetLineInfoA]"
+  },
+  {
+   "offset": 389593,
+   "va": "0x45fddb",
+   "old": "ff1538025500",
+   "new": "ff1524f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mixerGetLineControlsA]"
+  },
+  {
+   "offset": 389654,
+   "va": "0x45fe18",
+   "old": "ff1538025500",
+   "new": "ff1510f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mixerClose]"
+  },
+  {
+   "offset": 389787,
+   "va": "0x45fe9d",
+   "old": "ff1538025500",
+   "new": "ff150cf65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mixerSetControlDetails]"
+  },
+  {
+   "offset": 389876,
+   "va": "0x45fef6",
+   "old": "ff1538025500",
+   "new": "ff1508f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!mixerGetControlDetailsA]"
+  },
+  {
+   "offset": 391033,
+   "va": "0x46037b",
+   "old": "ff1538025500",
+   "new": "ff153cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!lstrcpyA]"
+  },
+  {
+   "offset": 391083,
+   "va": "0x4603ad",
+   "old": "ff1538025500",
+   "new": "ff1530f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!lstrlenA]"
+  },
+  {
+   "offset": 391233,
+   "va": "0x460443",
+   "old": "ff1538025500",
+   "new": "ff1560f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GlobalAlloc]"
+  },
+  {
+   "offset": 391240,
+   "va": "0x46044a",
+   "old": "ff1538025500",
+   "new": "ff1568f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GlobalLock]"
+  },
+  {
+   "offset": 391306,
+   "va": "0x46048c",
+   "old": "ff1538025500",
+   "new": "ff1570f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GlobalUnlock]"
+  },
+  {
+   "offset": 391316,
+   "va": "0x460496",
+   "old": "ff1538025500",
+   "new": "ff1564f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GlobalFree]"
+  },
+  {
+   "offset": 391531,
+   "va": "0x46056d",
+   "old": "ff1538025500",
+   "new": "ff1598f65400",
+   "note": "LaserLock: call [CallDLL] -> call [ole32.dll!CoCreateInstance]"
+  },
+  {
+   "offset": 391575,
+   "va": "0x460599",
+   "old": "ff1538025500",
+   "new": "ff1570f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GlobalUnlock]"
+  },
+  {
+   "offset": 391589,
+   "va": "0x4605a7",
+   "old": "ff1538025500",
+   "new": "ff1564f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GlobalFree]"
+  },
+  {
+   "offset": 392195,
+   "va": "0x460805",
+   "old": "ff1538025500",
+   "new": "ff15c8f35400",
+   "note": "LaserLock: call [CallDLL] -> call [ADVAPI32.dll!GetUserNameA]"
+  },
+  {
+   "offset": 392678,
+   "va": "0x4609e8",
+   "old": "ff1538025500",
+   "new": "ff15c8f35400",
+   "note": "LaserLock: call [CallDLL] -> call [ADVAPI32.dll!GetUserNameA]"
+  },
+  {
+   "offset": 393913,
+   "va": "0x460ebb",
+   "old": "ff1538025500",
+   "new": "ff1548f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeSetEvent]"
+  },
+  {
+   "offset": 394032,
+   "va": "0x460f32",
+   "old": "ff1538025500",
+   "new": "ff1544f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeKillEvent]"
+  },
+  {
+   "offset": 394110,
+   "va": "0x460f80",
+   "old": "ff1538025500",
+   "new": "ff1594f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!InterlockedExchange]"
+  },
+  {
+   "offset": 394122,
+   "va": "0x460f8d",
+   "old": "ff1538025500",
+   "new": "ff1538f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!Sleep]"
+  },
+  {
+   "offset": 394486,
+   "va": "0x4610f8",
+   "old": "ff1538025500",
+   "new": "ff1594f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!InterlockedExchange]"
+  },
+  {
+   "offset": 394963,
+   "va": "0x4612d5",
+   "old": "ff1538025500",
+   "new": "ff1578f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!MessageBoxA]"
+  },
+  {
+   "offset": 512727,
+   "va": "0x47ded9",
+   "old": "ff1538025500",
+   "new": "ff1578f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!MessageBoxA]"
+  },
+  {
+   "offset": 512777,
+   "va": "0x47df0b",
+   "old": "ff1538025500",
+   "new": "ff1578f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!MessageBoxA]"
+  },
+  {
+   "offset": 513934,
+   "va": "0x47e390",
+   "old": "ff1538025500",
+   "new": "ff1560f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!PeekMessageA]"
+  },
+  {
+   "offset": 514005,
+   "va": "0x47e3d7",
+   "old": "ff1538025500",
+   "new": "ff1568f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!TranslateAcceleratorA]"
+  },
+  {
+   "offset": 514047,
+   "va": "0x47e401",
+   "old": "ff1538025500",
+   "new": "ff1568f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!TranslateAcceleratorA]"
+  },
+  {
+   "offset": 514080,
+   "va": "0x47e422",
+   "old": "ff1538025500",
+   "new": "ff1560f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!PeekMessageA]"
+  },
+  {
+   "offset": 515718,
+   "va": "0x47ea88",
+   "old": "ff1538025500",
+   "new": "ff15f0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!EnumWindows]"
+  },
+  {
+   "offset": 515735,
+   "va": "0x47ea99",
+   "old": "ff1538025500",
+   "new": "ff15e8f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SystemParametersInfoA]"
+  },
+  {
+   "offset": 515743,
+   "va": "0x47eaa1",
+   "old": "ff1538025500",
+   "new": "ff15c0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!PostQuitMessage]"
+  },
+  {
+   "offset": 515770,
+   "va": "0x47eabc",
+   "old": "ff1538025500",
+   "new": "ff15c4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!BeginPaint]"
+  },
+  {
+   "offset": 515801,
+   "va": "0x47eadb",
+   "old": "ff1538025500",
+   "new": "ff15bcf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!EndPaint]"
+  },
+  {
+   "offset": 515865,
+   "va": "0x47eb1b",
+   "old": "ff1538025500",
+   "new": "ff15ccf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!DefWindowProcA]"
+  },
+  {
+   "offset": 516667,
+   "va": "0x47ee3d",
+   "old": "ff1538025500",
+   "new": "ff15ccf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!DefWindowProcA]"
+  },
+  {
+   "offset": 516684,
+   "va": "0x47ee4e",
+   "old": "ff1538025500",
+   "new": "ff15d0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetCursor]"
+  },
+  {
+   "offset": 516692,
+   "va": "0x47ee56",
+   "old": "ff1538025500",
+   "new": "ff15c8f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!ShowCursor]"
+  },
+  {
+   "offset": 517321,
+   "va": "0x47f0cb",
+   "old": "ff1538025500",
+   "new": "ff1554f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeGetTime]"
+  },
+  {
+   "offset": 517775,
+   "va": "0x47f291",
+   "old": "ff1538025500",
+   "new": "ff1590f65400",
+   "note": "LaserLock: call [CallDLL] -> call [ole32.dll!CoInitialize]"
+  },
+  {
+   "offset": 517911,
+   "va": "0x47f319",
+   "old": "ff1538025500",
+   "new": "ff1540f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetCurrentDirectoryA]"
+  },
+  {
+   "offset": 517966,
+   "va": "0x47f350",
+   "old": "ff1538025500",
+   "new": "ff1594f65400",
+   "note": "LaserLock: call [CallDLL] -> call [ole32.dll!CoUninitialize]"
+  },
+  {
+   "offset": 518009,
+   "va": "0x47f37b",
+   "old": "ff1538025500",
+   "new": "ff15d0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetCursor]"
+  },
+  {
+   "offset": 518017,
+   "va": "0x47f383",
+   "old": "ff1538025500",
+   "new": "ff15c8f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!ShowCursor]"
+  },
+  {
+   "offset": 518834,
+   "va": "0x47f6b4",
+   "old": "ff1538025500",
+   "new": "ff1594f65400",
+   "note": "LaserLock: call [CallDLL] -> call [ole32.dll!CoUninitialize]"
+  },
+  {
+   "offset": 518889,
+   "va": "0x47f6eb",
+   "old": "ff1538025500",
+   "new": "ff15d4f35400",
+   "note": "LaserLock: call [CallDLL] -> call [ADVAPI32.dll!RegOpenKeyExA]"
+  },
+  {
+   "offset": 518932,
+   "va": "0x47f716",
+   "old": "ff1538025500",
+   "new": "ff15d0f35400",
+   "note": "LaserLock: call [CallDLL] -> call [ADVAPI32.dll!RegQueryValueExA]"
+  },
+  {
+   "offset": 518953,
+   "va": "0x47f72b",
+   "old": "ff1538025500",
+   "new": "ff15ccf35400",
+   "note": "LaserLock: call [CallDLL] -> call [ADVAPI32.dll!RegCloseKey]"
+  },
+  {
+   "offset": 519017,
+   "va": "0x47f76b",
+   "old": "ff1538025500",
+   "new": "ff15d4f35400",
+   "note": "LaserLock: call [CallDLL] -> call [ADVAPI32.dll!RegOpenKeyExA]"
+  },
+  {
+   "offset": 519060,
+   "va": "0x47f796",
+   "old": "ff1538025500",
+   "new": "ff15d0f35400",
+   "note": "LaserLock: call [CallDLL] -> call [ADVAPI32.dll!RegQueryValueExA]"
+  },
+  {
+   "offset": 519081,
+   "va": "0x47f7ab",
+   "old": "ff1538025500",
+   "new": "ff15ccf35400",
+   "note": "LaserLock: call [CallDLL] -> call [ADVAPI32.dll!RegCloseKey]"
+  },
+  {
+   "offset": 519198,
+   "va": "0x47f820",
+   "old": "ff1538025500",
+   "new": "ff1528f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetDriveTypeA]"
+  },
+  {
+   "offset": 519304,
+   "va": "0x47f88b",
+   "old": "ff1538025500",
+   "new": "ff1538f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CloseHandle]"
+  },
+  {
+   "offset": 519415,
+   "va": "0x47f8f9",
+   "old": "ff1538025500",
+   "new": "ff1574f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WriteFile]"
+  },
+  {
+   "offset": 519440,
+   "va": "0x47f912",
+   "old": "ff1538025500",
+   "new": "ff152cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!DeleteFileA]"
+  },
+  {
+   "offset": 519646,
+   "va": "0x47f9e0",
+   "old": "ff1538025500",
+   "new": "ff1554f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeGetTime]"
+  },
+  {
+   "offset": 520005,
+   "va": "0x47fb47",
+   "old": "ff1538025500",
+   "new": "ff1554f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeGetTime]"
+  },
+  {
+   "offset": 523156,
+   "va": "0x480796",
+   "old": "ff1538025500",
+   "new": "ff1560f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!PeekMessageA]"
+  },
+  {
+   "offset": 523328,
+   "va": "0x480842",
+   "old": "ff1538025500",
+   "new": "ff1560f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!PeekMessageA]"
+  },
+  {
+   "offset": 525633,
+   "va": "0x481143",
+   "old": "ff1538025500",
+   "new": "ff1554f65400",
+   "note": "LaserLock: call [CallDLL] -> call [WINMM.dll!timeGetTime]"
+  },
+  {
+   "offset": 525759,
+   "va": "0x4811c1",
+   "old": "ff1538025500",
+   "new": "ff1534f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!LoadLibraryA]"
+  },
+  {
+   "offset": 525772,
+   "va": "0x4811ce",
+   "old": "ff1538025500",
+   "new": "ff1590f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FreeLibrary]"
+  },
+  {
+   "offset": 525789,
+   "va": "0x4811df",
+   "old": "ff1538025500",
+   "new": "ff158cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetProcAddress]"
+  },
+  {
+   "offset": 525800,
+   "va": "0x4811ea",
+   "old": "ff1538025500",
+   "new": "ff1590f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FreeLibrary]"
+  },
+  {
+   "offset": 525832,
+   "va": "0x48120a",
+   "old": "ff1538025500",
+   "new": "ff1590f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FreeLibrary]"
+  },
+  {
+   "offset": 525854,
+   "va": "0x481220",
+   "old": "ff1538025500",
+   "new": "ff1590f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FreeLibrary]"
+  },
+  {
+   "offset": 525993,
+   "va": "0x4812ab",
+   "old": "ff1538025500",
+   "new": "ff155cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!DialogBoxParamA]"
+  },
+  {
+   "offset": 526279,
+   "va": "0x4813c9",
+   "old": "ff1538025500",
+   "new": "ff15c4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!BeginPaint]"
+  },
+  {
+   "offset": 526291,
+   "va": "0x4813d5",
+   "old": "ff1538025500",
+   "new": "ff15bcf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!EndPaint]"
+  },
+  {
+   "offset": 526336,
+   "va": "0x481402",
+   "old": "ff1538025500",
+   "new": "ff156cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!EndDialog]"
+  },
+  {
+   "offset": 526364,
+   "va": "0x48141e",
+   "old": "ff1538025500",
+   "new": "ff1570f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetWindowTextA]"
+  },
+  {
+   "offset": 526491,
+   "va": "0x48149d",
+   "old": "ff1538025500",
+   "new": "ff156cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!EndDialog]"
+  },
+  {
+   "offset": 526516,
+   "va": "0x4814b6",
+   "old": "ff1538025500",
+   "new": "ff156cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!EndDialog]"
+  },
+  {
+   "offset": 526902,
+   "va": "0x481638",
+   "old": "ff1538025500",
+   "new": "ff15b0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetDlgItem]"
+  },
+  {
+   "offset": 527070,
+   "va": "0x4816e0",
+   "old": "ff1538025500",
+   "new": "ff15b0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetDlgItem]"
+  },
+  {
+   "offset": 527406,
+   "va": "0x481830",
+   "old": "ff1538025500",
+   "new": "ff15b0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetDlgItem]"
+  },
+  {
+   "offset": 527587,
+   "va": "0x4818e5",
+   "old": "ff1538025500",
+   "new": "ff15b0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetDlgItem]"
+  },
+  {
+   "offset": 527599,
+   "va": "0x4818f1",
+   "old": "ff1538025500",
+   "new": "ff1570f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetWindowTextA]"
+  },
+  {
+   "offset": 527753,
+   "va": "0x48198b",
+   "old": "ff1538025500",
+   "new": "ff15b4f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!GetParent]"
+  },
+  {
+   "offset": 543215,
+   "va": "0x4855f1",
+   "old": "ff1538025500",
+   "new": "ff15a8f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!LoadCursorA]"
+  },
+  {
+   "offset": 543222,
+   "va": "0x4855f8",
+   "old": "ff1538025500",
+   "new": "ff15d0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetCursor]"
+  },
+  {
+   "offset": 545444,
+   "va": "0x485ea6",
+   "old": "ff1538025500",
+   "new": "ff15a8f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!LoadCursorA]"
+  },
+  {
+   "offset": 545451,
+   "va": "0x485ead",
+   "old": "ff1538025500",
+   "new": "ff15d0f55400",
+   "note": "LaserLock: call [CallDLL] -> call [USER32.dll!SetCursor]"
+  },
+  {
+   "offset": 697360,
+   "va": "0x4ab011",
+   "old": "ff1538025500",
+   "new": "ff25e0f35400",
+   "note": "LaserLock: jmp [CallDLL] -> jmp [DDRAW.dll!DirectDrawCreateEx]"
+  },
+  {
+   "offset": 697366,
+   "va": "0x4ab017",
+   "old": "ff1538025500",
+   "new": "ff25e4f35400",
+   "note": "LaserLock: jmp [CallDLL] -> jmp [DDRAW.dll!DirectDrawEnumerateExA]"
+  },
+  {
+   "offset": 697372,
+   "va": "0x4ab01d",
+   "old": "ff1538025500",
+   "new": "ff25f4f35400",
+   "note": "LaserLock: jmp [CallDLL] -> jmp [DSOUND.dll!#1]"
+  },
+  {
+   "offset": 697378,
+   "va": "0x4ab023",
+   "old": "ff1538025500",
+   "new": "ff25ecf35400",
+   "note": "LaserLock: jmp [CallDLL] -> jmp [DINPUT.dll!DirectInputCreateEx]"
+  },
+  {
+   "offset": 708355,
+   "va": "0x4adb05",
+   "old": "ff1538025500",
+   "new": "ff1534f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!LoadLibraryA]"
+  },
+  {
+   "offset": 708375,
+   "va": "0x4adb19",
+   "old": "ff1538025500",
+   "new": "ff158cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetProcAddress]"
+  },
+  {
+   "offset": 708450,
+   "va": "0x4adb64",
+   "old": "ff1538025500",
+   "new": "ff1590f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FreeLibrary]"
+  },
+  {
+   "offset": 712657,
+   "va": "0x4aebd3",
+   "old": "ff1538025500",
+   "new": "ff15c4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapFree]"
+  },
+  {
+   "offset": 713378,
+   "va": "0x4aeea4",
+   "old": "ff1538025500",
+   "new": "ff15b8f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetCurrentProcess]"
+  },
+  {
+   "offset": 713385,
+   "va": "0x4aeeab",
+   "old": "ff1538025500",
+   "new": "ff15b0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!TerminateProcess]"
+  },
+  {
+   "offset": 713514,
+   "va": "0x4aef2c",
+   "old": "ff1538025500",
+   "new": "ff15b4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!ExitProcess]"
+  },
+  {
+   "offset": 714096,
+   "va": "0x4af172",
+   "old": "ff1538025500",
+   "new": "ff15a4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapAlloc]"
+  },
+  {
+   "offset": 714178,
+   "va": "0x4af1c4",
+   "old": "ff1538025500",
+   "new": "ff15a8f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapReAlloc]"
+  },
+  {
+   "offset": 714608,
+   "va": "0x4af372",
+   "old": "ff1538025500",
+   "new": "ff15a4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapAlloc]"
+  },
+  {
+   "offset": 715622,
+   "va": "0x4af768",
+   "old": "ff1538025500",
+   "new": "ff15fcf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetVersion]"
+  },
+  {
+   "offset": 715707,
+   "va": "0x4af7bd",
+   "old": "ff1538025500",
+   "new": "ff15ecf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetCommandLineA]"
+  },
+  {
+   "offset": 715858,
+   "va": "0x4af854",
+   "old": "ff1538025500",
+   "new": "ff15acf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetStartupInfoA]"
+  },
+  {
+   "offset": 715891,
+   "va": "0x4af875",
+   "old": "ff1538025500",
+   "new": "ff155cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetModuleHandleA]"
+  },
+  {
+   "offset": 716789,
+   "va": "0x4afbf7",
+   "old": "ff1538025500",
+   "new": "ff155cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetModuleHandleA]"
+  },
+  {
+   "offset": 716805,
+   "va": "0x4afc07",
+   "old": "ff1538025500",
+   "new": "ff158cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetProcAddress]"
+  },
+  {
+   "offset": 721154,
+   "va": "0x4b0d04",
+   "old": "ff1538025500",
+   "new": "ff15f4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapSize]"
+  },
+  {
+   "offset": 724223,
+   "va": "0x4b1901",
+   "old": "ff1538025500",
+   "new": "ff15f8f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLocalTime]"
+  },
+  {
+   "offset": 724857,
+   "va": "0x4b1b7b",
+   "old": "ff1538025500",
+   "new": "ff1500f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapCreate]"
+  },
+  {
+   "offset": 724888,
+   "va": "0x4b1b9a",
+   "old": "ff1538025500",
+   "new": "ff1508f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapDestroy]"
+  },
+  {
+   "offset": 724945,
+   "va": "0x4b1bd3",
+   "old": "ff1538025500",
+   "new": "ff15a4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapAlloc]"
+  },
+  {
+   "offset": 725231,
+   "va": "0x4b1cf1",
+   "old": "ff1538025500",
+   "new": "ff1504f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!VirtualFree]"
+  },
+  {
+   "offset": 725254,
+   "va": "0x4b1d08",
+   "old": "ff1538025500",
+   "new": "ff15c4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapFree]"
+  },
+  {
+   "offset": 725296,
+   "va": "0x4b1d32",
+   "old": "ff1538025500",
+   "new": "ff1504f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!VirtualFree]"
+  },
+  {
+   "offset": 725351,
+   "va": "0x4b1d69",
+   "old": "ff1538025500",
+   "new": "ff15c4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!HeapFree]"
+  },
+  {
+   "offset": 725433,
+   "va": "0x4b1dbb",
+   "old": "ff1538025500",
+   "new": "ff1504f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!VirtualFree]"
+  },
+  {
+   "offset": 726114,
+   "va": "0x4b2064",
+   "old": "ff1538025500",
+   "new": "ff1554f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!VirtualAlloc]"
+  },
+  {
+   "offset": 727091,
+   "va": "0x4b2436",
+   "old": "ff1538025500",
+   "new": "ff1538f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CloseHandle]"
+  },
+  {
+   "offset": 727101,
+   "va": "0x4b243f",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 727362,
+   "va": "0x4b2544",
+   "old": "ff1538025500",
+   "new": "ff1578f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetFilePointer]"
+  },
+  {
+   "offset": 727375,
+   "va": "0x4b2551",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 727607,
+   "va": "0x4b2639",
+   "old": "ff1538025500",
+   "new": "ff1584f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!ReadFile]"
+  },
+  {
+   "offset": 727617,
+   "va": "0x4b2643",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 727831,
+   "va": "0x4b2719",
+   "old": "ff1538025500",
+   "new": "ff1584f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!ReadFile]"
+  },
+  {
+   "offset": 727841,
+   "va": "0x4b2723",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 728773,
+   "va": "0x4b2ac7",
+   "old": "ff1538025500",
+   "new": "ff15acf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetStartupInfoA]"
+  },
+  {
+   "offset": 728979,
+   "va": "0x4b2b95",
+   "old": "ff1538025500",
+   "new": "ff1510f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetFileType]"
+  },
+  {
+   "offset": 729094,
+   "va": "0x4b2c08",
+   "old": "ff1538025500",
+   "new": "ff1510f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetFileType]"
+  },
+  {
+   "offset": 729162,
+   "va": "0x4b2c4c",
+   "old": "ff1538025500",
+   "new": "ff1514f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetHandleCount]"
+  },
+  {
+   "offset": 729437,
+   "va": "0x4b2d5f",
+   "old": "ff1538025500",
+   "new": "ff1574f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WriteFile]"
+  },
+  {
+   "offset": 729647,
+   "va": "0x4b2e31",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 729680,
+   "va": "0x4b2e52",
+   "old": "ff1538025500",
+   "new": "ff1574f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WriteFile]"
+  },
+  {
+   "offset": 729711,
+   "va": "0x4b2e71",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 732372,
+   "va": "0x4b38d6",
+   "old": "ff1538025500",
+   "new": "ff1520f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!UnhandledExceptionFilter]"
+  },
+  {
+   "offset": 732817,
+   "va": "0x4b3a93",
+   "old": "ff1538025500",
+   "new": "ff1518f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetModuleFileNameA]"
+  },
+  {
+   "offset": 733626,
+   "va": "0x4b3dbc",
+   "old": "ff1538025500",
+   "new": "ff1528f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WideCharToMultiByte]"
+  },
+  {
+   "offset": 733665,
+   "va": "0x4b3de3",
+   "old": "ff1538025500",
+   "new": "ff1528f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WideCharToMultiByte]"
+  },
+  {
+   "offset": 733687,
+   "va": "0x4b3df9",
+   "old": "ff1538025500",
+   "new": "ff1550f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FreeEnvironmentStringsW]"
+  },
+  {
+   "offset": 733701,
+   "va": "0x4b3e07",
+   "old": "ff1538025500",
+   "new": "ff1550f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FreeEnvironmentStringsW]"
+  },
+  {
+   "offset": 733776,
+   "va": "0x4b3e52",
+   "old": "ff1538025500",
+   "new": "ff151cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FreeEnvironmentStringsA]"
+  },
+  {
+   "offset": 733810,
+   "va": "0x4b3e74",
+   "old": "ff1538025500",
+   "new": "ff151cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FreeEnvironmentStringsA]"
+  },
+  {
+   "offset": 733938,
+   "va": "0x4b3ef4",
+   "old": "ff1538025500",
+   "new": "ff154cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetCPInfo]"
+  },
+  {
+   "offset": 734365,
+   "va": "0x4b409e",
+   "old": "ff1538025500",
+   "new": "ff2534f55400",
+   "note": "LaserLock: jmp [CallDLL] -> jmp [KERNEL32.dll!GetOEMCP]"
+  },
+  {
+   "offset": 734386,
+   "va": "0x4b40b3",
+   "old": "ff1538025500",
+   "new": "ff2530f55400",
+   "note": "LaserLock: jmp [CallDLL] -> jmp [KERNEL32.dll!GetACP]"
+  },
+  {
+   "offset": 734971,
+   "va": "0x4b42fd",
+   "old": "ff1538025500",
+   "new": "ff1518f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetModuleFileNameA]"
+  },
+  {
+   "offset": 735280,
+   "va": "0x4b4432",
+   "old": "ff1538025500",
+   "new": "ff150cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetStdHandle]"
+  },
+  {
+   "offset": 735317,
+   "va": "0x4b4457",
+   "old": "ff1538025500",
+   "new": "ff1574f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WriteFile]"
+  },
+  {
+   "offset": 735392,
+   "va": "0x4b44a2",
+   "old": "ff1538025500",
+   "new": "ff159cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!FlushFileBuffers]"
+  },
+  {
+   "offset": 735402,
+   "va": "0x4b44ac",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 739109,
+   "va": "0x4b5327",
+   "old": "ff1538025500",
+   "new": "ff1598f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetUnhandledExceptionFilter]"
+  },
+  {
+   "offset": 739142,
+   "va": "0x4b5348",
+   "old": "ff1538025500",
+   "new": "ff1598f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetUnhandledExceptionFilter]"
+  },
+  {
+   "offset": 739168,
+   "va": "0x4b5362",
+   "old": "ff1538025500",
+   "new": "ff15a0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!IsBadReadPtr]"
+  },
+  {
+   "offset": 739200,
+   "va": "0x4b5382",
+   "old": "ff1538025500",
+   "new": "ff15d0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!IsBadWritePtr]"
+  },
+  {
+   "offset": 739227,
+   "va": "0x4b539d",
+   "old": "ff1538025500",
+   "new": "ff15c8f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!IsBadCodePtr]"
+  },
+  {
+   "offset": 739361,
+   "va": "0x4b5423",
+   "old": "ff1538025500",
+   "new": "ff1528f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WideCharToMultiByte]"
+  },
+  {
+   "offset": 740336,
+   "va": "0x4b57f2",
+   "old": "ff1538025500",
+   "new": "ff15ccf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetTimeZoneInformation]"
+  },
+  {
+   "offset": 742068,
+   "va": "0x4b5eb6",
+   "old": "ff1538025500",
+   "new": "ff15d4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!LCMapStringW]"
+  },
+  {
+   "offset": 742207,
+   "va": "0x4b5f41",
+   "old": "ff1538025500",
+   "new": "ff1548f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!MultiByteToWideChar]"
+  },
+  {
+   "offset": 742258,
+   "va": "0x4b5f74",
+   "old": "ff1538025500",
+   "new": "ff1548f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!MultiByteToWideChar]"
+  },
+  {
+   "offset": 742288,
+   "va": "0x4b5f92",
+   "old": "ff1538025500",
+   "new": "ff15d4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!LCMapStringW]"
+  },
+  {
+   "offset": 742342,
+   "va": "0x4b5fc8",
+   "old": "ff1538025500",
+   "new": "ff15d4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!LCMapStringW]"
+  },
+  {
+   "offset": 742417,
+   "va": "0x4b6013",
+   "old": "ff1538025500",
+   "new": "ff15d4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!LCMapStringW]"
+  },
+  {
+   "offset": 742459,
+   "va": "0x4b603d",
+   "old": "ff1538025500",
+   "new": "ff1528f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WideCharToMultiByte]"
+  },
+  {
+   "offset": 742495,
+   "va": "0x4b6061",
+   "old": "ff1538025500",
+   "new": "ff1528f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WideCharToMultiByte]"
+  },
+  {
+   "offset": 742738,
+   "va": "0x4b6154",
+   "old": "ff1538025500",
+   "new": "ff1548f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!MultiByteToWideChar]"
+  },
+  {
+   "offset": 742778,
+   "va": "0x4b617c",
+   "old": "ff1538025500",
+   "new": "ff1548f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!MultiByteToWideChar]"
+  },
+  {
+   "offset": 742800,
+   "va": "0x4b6192",
+   "old": "ff1538025500",
+   "new": "ff15e4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetStringTypeW]"
+  },
+  {
+   "offset": 742860,
+   "va": "0x4b61ce",
+   "old": "ff1538025500",
+   "new": "ff15e4f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetStringTypeW]"
+  },
+  {
+   "offset": 743279,
+   "va": "0x4b6371",
+   "old": "ff1538025500",
+   "new": "ff15e0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetStdHandle]"
+  },
+  {
+   "offset": 743299,
+   "va": "0x4b6385",
+   "old": "ff1538025500",
+   "new": "ff15e0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetStdHandle]"
+  },
+  {
+   "offset": 743319,
+   "va": "0x4b6399",
+   "old": "ff1538025500",
+   "new": "ff15e0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetStdHandle]"
+  },
+  {
+   "offset": 743476,
+   "va": "0x4b6436",
+   "old": "ff1538025500",
+   "new": "ff15e0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetStdHandle]"
+  },
+  {
+   "offset": 744069,
+   "va": "0x4b6687",
+   "old": "ff1538025500",
+   "new": "ff157cf45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CreateFileA]"
+  },
+  {
+   "offset": 744082,
+   "va": "0x4b6694",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 744108,
+   "va": "0x4b66ae",
+   "old": "ff1538025500",
+   "new": "ff1510f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetFileType]"
+  },
+  {
+   "offset": 744119,
+   "va": "0x4b66ba",
+   "old": "ff1538025500",
+   "new": "ff1538f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CloseHandle]"
+  },
+  {
+   "offset": 744125,
+   "va": "0x4b66bf",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 748995,
+   "va": "0x4b79c5",
+   "old": "ff1538025500",
+   "new": "ff1534f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!LoadLibraryA]"
+  },
+  {
+   "offset": 753950,
+   "va": "0x4b8d20",
+   "old": "ff1538025500",
+   "new": "ff1528f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WideCharToMultiByte]"
+  },
+  {
+   "offset": 754022,
+   "va": "0x4b8d68",
+   "old": "ff1538025500",
+   "new": "ff1528f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WideCharToMultiByte]"
+  },
+  {
+   "offset": 754063,
+   "va": "0x4b8d91",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 754113,
+   "va": "0x4b8dc3",
+   "old": "ff1538025500",
+   "new": "ff1528f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WideCharToMultiByte]"
+  },
+  {
+   "offset": 754237,
+   "va": "0x4b8e3f",
+   "old": "ff1538025500",
+   "new": "ff1528f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!WideCharToMultiByte]"
+  },
+  {
+   "offset": 754784,
+   "va": "0x4b9062",
+   "old": "ff1538025500",
+   "new": "ff15f0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetEndOfFile]"
+  },
+  {
+   "offset": 754814,
+   "va": "0x4b9080",
+   "old": "ff1538025500",
+   "new": "ff15c0f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetLastError]"
+  },
+  {
+   "offset": 755483,
+   "va": "0x4b931d",
+   "old": "ff1538025500",
+   "new": "ff15e8f45400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!RaiseException]"
+  },
+  {
+   "offset": 758012,
+   "va": "0x4b9cfe",
+   "old": "ff1538025500",
+   "new": "ff1540f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CompareStringW]"
+  },
+  {
+   "offset": 758236,
+   "va": "0x4b9dde",
+   "old": "ff1538025500",
+   "new": "ff154cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!GetCPInfo]"
+  },
+  {
+   "offset": 758595,
+   "va": "0x4b9f45",
+   "old": "ff1538025500",
+   "new": "ff1540f55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!CompareStringW]"
+  },
+  {
+   "offset": 759071,
+   "va": "0x4ba121",
+   "old": "ff1538025500",
+   "new": "ff153cf55400",
+   "note": "LaserLock: call [CallDLL] -> call [KERNEL32.dll!SetEnvironmentVariableA]"
+  },
+  {
+   "offset": 759680,
+   "va": "0x4ba381",
+   "old": "ff1538025500",
+   "new": "ff25bcf45400",
+   "note": "LaserLock: jmp [CallDLL] -> jmp [KERNEL32.dll!RtlUnwind]"
+  },
+  {
+   "offset": 911990,
+   "va": "0x550276",
+   "old": "776833326c69622e646c6c",
+   "new": "686f67732e646c6c000000",
+   "note": "import wh32lib.dll (LaserLock) -> hogs.dll (fixes)"
+  }
+ ]
+}

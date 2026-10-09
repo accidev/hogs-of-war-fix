@@ -3,3 +3,5 @@ work/
 downloads/
 backup/
 ghidra/
+build/
+dist/

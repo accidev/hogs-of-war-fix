@@ -32,6 +32,7 @@ public static class Dbg {
     public struct RECT { public int L, T, R, B; }
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
     [DllImport("user32.dll")] static extern int GetWindowLongW(IntPtr h, int i);
+    [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr hdc, int flags);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] static extern bool AttachThreadInput(int a, int b, bool attach);
     [DllImport("kernel32.dll")] static extern int GetCurrentThreadId();
@@ -188,17 +189,20 @@ public static class Dbg {
                 // every 4 s: screenshot + Esc (skips intro videos); 8 rounds
                 if ((DateTime.Now - acted).TotalSeconds > 4 * (tour + 1)) {
                     IntPtr w = Window(pi.pid, "PigsWClass");
-                    if (GetForegroundWindow() != w) Focus(w);
                     RECT rc; GetWindowRect(w, out rc);
-                    // only capture when the game is in front, so no other window ends up in the picture
-                    if (shot != null && rc.R > rc.L && GetForegroundWindow() == w) {
+                    // PrintWindow renders only the game window, even when other windows cover it
+                    if (shot != null && rc.R > rc.L) {
                         string f = shot.Replace(".png", "_" + tour + ".png");
                         using (var bmp = new System.Drawing.Bitmap(rc.R - rc.L, rc.B - rc.T))
-                        using (var g = System.Drawing.Graphics.FromImage(bmp)) { g.CopyFromScreen(rc.L, rc.T, 0, 0, bmp.Size); bmp.Save(f, System.Drawing.Imaging.ImageFormat.Png); }
-                        log.Add(string.Format("{0:N1}s shot {1} foreground={2}", t, f, GetForegroundWindow() == w));
+                        using (var g = System.Drawing.Graphics.FromImage(bmp)) {
+                            IntPtr hdc = g.GetHdc(); bool ok = PrintWindow(w, hdc, 2); g.ReleaseHdc(hdc);
+                            bmp.Save(f, System.Drawing.Imaging.ImageFormat.Png);
+                            log.Add(string.Format("{0:N1}s shot {1} printwindow={2}", t, f, ok));
+                        }
                     }
-                    // Esc skips the intro videos; stop after two presses, or it reaches "Really quit app?"
-                    if (tour < 2 && GetForegroundWindow() == w) { keybd_event(0x1B, 0x01, 0, IntPtr.Zero); System.Threading.Thread.Sleep(60); keybd_event(0x1B, 0x01, 2, IntPtr.Zero); }
+                    // WM_KEYDOWN Esc sets the game's video-skip flag (MainWndProc); stop after two,
+                    // or it reaches "Really quit app?" in the menu
+                    if (tour < 2) { PostMessageA(w, 0x0100, new IntPtr(0x1B), new IntPtr(0x00010001)); PostMessageA(w, 0x0101, new IntPtr(0x1B), new IntPtr(unchecked((int)0xC0010001))); }
                     if (++tour >= 8) { log.Add("tour done; killing"); TerminateProcess(hProc, 0); acted = DateTime.MaxValue; }
                 }
             } else if (action == "alttab" && acted != DateTime.MinValue && acted != DateTime.MaxValue && !returned && (DateTime.Now - acted).TotalSeconds > 3) {
