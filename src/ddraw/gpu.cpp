@@ -406,10 +406,11 @@ void set_mode(int w, int h)
     g_w = w;
     g_h = h;
     g_scale = g_scale_cfg;
-    if (g_scale <= 0) { /* auto: as many whole multiples as fit the monitor */
+    if (g_scale <= 0) { /* auto: enough whole multiples to cover the monitor, so the frame is only scaled down */
         MONITORINFO mi = { sizeof mi };
         GetMonitorInfo(MonitorFromWindow(g_hwnd, MONITOR_DEFAULTTONEAREST), &mi);
-        int sx = (mi.rcMonitor.right - mi.rcMonitor.left) / w, sy = (mi.rcMonitor.bottom - mi.rcMonitor.top) / h;
+        int mw = mi.rcMonitor.right - mi.rcMonitor.left, mh = mi.rcMonitor.bottom - mi.rcMonitor.top;
+        int sx = (mw + w - 1) / w, sy = (mh + h - 1) / h;
         g_scale = sx < sy ? sx : sy;
     }
     while (g_scale > 1 && (w * g_scale > 8192 || h * g_scale > 8192)) /* texture limit of feature level 10 */

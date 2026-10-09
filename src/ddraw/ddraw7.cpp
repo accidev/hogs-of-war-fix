@@ -4,8 +4,10 @@
 
 DirectDraw *g_ddraw;
 
-/* Modes offered to the game; it only uses 16-bit modes up to 1024x768 (launcher filter). */
-static const struct { int w, h; } kModes[] = { { 640, 480 }, { 800, 600 }, { 1024, 768 } };
+/* Modes offered to the game's launcher, all 16-bit 4:3. Its filter stopped at 1024x768;
+ * hogs.dll raises it, and in a window the game renders at any of them. */
+static const struct { int w, h; } kModes[] = { { 640, 480 },   { 800, 600 },   { 1024, 768 },
+                                               { 1280, 960 },  { 1600, 1200 }, { 1920, 1440 } };
 
 static HWND game_window()
 {
