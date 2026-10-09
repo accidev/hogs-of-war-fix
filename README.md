@@ -8,6 +8,7 @@
 [Hogs of War](https://store.steampowered.com/app/389900/Hogs_of_War/) is a turn-based tactics game with pigs, made in 2000 by Gremlin Interactive and Infogrames. It is a PlayStation 1 classic that also came out on Windows. The Steam version of the Windows game does not start on Windows 10 and 11, and while it runs, it disables every other window on the desktop. This fan fix makes the game start and play well: in a big window or borderless fullscreen, on a new Direct3D 11 renderer, with music, camera zoom and a usable gamepad.
 
 [![Download HogsFix.zip](https://img.shields.io/badge/Download-HogsFix.zip-2ea44f?style=for-the-badge)](https://github.com/accidev/hogs-of-war-fix/releases/latest/download/HogsFix.zip)
+[![Install video](https://img.shields.io/badge/YouTube-Install%20video-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/oBo27HB4x_4)
 
 <p align="center">
   <img src="docs/images/battle.jpg" alt="A battle on a hillside in a big window">
@@ -39,6 +40,8 @@ You need Hogs of War from Steam (version 1.2) on Windows 10 or 11.
 3. Extract the zip into that folder. A `HogsFix` folder appears next to `warhogs_.exe`.
 4. Open `HogsFix` and double-click **`patch.cmd`**. Wait until it says **Done**.
 5. Start the game from Steam as usual.
+
+The [install video](https://youtu.be/oBo27HB4x_4) shows all of this on a fresh copy of the game from Steam.
 
 Good to know:
 

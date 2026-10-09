@@ -8,6 +8,7 @@
 [Hogs of War](https://store.steampowered.com/app/389900/Hogs_of_War/) («Свиньи войны») — пошаговая тактика про свиней, которую в 2000 году сделали Gremlin Interactive и Infogrames. Это классика PlayStation 1, игра выходила и на Windows. Steam-версия для Windows не запускается на Windows 10 и 11, а пока работает, выключает все остальные окна рабочего стола. Это фанатское исправление возвращает игру к жизни: большое окно или полный экран без рамки, новый рендер на Direct3D 11, музыка, отдаление камеры и нормальный геймпад.
 
 [![Скачать HogsFix.zip](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-HogsFix.zip-2ea44f?style=for-the-badge)](https://github.com/accidev/hogs-of-war-fix/releases/latest/download/HogsFix.zip)
+[![Видео установки](https://img.shields.io/badge/YouTube-%D0%92%D0%B8%D0%B4%D0%B5%D0%BE%20%D1%83%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B8-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/oBo27HB4x_4)
 
 <p align="center">
   <img src="docs/images/battle.jpg" alt="Бой на холмах в большом окне">
@@ -39,6 +40,8 @@
 3. Распакуйте архив в эту папку. Рядом с `warhogs_.exe` появится папка `HogsFix`.
 4. Откройте `HogsFix` и дважды щёлкните **`patch.cmd`**. Дождитесь надписи **Done**.
 5. Запускайте игру из Steam как обычно.
+
+Всё это на свежей копии игры из Steam показано в [видео установки](https://youtu.be/oBo27HB4x_4).
 
 Полезно знать:
 
