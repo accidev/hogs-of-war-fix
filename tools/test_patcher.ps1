@@ -15,7 +15,7 @@
 # Every scenario works on fresh copies in <temp>\hogsfix-patcher-tests, which this script creates and deletes;
 # no game folder is touched. It prints one line per check and ends with "--- N checks, M failed" (exit code 1 if M > 0).
 #
-#   A  install via patch.cmd, re-run, -Restore       F  game folder with [ ] and spaces, relative -GameDir
+#   A  patch.cmd, re-run, -Restore, uninstall.cmd   F  game folder with [ ] and spaces, relative -GameDir
 #   B  update from the previous release, old -Restore  G  game running (a dummy warhogs_ process)
 #   C  hand-installed dgVoodoo kept as *.orig        H  Steam "verify files", missing or damaged .orig
 #   D  refuses when a *.orig is in the way           X  missing package file, unknown exe, old switches, patch.cmd
@@ -59,6 +59,10 @@ function ScenA {
     Check 'A' '-Restore again: exit 0, still identical' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code)"
     $r = RunPatch $pkg
     Check 'A' 'install after restore works and equals run 1' (($r.Code -eq 0) -and (SameSnap $s1 (Snap $g))) "exit $($r.Code)"
+    $wrap = Join-Path $T 'A\run-uninstall.cmd'
+    [IO.File]::WriteAllText($wrap, "@echo off`r`ncall `"$pkg\uninstall.cmd`" < nul`r`n")
+    $o = RunCmd $wrap
+    Check 'A' 'uninstall.cmd: Done, tree identical to the untouched original' (($o -match 'Done\.') -and (SameSnap $s0 (Snap $g))) (DiffSnap $s0 (Snap $g))
 }
 
 function ScenB {
@@ -216,7 +220,7 @@ function ScenF {
     $r = RunPatch $pkg @('-GameDir', ".\$leaf", '-Restore') (Join-Path $T 'F2')
     Check 'F2' 'relative -GameDir -Restore: identical to original' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code)"
     $r = RunPatch $pkg @('-GameDir', (Join-Path $T 'F2\nowhere'))
-    Check 'F2' '-GameDir that does not exist: error, exit != 0' (($r.Code -ne 0) -and ($r.Out -match 'Cannot find path')) "exit $($r.Code)"
+    Check 'F2' '-GameDir that does not exist: error, exit != 0' (($r.Code -ne 0) -and ($r.Out -match 'PathNotFound')) "exit $($r.Code)"
 }
 
 function ScenG {
@@ -288,9 +292,10 @@ function ScenX {
     Check 'X2' '-Restore on an unknown exe: says so, removes only our files (none here)' (($r.Code -eq 0) -and ($r.Out -match 'not a version this fix knows') -and (SameSnap $s0 (Snap $g))) "exit $($r.Code)"
     $g = NewGame 'X4'; $pkg = AddPkg $g
     $r = RunPatch $pkg @('-NoDgVoodoo')
-    Check 'X4' 'old switch -NoDgVoodoo fails loudly (exit != 0, unknown parameter)' (($r.Code -ne 0) -and ($r.Out -match 'parameter cannot be found')) "exit $($r.Code)"
+    # error ids, not messages: Windows PowerShell prints messages in the language of Windows
+    Check 'X4' 'old switch -NoDgVoodoo fails loudly (exit != 0, unknown parameter)' (($r.Code -ne 0) -and ($r.Out -match 'NamedParameterNotFound')) "exit $($r.Code)"
     $r = RunPatch $pkg @('-DgVoodoo')
-    Check 'X4' 'old switch -DgVoodoo fails loudly' (($r.Code -ne 0) -and ($r.Out -match 'parameter cannot be found')) "exit $($r.Code)"
+    Check 'X4' 'old switch -DgVoodoo fails loudly' (($r.Code -ne 0) -and ($r.Out -match 'NamedParameterNotFound')) "exit $($r.Code)"
     # X5: interrupted old-patcher cleanup: marker + siblings next to OUR ddraw.dll
     $g = NewGame 'X5'; $pkg = AddPkg $g; $s0 = Snap $g
     $r = RunPatch $pkg; $s1 = Snap $g

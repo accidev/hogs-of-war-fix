@@ -1,0 +1,33 @@
+# Builds hogs.dll and ddraw.dll and packs HogsFix.zip on every push and pull request
+# (the zip is attached to the run as an artifact). A pushed tag v* also publishes the zip
+# as a GitHub release:  git tag v1.0.0  then  git push origin v1.0.0
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write # gh release create
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build and pack HogsFix.zip
+        run: ./tools/make_release.ps1
+
+      - uses: actions/upload-artifact@v7
+        with:
+          path: dist/HogsFix.zip
+          archive: false
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME dist/HogsFix.zip --title "Hogs of War Fix $env:GITHUB_REF_NAME" --notes-file .github/release-notes.md

@@ -1,100 +1,122 @@
-# Hogs of War на Windows 10/11
+# Hogs of War Fix for Windows 10 and 11
 
-Фанатское исправление Steam-версии Hogs of War (2000, v1.2, appid 389900). С ним игра запускается и играется на Windows 10/11: в окне с рамкой, со своим рендером на Direct3D 11 и с музыкой. Большая цель на будущее — переписать игру под x64.
+**English** · [Русский](README.ru.md)
 
-Подробный технический журнал — [docs/WORKLOG.md](docs/WORKLOG.md), разбор рендера игры — [docs/renderer/](docs/renderer/).
+[![Build](https://github.com/accidev/HoG-x64/actions/workflows/build.yml/badge.svg)](https://github.com/accidev/HoG-x64/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/accidev/HoG-x64)](https://github.com/accidev/HoG-x64/releases/latest)
 
-## Почему оригинал не работает
+[Hogs of War](https://store.steampowered.com/app/389900/Hogs_of_War/) is a turn-based tactics game with pigs, made in 2000 by Gremlin Interactive and Infogrames. It is a PlayStation 1 classic that also came out on Windows. The Steam version of the Windows game does not start on Windows 10 and 11, and while it runs, it disables every other window on the desktop. This fan fix makes the game start and play well: in a big window or borderless fullscreen, on a new Direct3D 11 renderer, with music, camera zoom and a usable gamepad.
 
-1. **Зависание при запуске.** Обёртка CD-музыки `winmm.dll` (ogg-winmm 2014 года) вешает загрузчик DLL Windows 10/11, окно так и не появляется.
-2. **Блокировка рабочего стола.** Игра выключает все окна системы (`EnableWindow(FALSE)`) и включает их только при выходе через меню. После Alt+Tab или падения рабочий стол «мёртв».
-3. **Защита LaserLock** (`wh32lib.dll`) прячет 325 вызовов API за зашифрованной таблицей.
-4. **Графика.** DirectDraw 7 и Direct3D 7, только 16 бит, полный экран со сменой видеорежима. На современной системе это падения при Alt+Tab, а в окне — перекошенные маски видимости земли (пол пропадает полосами).
+[![Download HogsFix.zip](https://img.shields.io/badge/Download-HogsFix.zip-2ea44f?style=for-the-badge)](https://github.com/accidev/HoG-x64/releases/latest/download/HogsFix.zip)
 
-## Из чего состоит исправление
+<p align="center">
+  <img src="docs/images/battle.jpg" alt="A battle on a hillside in a big window">
+</p>
+<p align="center">
+  <img src="docs/images/river.jpg" width="32%" alt="A map with rivers">
+  <img src="docs/images/trees.jpg" width="32%" alt="A hog salutes its commander">
+  <img src="docs/images/team.jpg" width="32%" alt="The team screen">
+</p>
 
-| файл в папке игры | что делает |
+## What you get
+
+- **The game starts.** Its CD music library hung the Windows 10/11 DLL loader, so the game window never opened. A current build of ogg-winmm replaces it.
+- **The desktop keeps working.** The original disabled all other windows until you quit through its menu, so after Alt+Tab or a crash the desktop stayed dead. Now the game leaves other windows alone.
+- **A new renderer.** The game's DirectDraw 7 and Direct3D 7 calls run on Direct3D 11. There is no display mode switch, transparency is correct and the ground no longer vanishes in stripes. Each frame is rendered at a multiple of the game resolution and scaled down to the window, so edges are smooth.
+- **A big window or borderless fullscreen.** The window opens as large as the screen allows and keeps 4:3. You can resize or maximize it, and Alt+Tab is safe.
+- **More resolutions:** 1280×960, 1600×1200 and 1920×1440, in addition to the original 640×480 to 1024×768.
+- **Camera zoom** with the mouse wheel or Numpad + and −.
+- **A usable gamepad.** The stick dead zone is 15 % instead of 50 %, so the stick reacts over its whole travel.
+- **Straight to the title screen.** There is no resolution dialog and no intro videos. You can turn both back on.
+- **Music** from `MUSIC\TrackNN.ogg`. The in-game music volume no longer changes the game's volume in the Windows mixer.
+
+## Install
+
+You need Hogs of War from Steam (version 1.2) on Windows 10 or 11.
+
+1. Download **[HogsFix.zip](https://github.com/accidev/HoG-x64/releases/latest/download/HogsFix.zip)**.
+2. Open the game folder: in Steam, right-click Hogs of War → **Manage** → **Browse local files**.
+3. Extract the zip into that folder. A `HogsFix` folder appears next to `warhogs_.exe`.
+4. Open `HogsFix` and double-click **`patch.cmd`**. Wait until it says **Done**.
+5. Start the game from Steam as usual.
+
+Good to know:
+
+- Windows can warn you that `patch.cmd` came from the internet. Choose **Run**, or **More info** → **Run anyway**.
+- The patcher checks everything before it changes anything. It keeps the original files as `warhogs_.exe.orig` and `winmm.dll.orig`.
+- **Update:** extract the new zip over the old `HogsFix` folder and run `patch.cmd` again. Your settings in `hogs.ini` are kept.
+- **Uninstall:** double-click `HogsFix\uninstall.cmd`. It puts the original files back and removes the fix with its settings.
+
+## Controls
+
+| Key | Action |
 |---|---|
-| `warhogs_.exe` | патчер переписывает 325 вызовов LaserLock на прямые вызовы API, и вместо `wh32lib.dll` загружается `hogs.dll` |
-| `hogs.dll` | исправления во время работы: окна системы не трогаются; оконный режим: окно сразу большое и держит размер, по желанию без рамки; запуск без окна выбора разрешения и без заставок; разрешения до 1920×1440; отдаление камеры; мёртвая зона стика 15 %; громкость музыки идёт в ogg-winmm, а не в микшер Windows; исправления `_d3d.dll` (смещение кадра, маски видимости земли, объекты за камерой). Журнал `hogs.log` |
-| `ddraw.dll` | свой рендер: DirectDraw 7 / Direct3D 7 игры на Direct3D 11, внутреннее разрешение кратно больше игрового и не меньше экрана. Журнал `hogsdraw.log` |
-| `hogs.ini` | настройки: окно, запуск, геймпад, масштаб рендера, VSync |
-| `winmm.dll`, `winmm.ini` | ogg-winmm (ayuanx) v2025.01.16: музыка из `MUSIC\TrackNN.ogg` |
+| Mouse wheel, Numpad + and − | Camera closer or farther, 50 to 200 % |
+| Shift, held while the game starts | Resolution and detail dialog |
+| F11 | 10 promotion points, if the cheat is on (see below) |
 
-Установка: распаковать `HogsFix` в папку игры и запустить `patch.cmd`. Подробная инструкция для игроков будет позже.
+## Settings
 
-- Игра должна быть закрыта. Всё, что может помешать, патчер проверяет до первого изменения.
-- Обновление — снова `patch.cmd`. В старый `hogs.ini` добавляется секция `[Render]`, значения игрока не меняются.
-- dgVoodoo2 больше не нужен. Если его поставила старая версия патчера, он удаляется. Если ставили вручную, его файлы переименовываются в `*.orig`.
-- Откат: `patch.cmd -Restore`. Он возвращает оригинальные `warhogs_.exe` и `winmm.dll`, а также файлы `*.orig`. Удаляет `hogs.dll`, `ddraw.dll`, журналы и `hogs.ini` вместе с настройками.
+The settings are in `hogs.ini` in the game folder. Restart the game after you change them.
 
-## Структура репозитория
+| Setting | Default | What it does |
+|---|---|---|
+| `[Display] Windowed` | `1` | 1 = window. 0 = the original fullscreen mode, which the new renderer does not support |
+| `[Display] Resizable` | `1` | The window can be resized and maximized |
+| `[Display] Borderless` | `0` | 1 = a borderless window over the whole monitor, like fullscreen |
+| `[Startup] SkipLauncher` | `1` | Start with the resolution chosen last time. Hold Shift at start to choose again |
+| `[Startup] SkipIntro` | `1` | No logos and intro videos at start |
+| `[Gamepad] Deadzone` | `15` | Stick dead zone in percent of its travel. The original game used 50 |
+| `[Render] Scale` | `0` | Render at game resolution × Scale. 0 = enough to cover the monitor |
+| `[Render] VSync` | `1` | Wait for the monitor refresh |
 
-- `src/hogs/` — `hogs.dll` и шаблон `hogs.ini`.
-- `src/ddraw/` — `ddraw.dll` (hogsdraw). `stubs.h` генерирует `tools/gen_com_stubs.py`.
-- `src/d3dtrace/` — трассировщик вызовов `_d3d.dll`, только для разработки (`--target d3dtrace`).
-- `patcher/` — патчер для игроков: `patch.cmd`, `patch.ps1`, описание патча `warhogs_v12.json`.
-- `tools/`:
-  - `dump.ps1`, `unmap_dump.py`, `ll_table.py`, `ll_unwrap.py`, `make_patch.py` — снятие LaserLock и описание патча;
-  - `make_release.ps1` — пакет для игроков `dist/HogsFix.zip`;
-  - `test_patcher.ps1` (+ `test_patcher_lib.ps1`) — проверка патчера на собранном `dist`: 98 проверок в песочнице во временной папке (`pwsh tools\test_patcher.ps1`);
-  - `crash_catch.ps1` — запуск игры под мини-отладчиком: падения со стеком, видеорежим, Alt+Tab, снимки окна;
-  - `gen_com_stubs.py`, `gen_d3dtrace.py` — генераторы кода;
-  - `peimp.py`, `pesym.py` — разбор PE;
-  - `enable-windows.ps1` — разблокировка окон.
-- `unlock-windows.cmd` — разблокировка окон после запуска непропатченной игры (Win+R или диспетчер задач).
-- `third_party/ogg-winmm/` — лицензия (GPL-2.0) и описание ogg-winmm.
-- В `.gitignore` и не публикуются: `ghidra/`, `backup/`, `downloads/`, `work/`, `build/`, `dist/`.
+The interface is drawn in pixels, so it gets smaller at the high resolutions.
 
-## Сборка
+**Cheat.** Add these lines to `hogs.ini`. Then F11 gives the team on screen 10 promotion points (PP), up to 999.
 
-Нужны Visual Studio с C++ и CMake. Игра 32-битная.
-
-```powershell
-cmake -S . -B build -A Win32
-cmake --build build --config Release
-pwsh tools\make_release.ps1          # dist\HogsFix и dist\HogsFix.zip
+```ini
+[Cheats]
+PromotionPoints=1
 ```
 
-## Пересборка описания патча exe
+## Troubleshooting
 
-Скрипты с пометкой «Run under 32-bit Windows PowerShell» запускаются через `C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe`.
+- **No music or sound.** Open the Windows volume mixer and raise Hogs of War. The original game changed its own volume there together with the music volume, and it could leave it at 0. The fix stops this, but a 0 that was saved earlier stays.
+- **"Unknown warhogs_.exe".** Only the Steam version 1.2 is supported. If another tool changed the exe, verify the game files in Steam (Properties → Installed Files → Verify integrity of game files) and run `patch.cmd` again.
+- **"Hogs of War is running".** Close the game, then run `patch.cmd` again.
+- **The game does not start or crashes.** Open an [issue](https://github.com/accidev/HoG-x64/issues) and attach `hogs.log` and `hogsdraw.log` from the game folder.
+
+## How it works
+
+| File in the game folder | Role |
+|---|---|
+| `warhogs_.exe` | Patched by `patch.cmd`. 325 calls that went through the LaserLock copy protection (`wh32lib.dll`) now call Windows directly, and the game loads `hogs.dll` in its place |
+| `hogs.dll` | Fixes applied in memory when the game starts: windows, start-up, camera, gamepad, music volume and the game's renderer `_d3d.dll`. Each fix checks the original bytes first. Log: `hogs.log` |
+| `ddraw.dll` | hogsdraw, the game's DirectDraw 7 and Direct3D 7 on Direct3D 11. Log: `hogsdraw.log` |
+| `winmm.dll`, `winmm.ini` | [ogg-winmm](https://github.com/ayuanx/ogg-winmm) by ayuanx (GPL-2.0): CD music from OGG files |
+| `hogs.ini` | Settings |
+
+This repository contains no game files. The patcher changes your own copy of the game.
+
+## Building from source
+
+You need Visual Studio 2022 or later with C++, CMake and PowerShell 7.
 
 ```powershell
-$p = "D:\SteamLibrary\steamapps\common\HogsofWar\HoG x64"
-$g = "D:\SteamLibrary\steamapps\common\HogsofWar"
-# 1. Дамп. Exe должен быть оригинальным: LaserLock расшифровывает себя в памяти.
-& C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -File "$p\tools\dump.ps1" -Exe "$g\warhogs_.exe" -OutDir "$p\work\dumps"
-# 2. Таблица LaserLock и exe без неё.
-python -I "$p\tools\ll_table.py" "$p\work\dumps\wh32lib.dll_10000000.bin" "$p\work\dumps\warhogs_.exe_00400000.bin" "$p\work\ll_table.json"
-python -I "$p\tools\ll_unwrap.py" "$p\backup\warhogs_.exe.orig" "$p\work\ll_table.json" "$p\work\warhogs_unwrapped.exe" "$p\work\ll_sites.json"
-# 3. Описание патча для патчера.
-python -I "$p\tools\make_patch.py" "$p\backup\warhogs_.exe.orig" "$p\work\warhogs_unwrapped.exe" "$p\work\ll_sites.json" "$p\patcher\warhogs_v12.json"
+pwsh tools/make_release.ps1    # builds dist/HogsFix and dist/HogsFix.zip
 ```
 
-## Отладка
+GitHub Actions builds the same zip on every push, and a `v*` tag publishes it as a release. Developer notes are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The technical log and the renderer analysis are in Russian: [docs/WORKLOG.md](docs/WORKLOG.md), [docs/renderer/](docs/renderer/).
 
-- `hogs.log` и `hogsdraw.log` рядом с игрой.
-- Дамп кадра: в `hogs.ini` добавить `[Debug]` с `FrameDump=1`. Тогда F12 записывает следующий кадр в `hogsdraw_dump\`: все вызовы отрисовки с адресом вызова в `_d3d.dll`, картинку кадра и текстуры.
-- Нет звука: один раз поднять Hogs of War в микшере громкости Windows. Без исправления игра сама меняла там свою громкость вместе с громкостью музыки и могла оставить 0. С `hogs.dll` она этого больше не делает, но уже сохранённое значение остаётся.
+## Roadmap
 
-## Управление и настройки
+- 16:9 widescreen that shows more of the battlefield, not a stretched picture.
+- Long term: decompile the game and build it as a native 64-bit program.
 
-- Колесо мыши или Num+ / Num− — камера ближе или дальше, от 50 до 200 %, шаг 10 %.
-- Shift при запуске игры — окно выбора разрешения и детализации. Без Shift игра стартует с прошлым выбором из `launch.bin`, а если файла нет, окно показывается само.
-- `hogs.ini`:
-  - `[Display] Borderless=1` — окно без рамки на весь монитор, как полный экран;
-  - `[Startup] SkipLauncher`, `SkipIntro` — пропуск окна выбора и заставок, по умолчанию оба включены;
-  - `[Gamepad] Deadzone` — мёртвая зона стика в процентах, по умолчанию 15; в игре было 50;
-  - `[Render] Scale`, `VSync` — масштаб рендера и вертикальная синхронизация.
+The task list is in [docs/TODO.md](docs/TODO.md) (in Russian).
 
-## Чит
+## Credits and license
 
-В `hogs.ini` добавить `[Cheats]` с `PromotionPoints=1`. Тогда F11 даёт команде на экране 10 очков повышения (PP), не больше 999. Очки видны на экране отряда. По умолчанию выключено.
-
-## Что дальше
-
-- Проверить на своём рендере видео Bink в окне и Alt+Tab.
-- README для игроков и релиз на GitHub.
-- Широкий экран 16:9: две правки проекции в `_d3d.dll` и режимы 16:9 (разбор в `docs/WORKLOG.md`).
-- Большая цель: декомпиляция и сборка под x64.
+- The code of this fix is under the [MIT license](LICENSE).
+- [ogg-winmm](https://github.com/ayuanx/ogg-winmm) by ayuanx plays the CD music. It is under GPL-2.0, and the release package includes its license.
+- Hogs of War and its screenshots belong to the game's rights holders. This is an unofficial fan project.
