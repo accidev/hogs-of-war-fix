@@ -183,7 +183,6 @@ public static class Dbg {
                 if (action == "alttab") { log.Add(string.Format("foreground before: {0:X}", GetForegroundWindow().ToInt64())); AltTab(); }
                 acted = DateTime.Now;
             } else if (action == "tour" && acted != DateTime.MinValue && acted != DateTime.MaxValue) {
-                // every 4 s: screenshot + Esc (skips intro videos); 8 rounds
                 if ((DateTime.Now - acted).TotalSeconds > 4 * (tour + 1)) {
                     IntPtr w = Window(pi.pid, "PigsWClass");
                     RECT rc; GetWindowRect(w, out rc);
@@ -197,8 +196,8 @@ public static class Dbg {
                             log.Add(string.Format("{0:N1}s shot {1} printwindow={2}", t, f, ok));
                         }
                     }
-                    // WM_KEYDOWN Esc sets the game's video-skip flag (MainWndProc); stop after two,
-                    // or it reaches "Really quit app?" in the menu
+                    // WM_KEYDOWN Esc sets the game's video-skip flag (MainWndProc). Send it only
+                    // escRounds times: a later one would reach "Really quit app?" in the menu
                     if (tour < escRounds) { PostMessageA(w, 0x0100, new IntPtr(0x1B), new IntPtr(0x00010001)); PostMessageA(w, 0x0101, new IntPtr(0x1B), new IntPtr(unchecked((int)0xC0010001))); }
                     if (++tour >= 8) { log.Add("tour done; killing"); TerminateProcess(hProc, 0); acted = DateTime.MaxValue; }
                 }

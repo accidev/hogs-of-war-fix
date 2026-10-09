@@ -2,8 +2,7 @@
 #pragma once
 #include "objects.h"
 
-/* Part of the DirectDraw object (DirectX 7 aggregates them): same reference count, deleted
- * together with it. */
+/* Part of the DirectDraw object, as in DirectX 7: same reference count, deleted with it. */
 struct Direct3D : IDirect3D7Stubs {
     DirectDraw *dd;
     explicit Direct3D(DirectDraw *d) : dd(d) {}

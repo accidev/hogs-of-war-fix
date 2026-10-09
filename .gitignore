@@ -1,4 +1,4 @@
-# Game binaries, dumps and large third-party archives stay out of git.
+# Game files, dumps, downloads, the Ghidra project and build output stay out of git.
 work/
 downloads/
 backup/

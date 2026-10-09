@@ -1,16 +1,14 @@
 # Helpers for tools\test_patcher.ps1 (dot-sourced by it, not meant to be run on its own). PowerShell 7.
-#
-# Paths: repo = the parent of this folder. The tests work in <temp>\hogsfix-patcher-tests, which
-# test_patcher.ps1 creates and deletes; nothing else is written and no game folder is used.
+# $repo is the parent of this folder, $T the scratch folder described in test_patcher.ps1.
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $T = Join-Path ([IO.Path]::GetTempPath()) 'hogsfix-patcher-tests'
 $dgvDir = Join-Path $T '_dgv'                 # dgVoodoo files, extracted from downloads\dgVoodoo2_87_5.zip
 $dist = Join-Path $repo 'dist\HogsFix'     # the package under test, built by tools\make_release.ps1
 $ps51 = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-$oldRev = '6943c20'                        # the last commit before ddraw.dll: its patcher\ is the previous release
+$oldRev = '6943c20'                        # the last commit before the patcher shipped ddraw.dll: its patcher\ is the previous release
 
-# Files that are not in git (backup\ and downloads\ are ignored, dist\ is built): stop and say which one is missing.
+# Inputs that are not in git (listed in test_patcher.ps1): stop and name the missing one.
 function Need([string]$rel, [string]$what) {
     if (-not [IO.File]::Exists((Join-Path $repo $rel))) { throw "test_patcher: $rel is missing ($what)" }
 }

@@ -49,7 +49,6 @@ Surface::Surface(const DDSURFACEDESC2 &d) : desc(d)
 
 Surface::~Surface()
 {
-    /* clear every weak link to this surface */
     g_surfaces.erase(std::remove(g_surfaces.begin(), g_surfaces.end(), this), g_surfaces.end());
     for (Surface *s : g_surfaces)
         if (s->attached == this) {
@@ -162,9 +161,7 @@ HRESULT STDMETHODCALLTYPE Surface::QueryInterface(REFIID riid, void **out)
     return E_NOINTERFACE;
 }
 
-/* ---- blits ---- */
-
-/* Clip dst against the destination and map the cut back onto src (stretch-aware). */
+/* Clip d to the surface (dw x dh) and cut s by the same share, so a stretched blit keeps its proportions. */
 static bool clip(RECT &d, RECT &s, int dw, int dh)
 {
     if (d.right <= d.left || d.bottom <= d.top || s.right <= s.left || s.bottom <= s.top)
@@ -456,8 +453,6 @@ HRESULT STDMETHODCALLTYPE Surface::GetDDInterface(LPVOID FAR *out)
     *out = (IDirectDraw7 *)g_ddraw;
     return DD_OK;
 }
-
-/* ---- palette, clipper ---- */
 
 Palette::~Palette()
 {

@@ -219,10 +219,10 @@ static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
 
 /* Windowed mode: FUN_0044D040(w, h) sized the game window to a w x h client area on every
  * screen change (menus 640x480, battles the launcher's resolution), a small window on today's
- * monitors. The renderer gets the game resolution from game_client_rect() and scales the frame
- * into any window, so the window is placed once: [Display] Borderless=1 covers the monitor,
- * otherwise it is the largest window with the game's aspect ratio that fits the work area.
- * After that it keeps the size and state the player gives it. */
+ * monitors. Now the window is placed once, since the renderer copes with any size (see
+ * game_client_rect). [Display] Borderless=1 covers the monitor, otherwise it is the largest
+ * window with the game's aspect ratio that fits the work area. After that it keeps the size
+ * and state the player gives it. */
 static BOOL g_borderless;
 
 static void __stdcall size_game_window(int w, int h)
@@ -395,7 +395,7 @@ static void apply_fixes(void)
         patch(0x481726, "\x3D\x00\x04\x00\x00", "\x3D\x00\x08\x00\x00", 5, "launcher: modes up to 2048 wide");
         patch(0x481740, "\x81\xF9\x00\x03\x00\x00", "\x81\xF9\x00\x06\x00\x00", 6, "launcher: modes up to 1536 high");
 
-        /* the camera zoom lives in the window procedure; table entries 0 and 1 must match */
+        /* g_camera switches the zoom on: fill it only if table entries 0 and 1 are the known ones */
         if (memcmp((void *)0x4D9528, "\x00\x0C\x00\x03\x00\x00\x00\x0C\x00\x04\x00\x00", 12) == 0) {
             memcpy(g_camera, (void *)0x4D9528, sizeof g_camera);
             say("ok   %-40s %08X", "camera zoom: mouse wheel, numpad +/-", 0x4D9528);

@@ -7,8 +7,6 @@
 
 std::vector<Device *> g_devices;
 
-/* ---- IDirect3D7 ---- */
-
 HRESULT STDMETHODCALLTYPE Direct3D::QueryInterface(REFIID riid, void **out)
 {
     if (riid == IID_IDirect3D7) {
@@ -98,8 +96,6 @@ HRESULT STDMETHODCALLTYPE Direct3D::CreateDevice(REFCLSID, LPDIRECTDRAWSURFACE7 
     log_printf("CreateDevice on %dx%d target", ((Surface *)rt)->w, ((Surface *)rt)->h);
     return D3D_OK;
 }
-
-/* ---- IDirect3DDevice7 ---- */
 
 Device::Device(Direct3D *d, Surface *rt) : d3d(d), target(rt)
 {

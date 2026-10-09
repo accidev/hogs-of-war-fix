@@ -38,8 +38,8 @@ HRESULT STDMETHODCALLTYPE DirectDraw::QueryInterface(REFIID riid, void **out)
         return S_OK;
     }
     if (riid == IID_IDirect3D7) {
-        /* one COM object: IDirect3D7 shares this reference count, as in DirectX 7. The
-         * launcher never releases it but still loops dd->Release() down to 0. */
+        /* The launcher never releases IDirect3D7 but still loops dd->Release() down to 0,
+         * so the two share one reference count (see d3d7.h). */
         if (!d3d)
             d3d = new Direct3D(this);
         AddRef();
@@ -183,8 +183,6 @@ HRESULT STDMETHODCALLTYPE DirectDraw::GetDeviceIdentifier(LPDDDEVICEIDENTIFIER2 
     return DD_OK;
 }
 
-/* ---- exports ---- */
-
 extern "C" HRESULT WINAPI DirectDrawCreateEx(GUID FAR *, LPVOID *out, REFIID iid, IUnknown FAR *)
 {
     if (iid != IID_IDirectDraw7) {
@@ -209,7 +207,6 @@ extern "C" HRESULT WINAPI DirectDrawCreate(GUID FAR *, LPDIRECTDRAW FAR *out, IU
 
 extern "C" HRESULT WINAPI DirectDrawEnumerateExA(LPDDENUMCALLBACKEXA cb, LPVOID ctx, DWORD)
 {
-    /* one adapter: the primary display */
     cb(nullptr, (LPSTR) "Primary Display Driver", (LPSTR) "display", ctx, nullptr);
     return DD_OK;
 }

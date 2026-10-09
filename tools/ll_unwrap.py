@@ -80,7 +80,6 @@ for r in rows:
 known = {e['site']: e['api'] for e in out}
 assert known.get('0x4811bf') == 'KERNEL32.dll!LoadLibraryA', known.get('0x4811bf')
 
-# no call through the CallDLL slot may remain
 left = exe.count(b'\xff\x15' + struct.pack('<I', CALLDLL_SLOT)) + exe.count(b'\xff\x25' + struct.pack('<I', CALLDLL_SLOT))
 assert left == 0, f'{left} CallDLL references left'
 

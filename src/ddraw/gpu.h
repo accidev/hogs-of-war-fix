@@ -31,7 +31,6 @@ void set_mode(int width, int height);            /* game resolution = back buffe
 int width();
 int height();
 
-/* Direct3D */
 void set_clip(int x, int y, int w, int h);       /* D3D7 viewport: 3D primitives are clipped to it */
 void clear_depth(float z);
 void clear_target(uint32_t color);               /* D3DCOLOR */

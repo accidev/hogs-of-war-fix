@@ -31,7 +31,6 @@ def to_fo(va):
     raise ValueError(hex(va))
 
 
-# contiguous runs of differing bytes
 runs, i = [], 0
 while i < len(orig):
     if orig[i] != new[i]:

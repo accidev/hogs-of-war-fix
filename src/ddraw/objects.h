@@ -1,5 +1,5 @@
 /* The DirectX 7 objects hogsdraw hands to the game. Each derives from a generated stub class
- * (stubs.h) and overrides only the methods the game uses; anything else is logged. */
+ * (stubs.h) and overrides only the methods the game uses. */
 #pragma once
 #include "stubs.h"
 #include "gpu.h"
@@ -57,7 +57,7 @@ struct Surface : IDirectDrawSurface7Stubs {
     ~Surface();
     void make_storage();
     void sync_from_gpu();          /* back buffer: refresh the CPU copy */
-    void wrote_cpu();              /* CPU pixels changed */
+    void wrote_cpu();
     uint16_t key_value() const { return (uint16_t)src_key.dwColorSpaceLowValue; }
     gpu::Texture *texture();       /* textures: GPU copy, uploaded when stale */
 
@@ -110,7 +110,7 @@ struct Direct3D;
 struct DirectDraw : IDirectDraw7Stubs {
     HOGS_IUNKNOWN(DirectDraw)
     ~DirectDraw();
-    Direct3D *d3d = nullptr;       /* same COM object: shares this reference count, owned */
+    Direct3D *d3d = nullptr;
     HWND hwnd = nullptr;
     DWORD coop = 0;
     int mode_w = 640, mode_h = 480;
@@ -135,7 +135,7 @@ struct DirectDraw : IDirectDraw7Stubs {
 
 /* settings from hogs.ini [Render] and [Debug] */
 struct Config {
-    int scale = 0;      /* back buffer = game resolution x scale; 0 = as large as the monitor allows */
+    int scale = 0;      /* back buffer = game resolution x scale; 0 = enough to cover the monitor */
     int vsync = 1;
     int frame_dump = 0; /* [Debug] FrameDump: F12 dumps a frame, see capture.cpp */
     int frame_dump_at = 0; /* [Debug] FrameDumpAt: also dump this frame number by itself */
@@ -146,8 +146,8 @@ struct Device;
 extern std::vector<Surface *> g_surfaces;  /* all live surfaces, to clear weak links */
 extern std::vector<Device *> g_devices;
 
-/* 16-bit display format every surface without an explicit pixel format gets (RGB565): the
- * game's own 2D code writes only 8/16-bit pixels. */
+/* RGB565, the display format hogsdraw reports and gives every surface without its own pixel
+ * format: the game's 2D code writes only 8- and 16-bit pixels. */
 void rgb565_format(DDPIXELFORMAT &pf);
 /* present the back buffer (windowed Blt to the primary, or Flip) */
 void present_frame();

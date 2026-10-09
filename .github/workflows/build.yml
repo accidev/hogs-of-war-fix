@@ -1,6 +1,6 @@
 # Builds hogs.dll and ddraw.dll and packs HogsFix.zip on every push and pull request
 # (the zip is attached to the run as an artifact). A pushed tag v* also publishes the zip
-# as a GitHub release:  git tag v1.0.0  then  git push origin v1.0.0
+# as a GitHub release: git tag v1.0.0, then git push origin v1.0.0.
 name: Build
 
 on:
