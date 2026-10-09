@@ -13,6 +13,14 @@ PATCHES = [
     # Alt+Tab / Ctrl+Alt+Del. Replace the stdcall with `add esp,16` (pops its 4 args).
     (0x44CFC1, 'ff 15 e8 f5 54 00', '83 c4 10 90 90 90', 'drop SPI_SCREENSAVERRUNNING on start'),
     (0x47EA97, 'ff 15 e8 f5 54 00', '83 c4 10 90 90 90', 'drop SPI_SCREENSAVERRUNNING on exit'),
+    # Init (FUN_0047F0B0) hardcodes cfg+0x314 ("fullscreen") = 1 via `mov [edx+0x314],ebx`.
+    # The config block was zeroed just before, so NOPing the store selects the developers'
+    # windowed mode: DDSCL_NORMAL, mode index -1, framed window sized to the game resolution.
+    # (The launcher still forces fullscreen for a non-primary adapter such as a 3dfx card.)
+    (0x47F174, '89 9a 14 03 00 00', '90 90 90 90 90 90', 'windowed mode by default'),
+    # Main window style WS_CAPTION|WS_SYSMENU -> WS_OVERLAPPEDWINDOW: resizable, min/max
+    # buttons. WM_SIZE already re-reads the client rect the game blits into.
+    (0x44CF58, '68 00 00 c8 00', '68 00 00 cf 00', 'resizable framed window'),
 ]
 
 BASE = 0x400000
