@@ -1,0 +1,5 @@
+# Game binaries, dumps and large third-party archives stay out of git.
+work/
+downloads/
+backup/
+ghidra/
