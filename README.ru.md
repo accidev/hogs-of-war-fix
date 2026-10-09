@@ -2,12 +2,12 @@
 
 [English](README.md) · **Русский**
 
-[![Build](https://github.com/accidev/HoG-x64/actions/workflows/build.yml/badge.svg)](https://github.com/accidev/HoG-x64/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/accidev/HoG-x64)](https://github.com/accidev/HoG-x64/releases/latest)
+[![Build](https://github.com/accidev/hogs-of-war-fix/actions/workflows/build.yml/badge.svg)](https://github.com/accidev/hogs-of-war-fix/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/accidev/hogs-of-war-fix)](https://github.com/accidev/hogs-of-war-fix/releases/latest)
 
 [Hogs of War](https://store.steampowered.com/app/389900/Hogs_of_War/) («Свиньи войны») — пошаговая тактика про свиней, которую в 2000 году сделали Gremlin Interactive и Infogrames. Это классика PlayStation 1, игра выходила и на Windows. Steam-версия для Windows не запускается на Windows 10 и 11, а пока работает, выключает все остальные окна рабочего стола. Это фанатское исправление возвращает игру к жизни: большое окно или полный экран без рамки, новый рендер на Direct3D 11, музыка, отдаление камеры и нормальный геймпад.
 
-[![Скачать HogsFix.zip](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-HogsFix.zip-2ea44f?style=for-the-badge)](https://github.com/accidev/HoG-x64/releases/latest/download/HogsFix.zip)
+[![Скачать HogsFix.zip](https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-HogsFix.zip-2ea44f?style=for-the-badge)](https://github.com/accidev/hogs-of-war-fix/releases/latest/download/HogsFix.zip)
 
 <p align="center">
   <img src="docs/images/battle.jpg" alt="Бой на холмах в большом окне">
@@ -34,7 +34,7 @@
 
 Нужна Hogs of War из Steam (версия 1.2) на Windows 10 или 11.
 
-1. Скачайте **[HogsFix.zip](https://github.com/accidev/HoG-x64/releases/latest/download/HogsFix.zip)**.
+1. Скачайте **[HogsFix.zip](https://github.com/accidev/hogs-of-war-fix/releases/latest/download/HogsFix.zip)**.
 2. Откройте папку игры: в Steam правой кнопкой по Hogs of War → **Управление** → **Просмотреть локальные файлы**.
 3. Распакуйте архив в эту папку. Рядом с `warhogs_.exe` появится папка `HogsFix`.
 4. Откройте `HogsFix` и дважды щёлкните **`patch.cmd`**. Дождитесь надписи **Done**.
@@ -84,7 +84,7 @@ PromotionPoints=1
 - **Нет музыки или звука.** Откройте микшер громкости Windows и поднимите Hogs of War. Оригинальная игра меняла там свою громкость вместе с громкостью музыки и могла оставить 0. Исправление это прекращает, но сохранённый раньше 0 остаётся.
 - **«Unknown warhogs_.exe».** Поддерживается только Steam-версия 1.2. Если exe изменила другая программа, проверьте файлы игры в Steam (Свойства → Установленные файлы → Проверить целостность файлов игры) и снова запустите `patch.cmd`.
 - **«Hogs of War is running».** Закройте игру и снова запустите `patch.cmd`.
-- **Игра не запускается или падает.** Создайте [issue](https://github.com/accidev/HoG-x64/issues) и приложите `hogs.log` и `hogsdraw.log` из папки игры.
+- **Игра не запускается или падает.** Создайте [issue](https://github.com/accidev/hogs-of-war-fix/issues) и приложите `hogs.log` и `hogsdraw.log` из папки игры.
 
 ## Как это устроено
 

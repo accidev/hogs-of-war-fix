@@ -2,12 +2,12 @@
 
 **English** · [Русский](README.ru.md)
 
-[![Build](https://github.com/accidev/HoG-x64/actions/workflows/build.yml/badge.svg)](https://github.com/accidev/HoG-x64/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/accidev/HoG-x64)](https://github.com/accidev/HoG-x64/releases/latest)
+[![Build](https://github.com/accidev/hogs-of-war-fix/actions/workflows/build.yml/badge.svg)](https://github.com/accidev/hogs-of-war-fix/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/accidev/hogs-of-war-fix)](https://github.com/accidev/hogs-of-war-fix/releases/latest)
 
 [Hogs of War](https://store.steampowered.com/app/389900/Hogs_of_War/) is a turn-based tactics game with pigs, made in 2000 by Gremlin Interactive and Infogrames. It is a PlayStation 1 classic that also came out on Windows. The Steam version of the Windows game does not start on Windows 10 and 11, and while it runs, it disables every other window on the desktop. This fan fix makes the game start and play well: in a big window or borderless fullscreen, on a new Direct3D 11 renderer, with music, camera zoom and a usable gamepad.
 
-[![Download HogsFix.zip](https://img.shields.io/badge/Download-HogsFix.zip-2ea44f?style=for-the-badge)](https://github.com/accidev/HoG-x64/releases/latest/download/HogsFix.zip)
+[![Download HogsFix.zip](https://img.shields.io/badge/Download-HogsFix.zip-2ea44f?style=for-the-badge)](https://github.com/accidev/hogs-of-war-fix/releases/latest/download/HogsFix.zip)
 
 <p align="center">
   <img src="docs/images/battle.jpg" alt="A battle on a hillside in a big window">
@@ -34,7 +34,7 @@
 
 You need Hogs of War from Steam (version 1.2) on Windows 10 or 11.
 
-1. Download **[HogsFix.zip](https://github.com/accidev/HoG-x64/releases/latest/download/HogsFix.zip)**.
+1. Download **[HogsFix.zip](https://github.com/accidev/hogs-of-war-fix/releases/latest/download/HogsFix.zip)**.
 2. Open the game folder: in Steam, right-click Hogs of War → **Manage** → **Browse local files**.
 3. Extract the zip into that folder. A `HogsFix` folder appears next to `warhogs_.exe`.
 4. Open `HogsFix` and double-click **`patch.cmd`**. Wait until it says **Done**.
@@ -84,7 +84,7 @@ PromotionPoints=1
 - **No music or sound.** Open the Windows volume mixer and raise Hogs of War. The original game changed its own volume there together with the music volume, and it could leave it at 0. The fix stops this, but a 0 that was saved earlier stays.
 - **"Unknown warhogs_.exe".** Only the Steam version 1.2 is supported. If another tool changed the exe, verify the game files in Steam (Properties → Installed Files → Verify integrity of game files) and run `patch.cmd` again.
 - **"Hogs of War is running".** Close the game, then run `patch.cmd` again.
-- **The game does not start or crashes.** Open an [issue](https://github.com/accidev/HoG-x64/issues) and attach `hogs.log` and `hogsdraw.log` from the game folder.
+- **The game does not start or crashes.** Open an [issue](https://github.com/accidev/hogs-of-war-fix/issues) and attach `hogs.log` and `hogsdraw.log` from the game folder.
 
 ## How it works
 
