@@ -54,6 +54,76 @@ static BOOL hook(DWORD va, const void *old5, const void *fn, const char *what)
     return patch(va, old5, jmp, 5, what);
 }
 
+/* Point the exe's import slot at repl, after checking it holds dll!fn; *orig gets the real one. */
+static BOOL hook_import(DWORD slot_va, const char *dll, const char *fn, const void *repl, void *orig, const char *what)
+{
+    FARPROC *slot = (FARPROC *)(ULONG_PTR)slot_va;
+    FARPROC real = GetProcAddress(GetModuleHandleA(dll), fn);
+    DWORD prot;
+
+    if (!real || *slot != real) {
+        say("skip %-40s %08X: slot does not hold %s!%s", what, slot_va, dll, fn);
+        return FALSE;
+    }
+    *(FARPROC *)orig = real;
+    VirtualProtect(slot, sizeof *slot, PAGE_READWRITE, &prot);
+    *slot = (FARPROC)repl;
+    VirtualProtect(slot, sizeof *slot, prot, &prot);
+    say("ok   %-40s %08X", what, slot_va);
+    return TRUE;
+}
+
+/* The renderer, Data\_d3d.dll, is loaded with LoadLibraryA while the game starts up
+ * (0x4ADB03), so its fixes are applied right after that call returns. */
+static HMODULE(WINAPI *g_load_library)(LPCSTR);
+
+static void fix_renderer(HMODULE renderer)
+{
+    DWORD base = (DWORD)(ULONG_PTR)renderer;
+
+    /* CopyToScreen, windowed path: the client origin comes from
+     * AdjustWindowRectEx(&rc, style, bMenu=TRUE, exstyle), but the game window has no menu,
+     * so every frame was blitted SM_CYMENU (~20 px) too low. push 1 -> push 0 (bMenu=FALSE). */
+    patch(base + 0x321B, "\x50\x6A\x01\x8D\x4C\x24\x24", "\x50\x6A\x00\x8D\x4C\x24\x24", 7,
+          "renderer: blit at the real client origin");
+}
+
+static HMODULE WINAPI load_library(LPCSTR name)
+{
+    HMODULE m = g_load_library(name);
+    const char *file = name;
+    const char *p;
+
+    for (p = name; p && *p; p++)
+        if (*p == '\\' || *p == '/')
+            file = p + 1;
+    if (m && file && _stricmp(file, "_d3d.dll") == 0)
+        fix_renderer(m);
+    return m;
+}
+
+/* Windowed mode: FUN_0044D040(w, h) sizes the game window for a w x h client area and centres
+ * it. The original adds system metrics by hand (frame, caption and a menu bar the window does
+ * not have) and is a few pixels off on Windows 10/11; the renderer sizes its windowed back
+ * buffer from the client area, so 640x480 was rendered into 638x478 or 640x500. */
+static void __stdcall size_game_window(int w, int h)
+{
+    HWND hwnd = *(HWND *)0x520860;
+    RECT r = { 0, 0, w, h };
+    MONITORINFO mi = { sizeof mi };
+
+    if (!hwnd)
+        return;
+    if (IsZoomed(hwnd)) /* a maximized window would keep its size */
+        ShowWindow(hwnd, SW_RESTORE);
+    AdjustWindowRectEx(&r, (DWORD)GetWindowLongA(hwnd, GWL_STYLE), FALSE, (DWORD)GetWindowLongA(hwnd, GWL_EXSTYLE));
+    GetMonitorInfoA(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &mi);
+    w = r.right - r.left;
+    h = r.bottom - r.top;
+    SetWindowPos(hwnd, NULL, mi.rcWork.left + (mi.rcWork.right - mi.rcWork.left - w) / 2,
+                 mi.rcWork.top + (mi.rcWork.bottom - mi.rcWork.top - h) / 2, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 /* The game disables every top-level window in the system while it runs: the EnumWindows
  * callback at 0x44CE80 calls EnableWindow on each foreign window, and the windows are
  * re-enabled only on a clean exit. A crash or Alt+Tab left the whole desktop dead. */
@@ -90,7 +160,14 @@ static void apply_fixes(void)
          * minimize/maximize. WM_SIZE already re-reads the client rect the frame is blitted to. */
         if (resizable)
             patch(0x44CF58, "\x68\x00\x00\xC8\x00", "\x68\x00\x00\xCF\x00", 5, "resizable window");
+
+        /* Exact client area for the game resolution. Pairs with the renderer's bMenu fix in
+         * fix_renderer(): one without the other just moves the black band. */
+        hook(0x44D040, "\xA1\x60\x08\x52\x00", size_game_window, "exact window size");
     }
+
+    hook_import(0x54F434, "kernel32.dll", "LoadLibraryA", load_library, &g_load_library,
+                "fix the renderer when it is loaded");
 }
 
 /* The exe still imports CallDLL (LaserLock's old entry point). All 325 call sites that went

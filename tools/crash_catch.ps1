@@ -2,7 +2,7 @@
 # Starts the game under a minimal debugger, presses Start in the launcher dialog, waits,
 # minimizes the game window (what Alt+Tab does to it) and reports access violations with
 # registers and a stack scan, mapped to modules.
-param([string]$Exe, [int]$RunSec = 10, [int]$AfterSec = 6, [string]$Action = "minimize", [string]$Shot)
+param([string]$Exe, [int]$RunSec = 10, [int]$AfterSec = 6, [string]$Action = "minimize", [string]$Shot, [int]$EscRounds = 2)
 
 Add-Type -ReferencedAssemblies System.Drawing @"
 using System; using System.Text; using System.Collections.Generic; using System.Runtime.InteropServices;
@@ -131,6 +131,7 @@ public static class Dbg {
     }
 
     public static string shot;
+    public static int escRounds = 2;
     public static List<string> Run(string exe, int runSec, int afterSec, string action) {
         var si = new STARTUPINFO(); si.cb = Marshal.SizeOf(si); PROCINFO pi;
         if (!CreateProcessW(exe, "\"" + exe + "\"", IntPtr.Zero, IntPtr.Zero, false, 0x2, IntPtr.Zero, System.IO.Path.GetDirectoryName(exe), ref si, out pi))
@@ -202,7 +203,7 @@ public static class Dbg {
                     }
                     // WM_KEYDOWN Esc sets the game's video-skip flag (MainWndProc); stop after two,
                     // or it reaches "Really quit app?" in the menu
-                    if (tour < 2) { PostMessageA(w, 0x0100, new IntPtr(0x1B), new IntPtr(0x00010001)); PostMessageA(w, 0x0101, new IntPtr(0x1B), new IntPtr(unchecked((int)0xC0010001))); }
+                    if (tour < escRounds) { PostMessageA(w, 0x0100, new IntPtr(0x1B), new IntPtr(0x00010001)); PostMessageA(w, 0x0101, new IntPtr(0x1B), new IntPtr(unchecked((int)0xC0010001))); }
                     if (++tour >= 8) { log.Add("tour done; killing"); TerminateProcess(hProc, 0); acted = DateTime.MaxValue; }
                 }
             } else if (action == "alttab" && acted != DateTime.MinValue && acted != DateTime.MaxValue && !returned && (DateTime.Now - acted).TotalSeconds > 3) {
@@ -221,4 +222,5 @@ public static class Dbg {
 "@
 
 if ($Shot) { [Dbg]::shot = $Shot }
+[Dbg]::escRounds = $EscRounds
 [Dbg]::Run($Exe, $RunSec, $AfterSec, $Action)
