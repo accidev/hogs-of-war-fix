@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static FILE *g_log;
@@ -54,7 +55,7 @@ static BOOL hook(DWORD va, const void *old5, const void *fn, const char *what)
     return patch(va, old5, jmp, 5, what);
 }
 
-/* Point the exe's import slot at repl, after checking it holds dll!fn; *orig gets the real one. */
+/* Point an import slot at repl, after checking it holds dll!fn; *orig (if given) gets the real one. */
 static BOOL hook_import(DWORD slot_va, const char *dll, const char *fn, const void *repl, void *orig, const char *what)
 {
     FARPROC *slot = (FARPROC *)(ULONG_PTR)slot_va;
@@ -65,7 +66,8 @@ static BOOL hook_import(DWORD slot_va, const char *dll, const char *fn, const vo
         say("skip %-40s %08X: slot does not hold %s!%s", what, slot_va, dll, fn);
         return FALSE;
     }
-    *(FARPROC *)orig = real;
+    if (orig)
+        *(FARPROC *)orig = real;
     VirtualProtect(slot, sizeof *slot, PAGE_READWRITE, &prot);
     *slot = (FARPROC)repl;
     VirtualProtect(slot, sizeof *slot, prot, &prot);
@@ -77,6 +79,42 @@ static BOOL hook_import(DWORD slot_va, const char *dll, const char *fn, const vo
  * (0x4ADB03), so its fixes are applied right after that call returns. */
 static HMODULE(WINAPI *g_load_library)(LPCSTR);
 
+/* The renderer loads its 10 terrain visibility masks (language\tims\nview00N.bmp, 33x33,
+ * black = draw that block of 4x4 tiles) with LoadImageA as device-dependent bitmaps, copies
+ * 2 KB of each with GetBitmapBits and reads one 16-bit entry per pixel. That only holds on a
+ * 16-bit desktop: on a 32-bit one every pixel filled two entries, the masks came out skewed
+ * and the ground near the camera vanished in stripes. Copy the bits as a 16-bit bitmap holds them. */
+static LONG WINAPI bitmap_bits_16bpp(HBITMAP bm, LONG size, LPVOID out)
+{
+    BITMAPINFO bi = { { sizeof bi.bmiHeader } };
+    BITMAP b;
+    BYTE *dib;
+    HDC dc;
+    LONG row, stride, y, n = 0;
+
+    if (!GetObjectA(bm, sizeof b, &b))
+        return 0;
+    row = b.bmWidth * 2;     /* GetBitmapBits rows are WORD aligned: never padded at 16 bpp */
+    stride = (row + 3) & ~3; /* GetDIBits rows are DWORD aligned */
+    bi.bmiHeader.biWidth = b.bmWidth;
+    bi.bmiHeader.biHeight = -b.bmHeight; /* top-down, like a device-dependent bitmap */
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 16; /* BI_RGB: X1R5G5B5 */
+    dib = (BYTE *)malloc((size_t)stride * b.bmHeight);
+    if (!dib)
+        return 0;
+    dc = GetDC(NULL);
+    if (GetDIBits(dc, bm, 0, b.bmHeight, dib, &bi, DIB_RGB_COLORS))
+        for (y = 0; y < b.bmHeight && n < size; y++) {
+            LONG k = row < size - n ? row : size - n;
+            memcpy((BYTE *)out + n, dib + y * stride, k);
+            n += k;
+        }
+    ReleaseDC(NULL, dc);
+    free(dib);
+    return n;
+}
+
 static void fix_renderer(HMODULE renderer)
 {
     DWORD base = (DWORD)(ULONG_PTR)renderer;
@@ -86,6 +124,10 @@ static void fix_renderer(HMODULE renderer)
      * so every frame was blitted SM_CYMENU (~20 px) too low. push 1 -> push 0 (bMenu=FALSE). */
     patch(base + 0x321B, "\x50\x6A\x01\x8D\x4C\x24\x24", "\x50\x6A\x00\x8D\x4C\x24\x24", 7,
           "renderer: blit at the real client origin");
+
+    /* GetBitmapBits has one caller, the nview mask loader FUN_10014120 */
+    hook_import(base + 0x1ED719C, "gdi32.dll", "GetBitmapBits", bitmap_bits_16bpp, NULL,
+                "renderer: 16-bit terrain masks");
 }
 
 static HMODULE WINAPI load_library(LPCSTR name)
