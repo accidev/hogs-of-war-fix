@@ -350,12 +350,16 @@ bool init(HWND hwnd, int scale)
     IDXGIAdapter *ad = nullptr;
     IDXGIFactory2 *fac = nullptr;
     g_dev->QueryInterface(__uuidof(IDXGIDevice1), (void **)&xd);
-    /* A vsynced Present returns at once until this many frames wait for the monitor. With the
-     * default of 3 the game ran up to three frames ahead of the screen (50 ms at 60 Hz). With 1,
-     * Present waits one refresh per frame: that paces the battle frames of hogs.dll (frames.c). */
-    xd->SetMaximumFrameLatency(1);
-    xd->GetAdapter(&ad);
-    ad->GetParent(__uuidof(IDXGIFactory2), (void **)&fac);
+    if (xd) {
+        /* A vsynced Present returns at once until this many frames wait for the monitor. With
+         * the default of 3 the game ran up to three frames ahead of the screen (50 ms at 60 Hz).
+         * With 1, Present waits one refresh per frame: that paces the battle frames of hogs.dll
+         * (frames.c). */
+        xd->SetMaximumFrameLatency(1);
+        xd->GetAdapter(&ad);
+    }
+    if (ad)
+        ad->GetParent(__uuidof(IDXGIFactory2), (void **)&fac);
     RECT rc;
     GetClientRect(hwnd, &rc);
     DXGI_SWAP_CHAIN_DESC1 sd = {};
@@ -367,14 +371,14 @@ bool init(HWND hwnd, int scale)
     sd.BufferCount = 2;
     sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     bool ok = fac && check(fac->CreateSwapChainForHwnd(g_dev, hwnd, &sd, nullptr, nullptr, &g_swap),
-                           "CreateSwapChainForHwnd"); /* no IDXGIFactory2 before Windows 8 */
+                           "CreateSwapChainForHwnd"); /* a flip-discard swap chain needs Windows 10 */
     if (ok)
         fac->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER | DXGI_MWA_NO_WINDOW_CHANGES);
     release(fac);
     release(ad);
     release(xd);
     if (!ok || !create_pipeline()) {
-        /* leave nothing half-built: without g_dev every entry point is a no-op */
+        /* without g_dev every entry point is a no-op */
         release(g_swap);
         release(g_ctx);
         release(g_dev);
@@ -396,7 +400,7 @@ int height() { return g_h; }
 
 void set_mode(int w, int h)
 {
-    if (!g_dev || (w == g_w && h == g_h && g_back))
+    if (!g_dev || w <= 0 || h <= 0 || (w == g_w && h == g_h && g_back))
         return;
     flush();
     release(g_back_srv);
@@ -776,17 +780,17 @@ static void draw_back_buffer(ID3D11RenderTargetView *rtv, int w, int h, const RE
     g_ctx->PSSetShaderResources(0, 1, &none); /* the back buffer is a render target again next */
 }
 
-void read_back(uint16_t *bits, int pitch)
+bool read_back(uint16_t *bits, int pitch)
 {
     if (!ready() || !g_small_rtv || !g_staging)
-        return;
+        return false;
     flush();
     /* scale down into g_small, then copy to the CPU */
     draw_back_buffer(g_small_rtv, g_w, g_h, RECT{ 0, 0, g_w, g_h });
     g_ctx->CopyResource(g_staging, g_small);
     D3D11_MAPPED_SUBRESOURCE m;
     if (FAILED(g_ctx->Map(g_staging, 0, D3D11_MAP_READ, 0, &m)))
-        return;
+        return false;
     for (int y = 0; y < g_h; y++) {
         const uint8_t *s = (const uint8_t *)m.pData + y * m.RowPitch;
         uint16_t *d = (uint16_t *)((uint8_t *)bits + y * pitch);
@@ -794,6 +798,7 @@ void read_back(uint16_t *bits, int pitch)
             d[x] = (uint16_t)((s[2] >> 3) << 11 | (s[1] >> 2) << 5 | s[0] >> 3);
     }
     g_ctx->Unmap(g_staging, 0);
+    return true;
 }
 
 void write_back(const uint16_t *bits, int pitch)
@@ -809,7 +814,8 @@ static void resize_swap_chain()
     RECT rc;
     GetClientRect(g_hwnd, &rc);
     int w = rc.right, h = rc.bottom;
-    if (w <= 0 || h <= 0 || (w == g_swap_w && h == g_swap_h))
+    /* without a view the last resize failed half way: try again, or the window stays black */
+    if (w <= 0 || h <= 0 || (g_swap_rtv && w == g_swap_w && h == g_swap_h))
         return;
     release(g_swap_rtv);
     g_ctx->OMSetRenderTargets(0, nullptr, nullptr);
@@ -837,8 +843,6 @@ void present(bool vsync)
     if (!g_swap_rtv)
         return;
     /* keep the game's aspect ratio inside the window: black bars on the sides or top */
-    float black[4] = { 0, 0, 0, 1 };
-    g_ctx->ClearRenderTargetView(g_swap_rtv, black);
     int w = g_swap_w, h = g_swap_w * g_h / g_w;
     if (h > g_swap_h) {
         h = g_swap_h;
@@ -851,8 +855,17 @@ void present(bool vsync)
     if (g_swap_h - h <= g_swap_h / 100)
         h = g_swap_h;
     RECT dst = { (g_swap_w - w) / 2, (g_swap_h - h) / 2, (g_swap_w - w) / 2 + w, (g_swap_h - h) / 2 + h };
+    if (w < g_swap_w || h < g_swap_h) { /* the bars; a flip-discard buffer does not keep them */
+        float black[4] = { 0, 0, 0, 1 };
+        g_ctx->ClearRenderTargetView(g_swap_rtv, black);
+    }
     draw_back_buffer(g_swap_rtv, g_swap_w, g_swap_h, dst);
-    g_swap->Present(vsync ? 1 : 0, 0);
+    HRESULT hr = g_swap->Present(vsync ? 1 : 0, 0);
+    static bool said;
+    if (FAILED(hr) && !said) { /* a removed or reset device: every later frame fails the same way */
+        said = true;
+        log_printf("gpu: Present failed (%08lX), the picture stops", (unsigned long)hr);
+    }
 }
 
 Texture *texture_create(int w, int h)

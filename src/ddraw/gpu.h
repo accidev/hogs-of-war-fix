@@ -43,7 +43,7 @@ void fill(const RECT &dst, uint16_t rgb565);
 void blit(const RECT &dst, const void *owner, uint32_t version, const uint16_t *bits, int pitch,
           int w, int h, const RECT &src, int key /* -1 = none */, bool mirror_x, bool mirror_y);
 void forget(const void *owner);                  /* drop the GPU copy of a blit source */
-void read_back(uint16_t *bits, int pitch);       /* back buffer -> RGB565, game resolution */
+bool read_back(uint16_t *bits, int pitch);       /* back buffer -> RGB565, game resolution; false: bits untouched */
 void write_back(const uint16_t *bits, int pitch); /* RGB565 -> whole back buffer */
 
 void present(bool vsync);

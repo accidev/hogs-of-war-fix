@@ -53,6 +53,8 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
         g_log = fopen(path, "w");
         snprintf(path, sizeof path, "%shogs.ini", dir);
         g_config.scale = GetPrivateProfileIntA("Render", "Scale", 0, path);
+        if (g_config.scale < 0 || g_config.scale > 16) /* a typo must not overflow the size maths in gpu::set_mode */
+            g_config.scale = 0;
         g_config.vsync = GetPrivateProfileIntA("Render", "VSync", 1, path);
         g_config.widescreen = GetPrivateProfileIntA("Display", "Widescreen", 1, path);
         g_config.fog_distance = GetPrivateProfileIntA("Render", "FogDistance", 100, path);

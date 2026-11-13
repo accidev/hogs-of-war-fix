@@ -88,7 +88,7 @@ static int g_widescreen;
 
 static BOOL wide_battle(int *w, int *h)
 {
-    const int *cfg = *(const int **)0x520668;
+    const int *cfg = (const int *)GAME_CONFIG;
 
     if (!g_widescreen || !cfg || cfg[0x44C / 4] * 3 <= cfg[0x450 / 4] * 4)
         return FALSE;
@@ -156,7 +156,7 @@ static int g_game_w, g_game_h;
  * itself). Report the game resolution for the game window, so the window can have any size. */
 static BOOL WINAPI game_client_rect(HWND hwnd, LPRECT r)
 {
-    if (!g_game_w || hwnd != *(HWND *)0x520860)
+    if (!g_game_w || hwnd != GAME_WINDOW)
         return GetClientRect(hwnd, r);
     return SetRect(r, 0, 0, g_game_w, g_game_h);
 }
@@ -288,7 +288,7 @@ static BOOL g_borderless;
 
 static void __stdcall size_game_window(int w, int h)
 {
-    HWND hwnd = *(HWND *)0x520860;
+    HWND hwnd = GAME_WINDOW;
     MONITORINFO mi = { sizeof mi };
     RECT r = { 0, 0, 0, 0 };
     int fw, fh, cw, ch;
@@ -366,7 +366,7 @@ static INT_PTR CALLBACK launcher_start(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
 
     if (msg == WM_INITDIALOG) {
         LRESULT mode = SendDlgItemMessageA(dlg, 0x3EA, CB_GETITEMDATA, 0, 0);
-        int *cfg = *(int **)0x520668;
+        int *cfg = (int *)GAME_CONFIG;
 
         if (g_first_start && mode != CB_ERR && cfg) {
             SendDlgItemMessageA(dlg, 0x3EA, CB_SETCURSEL, 0, 0);
@@ -400,7 +400,7 @@ static BYTE __cdecl install_info(void)
     BYTE(__cdecl *reg_string)(const char *, BYTE *) = (void *)0x47F6C0;
     BYTE(__cdecl *reg_dword)(const char *, BYTE *) = (void *)0x47F740;
     void(__cdecl *load_launcher_text)(void) = (void *)0x481D80; /* in the language just read */
-    BYTE *cfg = *(BYTE **)0x520668;
+    BYTE *cfg = GAME_CONFIG;
     char *folder = (char *)cfg + 0x10C, *slash;
 
     if (!reg_string("InstallSource", cfg + 0xC))
@@ -541,7 +541,6 @@ static void apply_fixes(void)
         g_borderless = GetPrivateProfileIntA("Display", "Borderless", 0, g_ini);
         hook(0x44D040, 0xE9, "\xA1\x60\x08\x52\x00", size_game_window, "big game window, keeps its size");
 
-        /* The launcher lists modes up to 1024x768 only (FUN_004815D0); a window takes any size. */
         g_widescreen = GetPrivateProfileIntA("Display", "Widescreen", 1, g_ini);
         if (g_widescreen) {
             hook(0x45C6B7, 0xE8, "\xE8\x34\x0F\xFF\xFF", blit_4x3, "wide battle: loading picture 4:3");
@@ -550,6 +549,7 @@ static void apply_fixes(void)
             hook(0x45CE56, 0xE8, "\xE8\x95\x07\xFF\xFF", blit_4x3, "wide battle: loading bar 4:3");
             hook(0x45D488, 0xE8, "\xE8\x63\x01\xFF\xFF", blit_4x3, "wide battle: briefing picture 4:3");
         }
+        /* The launcher lists modes up to 1024x768 only (FUN_004815D0); a window takes any size. */
         patch(0x481726, "\x3D\x00\x04\x00\x00", "\x3D\x00\x10\x00\x00", 5, "launcher: modes up to 4096 wide");
         patch(0x481740, "\x81\xF9\x00\x03\x00\x00", "\x81\xF9\x00\x06\x00\x00", 6, "launcher: modes up to 1536 high");
 

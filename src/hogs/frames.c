@@ -432,8 +432,15 @@ static void draw_frame(BYTE *renderer, LONGLONG now, BOOL quiet)
  * player while it thinks, 0x448ED0): they get one frame per tick here, as before. */
 static void __fastcall tick_frame(BYTE *renderer)
 {
+    BYTE *turn_manager = TURN_MANAGER;
     LONGLONG now = now_us();
-    int period = *(int *)(TURN_MANAGER + 0x314), advanced = (int)(TICK_TIME - g_step_tick);
+    int period, advanced = (int)(TICK_TIME - g_step_tick);
+
+    if (!turn_manager) { /* no battle clock to place frames by, see battle_step: draw as the game did */
+        game_draw(renderer);
+        return;
+    }
+    period = *(int *)(turn_manager + 0x314);
 
     /* battle_step called the step g_step_late ms after the tick was due: a wait ended, or the
      * renderer's present had waited for the monitor. Mostly the step adds one period to the
@@ -444,8 +451,8 @@ static void __fastcall tick_frame(BYTE *renderer)
         TICK_TIME -= g_step_late;
     g_step_late = 0;
 
-    if (TURN_MANAGER != g_battle)
-        start_battle(TURN_MANAGER);
+    if (turn_manager != g_battle)
+        start_battle(turn_manager);
     if (TICK_TIME != g_snapshot_tick) {
         snapshot();
         g_snapshot_tick = TICK_TIME;

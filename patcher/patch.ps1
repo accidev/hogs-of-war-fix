@@ -161,6 +161,8 @@ if ($hash -eq $patch.output_sha256) {
     $tmp = "$exe.new"
     [IO.File]::WriteAllBytes($tmp, $bytes)
     if ((Sha $tmp) -ne $patch.output_sha256) { Drop $tmp; throw 'Patched file has a wrong checksum; nothing was changed.' }
+    # the patched exe does not start without hogs.dll, so that file is in place first (the original exe ignores it)
+    Copy-Item -LiteralPath (Join-Path $files 'hogs.dll') -Destination $GameDir -Force
     Move-Item -LiteralPath $tmp -Destination $exe -Force
     Say "warhogs_.exe patched: $($patch.changes.Count) changes (original kept as warhogs_.exe.orig)" 'Green'
 }
@@ -170,7 +172,7 @@ Copy-Item -LiteralPath (Join-Path $files 'hogs.dll') -Destination $GameDir -Forc
 $ini = Join-Path $GameDir 'hogs.ini'
 if (-not (Has $ini)) {
     Copy-Item -LiteralPath (Join-Path $files 'hogs.ini') -Destination $ini
-} else {
+} else { try {
     $b = [IO.File]::ReadAllBytes($ini)
     if ($b.Length -ge 2 -and (($b[0] -eq 0xFF -and $b[1] -eq 0xFE) -or ($b[0] -eq 0xFE -and $b[1] -eq 0xFF))) {
         Say 'hogs.ini is saved as UTF-16 and was not updated: copy new sections and settings from files\hogs.ini into it by hand' 'Yellow'
@@ -211,13 +213,19 @@ if (-not (Has $ini)) {
             Say "hogs.ini: added $($what -join ' and ') (your settings are unchanged)" 'Green'
         }
     }
-}
+} catch {
+    # the file is optional (a missing setting has its default in the DLLs): the steps below must still run
+    Say "hogs.ini was not updated ($($_.Exception.Message)): new settings keep their defaults" 'Yellow'
+} }
 Say 'hogs.dll installed (settings: hogs.ini)' 'Green'
 
 # 3. CD music: replace the ogg-winmm build that hangs the game on start
 if ((Has $winmm) -and (Sha $winmm) -eq $badWinmm) {
+    # the new file is complete before the old one moves away: a failed copy must not leave the game without winmm.dll
+    Copy-Item -LiteralPath (Join-Path $files 'winmm.dll') -Destination "$winmm.new" -Force
     Move-Item -LiteralPath $winmm -Destination "$winmm.orig" -Force
-    Copy-Item -LiteralPath (Join-Path $files 'winmm.dll'), (Join-Path $files 'winmm.ini') -Destination $GameDir -Force
+    Move-Item -LiteralPath "$winmm.new" -Destination $winmm
+    Copy-Item -LiteralPath (Join-Path $files 'winmm.ini') -Destination $GameDir -Force
     Say 'winmm.dll replaced with a working ogg-winmm build (old one kept as winmm.dll.orig)' 'Green'
 }
 

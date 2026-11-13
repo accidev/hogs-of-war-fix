@@ -77,6 +77,8 @@ An Xbox (XInput) controller works without setup. Its buttons sit where the butto
 | Start | Pause |
 | Back | The Select button of the PlayStation version |
 
+In menus A or Start selects and B or Y goes back. On the results screen A continues and Y retries. A, B or Start skip a video.
+
 ## Settings
 
 The settings are in `hogs.ini` in the game folder. Restart the game after you change them.
@@ -89,7 +91,7 @@ The settings are in `hogs.ini` in the game folder. Restart the game after you ch
 | `[Display] Widescreen` | `1` | 1 = the launcher also offers resolutions in the shape of your monitor (16:9, 21:9...). A battle in one fills the screen and shows more to the sides. Menus and videos stay 4:3, with black bars. 0 = 4:3 resolutions only |
 | `[Startup] SkipLauncher` | `1` | Start with the resolution chosen last time. The first start takes the smallest one for your monitor, which has the largest interface. Hold Shift at start to choose again |
 | `[Startup] SkipIntro` | `1` | No logos and intro videos at start |
-| `[Battle] FrameRate` | `0` | Frames per second in a battle. 0 = as many as the monitor shows (60, 144...), 25 = as the original game, another number = that many. The game speed does not change |
+| `[Battle] FrameRate` | `0` | Frames per second in a battle. 0 = as many as the monitor shows (60, 144...), 25 or less = as the original game, a higher number = that many (no more than the monitor shows while `VSync=1`). The game speed does not change |
 | `[Battle] Interpolation` | `1` | 0 = the frames between two game steps repeat the last step instead of showing the motion between them, to find the cause of a glitch |
 | `[Battle] ComputerWalks` | `1` | 1 = computer pigs walk on their turn. 0 = they stay where they are, as in the original PC game |
 | `[Gamepad] XInput` | `1` | 1 = Xbox controllers work without setup. 0 = the game's own joystick support handles them, as before |
@@ -137,14 +139,14 @@ You need Visual Studio 2022 or later with C++, CMake and PowerShell 7.
 pwsh tools/make_release.ps1    # builds dist/HogsFix and dist/HogsFix.zip
 ```
 
-GitHub Actions builds the same zip on every push, and a `v*` tag publishes it as a release. Developer notes are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The technical log and the renderer analysis are in Russian: [docs/WORKLOG.md](docs/WORKLOG.md), [docs/renderer/](docs/renderer/).
+GitHub Actions builds the same zip on every push to `main` and every pull request, and a `v*` tag publishes it as a release. Developer notes are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The technical log and the renderer analysis are in Russian: [docs/WORKLOG.md](docs/WORKLOG.md), [docs/renderer/](docs/renderer/).
 
 ## Roadmap
 
 - A wider camera view angle. It is not done: the game's ground and models use different camera settings, so it is more work than it looks.
 - Long term: decompile the game and build it as a native 64-bit program.
 
-The task list is in [docs/TODO.md](docs/TODO.md) (in Russian).
+What changed in each version is in [CHANGELOG.md](CHANGELOG.md). The task list is in [docs/TODO.md](docs/TODO.md) (in Russian).
 
 ## Credits and license
 

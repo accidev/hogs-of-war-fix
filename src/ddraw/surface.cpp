@@ -112,8 +112,7 @@ void Surface::make_storage()
 void Surface::sync_from_gpu()
 {
     if (kind == Kind::Back && !cpu_valid && bits && gpu::ready() && gpu::width() == w && gpu::height() == h) {
-        gpu::read_back((uint16_t *)bits, pitch);
-        cpu_valid = true;
+        cpu_valid = gpu::read_back((uint16_t *)bits, pitch);
     }
 }
 
@@ -161,16 +160,24 @@ HRESULT STDMETHODCALLTYPE Surface::QueryInterface(REFIID riid, void **out)
     return E_NOINTERFACE;
 }
 
-/* Clip d to the surface (dw x dh) and cut s by the same share, so a stretched blit keeps its proportions. */
-static bool clip(RECT &d, RECT &s, int dw, int dh)
+/* Clip d to the surface (dw x dh) and cut s by the same share, so a stretched blit keeps its
+ * proportions. A mirrored blit shows the far side of the source at each edge of d, so that is
+ * the side to cut. */
+static bool clip(RECT &d, RECT &s, int dw, int dh, bool mx = false, bool my = false)
 {
     if (d.right <= d.left || d.bottom <= d.top || s.right <= s.left || s.bottom <= s.top)
         return false;
     double fx = double(s.right - s.left) / (d.right - d.left), fy = double(s.bottom - s.top) / (d.bottom - d.top);
-    if (d.left < 0) { s.left += LONG(-d.left * fx); d.left = 0; }
-    if (d.top < 0) { s.top += LONG(-d.top * fy); d.top = 0; }
-    if (d.right > dw) { s.right -= LONG((d.right - dw) * fx); d.right = dw; }
-    if (d.bottom > dh) { s.bottom -= LONG((d.bottom - dh) * fy); d.bottom = dh; }
+    LONG left = d.left < 0 ? LONG(-d.left * fx) : 0, right = d.right > dw ? LONG((d.right - dw) * fx) : 0;
+    LONG top = d.top < 0 ? LONG(-d.top * fy) : 0, bottom = d.bottom > dh ? LONG((d.bottom - dh) * fy) : 0;
+    s.left += mx ? right : left;
+    s.right -= mx ? left : right;
+    s.top += my ? bottom : top;
+    s.bottom -= my ? top : bottom;
+    if (d.left < 0) d.left = 0;
+    if (d.top < 0) d.top = 0;
+    if (d.right > dw) d.right = dw;
+    if (d.bottom > dh) d.bottom = dh;
     return d.right > d.left && d.bottom > d.top && s.right > s.left && s.bottom > s.top;
 }
 
@@ -181,6 +188,9 @@ static void cpu_blit(Surface *dst, const RECT &d, Surface *src, const RECT &s, i
         log_printf("blit %dbpp -> %dbpp not supported", src->bpp, dst->bpp);
         return;
     }
+    /* DirectDraw refuses a source rectangle that leaves the source; reading it would run off the bits */
+    if (s.left < 0 || s.top < 0 || s.right > src->w || s.bottom > src->h)
+        return;
     int dw = d.right - d.left, dh = d.bottom - d.top, sw = s.right - s.left, sh = s.bottom - s.top;
     if (sw == dw && sh == dh && key < 0 && !mx && !my) { /* plain copy, e.g. a texture page upload */
         int bytes = dw * dst->bpp / 8;
@@ -230,7 +240,7 @@ static HRESULT do_blit(Surface *dst, RECT d, Surface *src, RECT s, int key, bool
         present_frame();
         return DD_OK;
     }
-    if (!clip(d, s, dst->w, dst->h))
+    if (!clip(d, s, dst->w, dst->h, mx, my))
         return DD_OK;
     if (dst->kind == Kind::Back) {
         if (src->kind == Kind::Back) { /* back -> back: do it on the CPU copy */

@@ -2,6 +2,7 @@
 #include <windows.h>
 
 #define GAME_WINDOW (*(HWND *)0x520860)
+#define GAME_CONFIG (*(BYTE **)0x520668) /* the game's settings block, allocated at start-up */
 
 extern char g_ini[MAX_PATH]; /* hogs.ini next to the exe */
 

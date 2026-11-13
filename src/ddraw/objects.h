@@ -8,8 +8,9 @@
 
 /* Reference counting shared by all objects. Release deletes through the concrete type, so
  * no virtual destructor is needed. The game frees objects with `while (x->Release() != 0)`,
- * so objects never hold references on each other: links between them are weak and are
- * cleared when the target goes away (see g_surfaces / g_devices). */
+ * so objects do not hold references on each other: links between them are weak and are
+ * cleared when the target goes away (see g_surfaces / g_devices). The one exception is a
+ * primary surface made with a back buffer, which owns that back buffer (owns_attached). */
 #define HOGS_IUNKNOWN(Class)                                                                  \
     LONG refs = 1;                                                                            \
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **out) override;               \
@@ -143,7 +144,7 @@ struct Config {
     int frame_dump_at = 0; /* [Debug] FrameDumpAt: also dump this frame number by itself */
 };
 extern Config g_config;
-extern DirectDraw *g_ddraw;  /* the one the game created last */
+extern DirectDraw *g_ddraw;  /* the one the game created last; null again once that one is released */
 struct Device;
 extern std::vector<Surface *> g_surfaces;  /* all live surfaces, to clear weak links */
 extern std::vector<Device *> g_devices;

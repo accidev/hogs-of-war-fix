@@ -25,7 +25,7 @@
 #include <dinput.h>
 
 #define FRONTEND (*(DWORD *)0x51F120)                      /* not 0: a menu is on screen */
-#define RESULTS_WAIT (*(*(BYTE **)0x520668 + 0x479))       /* a results screen waits for Space or Escape */
+#define RESULTS_WAIT (GAME_CONFIG[0x479])                  /* a results screen waits for Space or Escape */
 #define DIRECT_INPUT (*(IDirectInput7A **)0x51BCF0)
 
 enum {

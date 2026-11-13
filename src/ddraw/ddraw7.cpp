@@ -212,8 +212,9 @@ extern "C" HRESULT WINAPI DirectDrawCreateEx(GUID FAR *, LPVOID *out, REFIID iid
     return DD_OK;
 }
 
-/* The renderer (_d3d.dll) loads DDRAW.DLL itself and uses this old entry point, then asks
- * for IDirectDraw7 with QueryInterface. IDirectDraw's vtable is a prefix of IDirectDraw7's. */
+/* The renderer (_d3d.dll) looks this old entry point up when it loads DDRAW.DLL and quits if it
+ * is missing, but never calls it: its objects come from DirectDrawCreateEx. Kept working all
+ * the same; IDirectDraw's vtable is a prefix of IDirectDraw7's. */
 extern "C" HRESULT WINAPI DirectDrawCreate(GUID FAR *, LPDIRECTDRAW FAR *out, IUnknown FAR *)
 {
     g_ddraw = new DirectDraw();

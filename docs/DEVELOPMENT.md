@@ -23,18 +23,20 @@ To try a build in the game, install the package into it: `dist\HogsFix\patch.cmd
 
 ## Tests
 
-`pwsh tools/test_patcher.ps1` runs the patcher from `dist/HogsFix` through 112 checks: install, update from the previous release, restore, a hand-installed dgVoodoo, `hogs.ini` files in many shapes (the update adds the sections and settings the template has and the file lacks, and changes nothing else), odd folder names, a running game and more. It works on copies in a temporary folder and does not touch the game. `-Which` runs one scenario, see the header of the script.
+`pwsh tools/test_patcher.ps1` runs the patcher from `dist/HogsFix` through more than 100 checks: install, update from the previous release, restore, a hand-installed dgVoodoo, `hogs.ini` files in many shapes (the update adds the sections and settings the template has and the file lacks, and changes nothing else), odd folder names, a running game and more. It works on copies in a temporary folder and does not touch the game. `-Which` runs one scenario, see the header of the script.
 
 It needs files that are not in git: `backup/warhogs_.exe.orig` (the original Steam v1.2 exe), `backup/winmm.dll.ogg-winmm-2014` (the `winmm.dll` that comes with the game) and `downloads/dgVoodoo2_87_5.zip`. So it runs only on a developer machine, not on GitHub.
 
 ## Releases
 
-[.github/workflows/build.yml](../.github/workflows/build.yml) runs `tools/make_release.ps1` on every push and pull request and attaches `HogsFix.zip` to the run as an artifact. A tag that starts with `v` also publishes a GitHub release with the zip and the text of [.github/release-notes.md](../.github/release-notes.md):
+[.github/workflows/build.yml](../.github/workflows/build.yml) runs `tools/make_release.ps1` on every push to `main` and every pull request and attaches `HogsFix.zip` to the run as an artifact. A tag that starts with `v` also publishes a GitHub release with the zip and the text of [.github/release-notes.md](../.github/release-notes.md):
 
 ```powershell
-git tag v1.0.0
-git push origin v1.0.0
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
+
+Before the tag, add the version to [CHANGELOG.md](../CHANGELOG.md) and rewrite the "New in" block of `.github/release-notes.md`: every tag publishes that file as it is.
 
 The README download links point to `releases/latest/download/HogsFix.zip`, so the zip keeps that name in every release.
 
