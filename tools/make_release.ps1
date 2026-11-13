@@ -33,7 +33,7 @@ Copy-Item (Join-Path $root 'LICENSE') (Join-Path $out 'LICENSE.txt')
 Copy-Item (Join-Path $build 'src\hogs\Release\hogs.dll'), (Join-Path $build 'src\ddraw\Release\ddraw.dll'), (Join-Path $root 'src\hogs\hogs.ini') $files
 
 # patch.ps1 recognises its own ddraw.dll by this text ($ddrawSig there), and hogs.ini is the players' file:
-# it must hold the [Render] section that is appended to older ones, and nothing developer-only
+# patch.ps1 adds its sections and settings to older ones, so it must hold nothing developer-only
 if (-not [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes((Join-Path $files 'ddraw.dll'))).Contains('hogsdraw.log')) { throw 'ddraw.dll does not contain "hogsdraw.log": patch.ps1 could not recognise it' }
 $ini = Get-Content -LiteralPath (Join-Path $files 'hogs.ini') -Raw
 if ($ini -notmatch '(?m)^\[Render\]') { throw 'hogs.ini has no [Render] section' }
@@ -44,6 +44,8 @@ Expand-Archive -LiteralPath $ogg -DestinationPath $tmp
 Copy-Item (Join-Path $tmp 'winmm.dll'), (Join-Path $tmp 'winmm.ini') $files
 Copy-Item (Join-Path $root 'third_party\ogg-winmm\LICENSE.txt') (Join-Path $files 'ogg-winmm-LICENSE.txt')
 Copy-Item (Join-Path $root 'third_party\ogg-winmm\README.md') (Join-Path $files 'ogg-winmm-README.md')
+# hogs.dll holds code ported from HogsFix (MIT): its license goes with every copy
+Copy-Item (Join-Path $root 'third_party\HogsFix\LICENSE.txt') (Join-Path $files 'HogsFix-LICENSE.txt')
 Remove-Item -LiteralPath $tmp -Recurse
 
 Compress-Archive -LiteralPath (Join-Path $root 'dist\HogsFix') -DestinationPath (Join-Path $root 'dist\HogsFix.zip')

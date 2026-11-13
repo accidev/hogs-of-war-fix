@@ -28,12 +28,98 @@ $HX.hogs = Sha (Join-Path $dist 'files\hogs.dll')
 $HX.dd = Sha (Join-Path $dist 'files\ddraw.dll')
 $HX.winmm = Sha (Join-Path $dist 'files\winmm.dll')
 
+# The Windows ini API the game reads hogs.ini with (GetPrivateProfileStringA): the value of a key, or, with an empty key,
+# the names of the section's keys, or, with an empty section too, the names of all sections (first occurrence of each).
+# (Empty stands for the null the API wants: PowerShell turns a $null argument into an empty string.)
 if (-not ('Ini' -as [type])) {
-    Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public static class Ini { [DllImport("kernel32.dll", CharSet=CharSet.Ansi)] public static extern int GetPrivateProfileIntA(string s, string k, int d, string f); }'
+    Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices; using System.Text;
+public static class Ini {
+    [DllImport("kernel32.dll", CharSet=CharSet.Ansi)] static extern int GetPrivateProfileStringA(string s, string k, string d, byte[] r, int n, string f);
+    public static string[] Get(string s, string k, string d, string f) {
+        if (s == "") s = null;
+        if (k == "") k = null;
+        byte[] b = new byte[65536];
+        int n = GetPrivateProfileStringA(s, k, d, b, b.Length, f);
+        string r = Encoding.GetEncoding(28591).GetString(b, 0, n);
+        return (s == null || k == null) ? r.Split(new[] { '\0' }, StringSplitOptions.RemoveEmptyEntries) : new[] { r };
+    }
 }
-function IniVals([string]$f) {
-    'Windowed={0} Resizable={1} Scale={2} VSync={3}' -f [Ini]::GetPrivateProfileIntA('Display', 'Windowed', 99, $f), [Ini]::GetPrivateProfileIntA('Display', 'Resizable', 99, $f),
-        [Ini]::GetPrivateProfileIntA('Render', 'Scale', 99, $f), [Ini]::GetPrivateProfileIntA('Render', 'VSync', 99, $f)
+'@
+}
+$none = '<<none>>'   # what IniGet returns for a key the API does not find
+function IniGet([string]$f, $sec, $key) { [Ini]::Get($sec, $key, $none, $f)[0] }
+function IniList([string]$f, $sec = $null) { @([Ini]::Get($sec, $null, '', $f)) }   # section names, or the key names of one section
+
+# What patch.ps1 must have done to a player's hogs.ini, worked out from the template text and from what the API says about
+# the files, not with patch.ps1's own parsing, so it holds for whatever sections and keys the template has. Returns the
+# list of problems, empty when all is right.
+#   $beforeFile / $afterFile   the player's file before and after the run (the before copy lives outside the game folder)
+#   $out                       what the run printed
+#   -Append                    the file has no section of the template, so the old bytes must be an exact prefix
+function IniVerdict([string]$beforeFile, [string]$afterFile, [string]$out, [switch]$Append) {
+    $tplFile = Join-Path $dist 'files\hogs.ini'
+    $lat = [Text.Encoding]::Latin1
+    $eol = '\r\n|\r|\n'
+    $bb = [IO.File]::ReadAllBytes($beforeFile); $ab = [IO.File]::ReadAllBytes($afterFile)
+    $bt = $lat.GetString($bb); $at = $lat.GetString($ab)
+    $bn = $bt -replace $eol, "`n"; $an = $at -replace $eol, "`n"; $tn = $lat.GetString([IO.File]::ReadAllBytes($tplFile)) -replace $eol, "`n"
+    $o = Short $out
+    $problems = New-Object Collections.Generic.List[string]
+    $isKey = '^[ \t]*[^;\s=\[][^=\n]*='     # a line that sets a key (not a comment, not a header)
+    $isHdr = '^[ \t]*\[([^\]\n]*)'
+    $hdrs = { param($n) @($n -split "`n" | ForEach-Object { if ($_ -match $isHdr) { $Matches[1].Trim(" `t").ToLowerInvariant() } }) }
+    # each template key line with the comment lines right above it, by section
+    $snip = @{}; $sec = ''; $above = @()
+    foreach ($l in $tn -split "`n") {
+        if ($l -match $isHdr) { $sec = $Matches[1].Trim(" `t").ToLowerInvariant(); $above = @() }
+        elseif ($l -match '^[ \t]*;') { $above += $l }
+        elseif ($l -match '^[ \t]*([^=\s]+)[ \t]*=') { $snip["$sec|$($Matches[1].ToLowerInvariant())"] = (@($above) + $l.TrimEnd()) -join "`n"; $above = @() }
+        else { $above = @() }
+    }
+    $had = & $hdrs $bn
+    $missing = 0
+    foreach ($s in IniList $tplFile) {
+        foreach ($k in IniList $tplFile $s) {
+            $was = IniGet $beforeFile $s $k
+            if ($was -ceq $none) {
+                $missing++
+                $want = IniGet $tplFile $s $k
+                $sn = $snip["$($s.ToLowerInvariant())|$($k.ToLowerInvariant())"]
+                if (-not $sn) { $problems.Add("[$s] ${k}: the test did not find the key line in the template") }
+                elseif (-not $an.Contains($sn)) { $problems.Add("[$s] ${k}: its comment lines and line are not together in the file") }
+                # the message names the section when the file lacked it, else the key
+                $named = if ($had -contains $s.ToLowerInvariant()) { $k } else { "[$s]" }
+                if (-not $o.Contains($named)) { $problems.Add("message does not name $named") }
+            } else { $want = $was }
+            $got = IniGet $afterFile $s $k
+            if ($got -cne $want) { $problems.Add("[$s] $k is '$got', want '$want' ($(if ($was -ceq $none) { 'template default' } else { 'the player''s value' }))") }
+        }
+        $n0 = @($had | Where-Object { $_ -eq $s.ToLowerInvariant() }).Count
+        $n1 = @(& $hdrs $an | Where-Object { $_ -eq $s.ToLowerInvariant() }).Count
+        if ($n1 -ne [Math]::Max($n0, 1)) { $problems.Add("[$s] has $n1 headers, was $n0") }
+    }
+    # a key line was added for every key the API did not find, and not one more
+    $kb = [regex]::Matches($bn, $isKey, 'Multiline').Count; $ka = [regex]::Matches($an, $isKey, 'Multiline').Count
+    if ($ka - $kb -ne $missing) { $problems.Add("$($ka - $kb) key lines added, $missing keys were missing") }
+    # message: exactly one, only when something was added
+    $msgs = [regex]::Matches($o, 'hogs\.ini: added').Count
+    if ($msgs -ne [int]($missing -gt 0)) { $problems.Add("$msgs 'added' messages, $missing keys were missing") }
+    if ($missing -eq 0 -and -not [Linq.Enumerable]::SequenceEqual($ab, $bb)) { $problems.Add('nothing was missing but the file changed') }
+    # every old line is still there, in the same order, byte for byte (the last line may have got its line end)
+    $lines = { param($t) @([regex]::Matches($t, '[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$') | ForEach-Object Value) }
+    $A = & $lines $at; $j = 0
+    foreach ($l in (& $lines $bt)) {
+        $last = $l -notmatch '[\r\n]$'
+        while ($j -lt $A.Count -and -not $(if ($last) { $A[$j].StartsWith($l, [StringComparison]::Ordinal) } else { $A[$j] -ceq $l })) { $j++ }
+        if ($j -ge $A.Count) { $problems.Add("old line lost or moved: '$($l.TrimEnd())'"); break }
+        $j++
+    }
+    # the blank line that separated a section from the next one is still there
+    $blankHdr = '\n[ \t]*\n(?=[ \t]*\[)'
+    if ([regex]::Matches($an, $blankHdr).Count -lt [regex]::Matches($bn, $blankHdr).Count) { $problems.Add('a blank line before a section header is gone') }
+    if ($Append -and -not ($ab.Length -ge $bb.Length -and [Convert]::ToBase64String($ab, 0, $bb.Length) -ceq [Convert]::ToBase64String($bb))) { $problems.Add('old bytes are not an exact prefix') }
+    , $problems.ToArray()
 }
 
 function CleanDir([string]$p) {   # only ever inside the test folder

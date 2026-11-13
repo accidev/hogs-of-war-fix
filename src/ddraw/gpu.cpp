@@ -346,10 +346,14 @@ bool init(HWND hwnd, int scale)
                "D3D11CreateDevice"))
         return false;
 
-    IDXGIDevice *xd = nullptr;
+    IDXGIDevice1 *xd = nullptr;
     IDXGIAdapter *ad = nullptr;
     IDXGIFactory2 *fac = nullptr;
-    g_dev->QueryInterface(__uuidof(IDXGIDevice), (void **)&xd);
+    g_dev->QueryInterface(__uuidof(IDXGIDevice1), (void **)&xd);
+    /* A vsynced Present returns at once until this many frames wait for the monitor. With the
+     * default of 3 the game ran up to three frames ahead of the screen (50 ms at 60 Hz). With 1,
+     * Present waits one refresh per frame: that paces the battle frames of hogs.dll (frames.c). */
+    xd->SetMaximumFrameLatency(1);
     xd->GetAdapter(&ad);
     ad->GetParent(__uuidof(IDXGIFactory2), (void **)&fac);
     RECT rc;
@@ -840,6 +844,12 @@ void present(bool vsync)
         h = g_swap_h;
         w = g_swap_h * g_w / g_h;
     }
+    /* 854x480 is not exactly 16:9, and a window is a whole number of pixels: fill it rather
+     * than leave bars thinner than 1 % */
+    if (g_swap_w - w <= g_swap_w / 100)
+        w = g_swap_w;
+    if (g_swap_h - h <= g_swap_h / 100)
+        h = g_swap_h;
     RECT dst = { (g_swap_w - w) / 2, (g_swap_h - h) / 2, (g_swap_w - w) / 2 + w, (g_swap_h - h) / 2 + h };
     draw_back_buffer(g_swap_rtv, g_swap_w, g_swap_h, dst);
     g_swap->Present(vsync ? 1 : 0, 0);

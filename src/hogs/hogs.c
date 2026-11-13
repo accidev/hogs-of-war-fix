@@ -5,7 +5,7 @@
  * Every fix checks the original bytes first and leaves a build it does not know alone.
  * Settings: hogs.ini next to the exe. Log: hogs.log next to the exe.
  */
-#include <windows.h>
+#include "hogs.h"
 #include <mmsystem.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -13,9 +13,9 @@
 #include <string.h>
 
 static FILE *g_log;
-static char g_ini[MAX_PATH];
+char g_ini[MAX_PATH];
 
-static void say(const char *fmt, ...)
+void say(const char *fmt, ...)
 {
     va_list ap;
     if (!g_log)
@@ -28,7 +28,7 @@ static void say(const char *fmt, ...)
 }
 
 /* Overwrite len bytes at va, but only if they still hold `old`. */
-static BOOL patch(DWORD va, const void *old, const void *new_bytes, SIZE_T len, const char *what)
+BOOL patch(DWORD va, const void *old, const void *new_bytes, SIZE_T len, const char *what)
 {
     BYTE *p = (BYTE *)(ULONG_PTR)va;
     DWORD prot;
@@ -48,7 +48,7 @@ static BOOL patch(DWORD va, const void *old, const void *new_bytes, SIZE_T len, 
 /* Write a jmp (op 0xE9) or call (0xE8) to fn over the 5 bytes at va. A jmp over a function's
  * first bytes routes every call of it to fn; fn must have the same calling convention and
  * arguments as the code it replaces. */
-static BOOL hook(DWORD va, BYTE op, const void *old5, const void *fn, const char *what)
+BOOL hook(DWORD va, BYTE op, const void *old5, const void *fn, const char *what)
 {
     BYTE jmp[5] = { op };
     DWORD rel = (DWORD)(ULONG_PTR)fn - (va + 5);
@@ -58,7 +58,7 @@ static BOOL hook(DWORD va, BYTE op, const void *old5, const void *fn, const char
 }
 
 /* Point an import slot at repl, after checking it holds dll!fn; *orig (if given) gets the real one. */
-static BOOL hook_import(DWORD slot_va, const char *dll, const char *fn, const void *repl, void *orig, const char *what)
+BOOL hook_import(DWORD slot_va, const char *dll, const char *fn, const void *repl, void *orig, const char *what)
 {
     FARPROC *slot = (FARPROC *)(ULONG_PTR)slot_va;
     FARPROC real = GetProcAddress(GetModuleHandleA(dll), fn);
@@ -81,6 +81,22 @@ static BOOL hook_import(DWORD slot_va, const char *dll, const char *fn, const vo
  * (0x4ADB03), so its fixes are applied right after that call returns. */
 static HMODULE(WINAPI *g_load_library)(LPCSTR);
 
+/* [Display] Widescreen=1: a battle in a resolution wider than 4:3 shows more to the sides (Hor+)
+ * instead of a stretched picture. The battle resolution is the launcher's choice: FUN_00481230
+ * copies it to cfg+0x44C / +0x450 right after the dialog, before the renderer is started. */
+static int g_widescreen;
+
+static BOOL wide_battle(int *w, int *h)
+{
+    const int *cfg = *(const int **)0x520668;
+
+    if (!g_widescreen || !cfg || cfg[0x44C / 4] * 3 <= cfg[0x450 / 4] * 4)
+        return FALSE;
+    *w = cfg[0x44C / 4];
+    *h = cfg[0x450 / 4];
+    return TRUE;
+}
+
 /* The renderer loads its 10 terrain visibility masks (language\tims\nview00N.bmp, 33x33,
  * black = draw that block of 4x4 tiles) with LoadImageA as device-dependent bitmaps, copies
  * 2 KB of each with GetBitmapBits and reads one 16-bit entry per pixel. That only holds on a
@@ -93,7 +109,21 @@ static LONG WINAPI bitmap_bits_16bpp(HBITMAP bm, LONG size, LPVOID out)
     BYTE *dib;
     HDC dc;
     LONG row, stride, y, n = 0;
+    int w, h;
 
+    /* The masks are wedges cut for the 4:3 view angle: a wider view shows ground they leave out.
+     * They only save work, so a wide battle gets every block. The map is 16x16 blocks, a 4:3
+     * view from a map corner draws all of them too, and the renderer still skips each tile
+     * behind the camera (FUN_10003380: depth of all 4 corners <= -15). */
+    if (wide_battle(&w, &h)) {
+        static BOOL said;
+
+        if (!said)
+            say("battles are %dx%d: all ground blocks are drawn", w, h);
+        said = TRUE;
+        memset(out, 0, size);
+        return size;
+    }
     if (!GetObjectA(bm, sizeof b, &b))
         return 0;
     row = b.bmWidth * 2;     /* GetBitmapBits rows are WORD aligned: never padded at 16 bpp */
@@ -131,6 +161,25 @@ static BOOL WINAPI game_client_rect(HWND hwnd, LPRECT r)
     return SetRect(r, 0, 0, g_game_w, g_game_h);
 }
 
+/* Hor+. The renderer has two focal lengths: models use height x zoom / 15 for both axes, but
+ * the ground, the water and everything else placed in the world (FUN_10013830) take
+ * fx = width x zoom x 0.05 and fy = height x zoom / 15, which are equal only at 4:3. The 0.05
+ * is one float, read by the four places that compute fx (SetDisplayWindow, FUN_10005820,
+ * FUN_100075D0, afSetDDGlobals) and by nothing else. It becomes height / (15 x width) of the
+ * current screen: fx = fy at any shape, and still exactly 0.05 at 4:3. */
+static float *g_fx_factor;
+
+static void set_fx_factor(int w, int h)
+{
+    DWORD prot;
+
+    if (!g_fx_factor || w <= 0)
+        return;
+    VirtualProtect(g_fx_factor, sizeof *g_fx_factor, PAGE_READWRITE, &prot);
+    *g_fx_factor = (float)h / (15.0f * (float)w);
+    VirtualProtect(g_fx_factor, sizeof *g_fx_factor, prot, &prot);
+}
+
 static void fix_renderer(HMODULE renderer)
 {
     DWORD base = (DWORD)(ULONG_PTR)renderer;
@@ -164,6 +213,17 @@ static void fix_renderer(HMODULE renderer)
 
     hook_import(base + 0x1ED7298, "user32.dll", "GetClientRect", game_client_rect, NULL,
                 "renderer: game resolution as client size");
+
+    if (g_widescreen) {
+        /* 0.05f, and behind it the 1/15 of fy */
+        if (memcmp((void *)(ULONG_PTR)(base + 0x200B8), "\xCD\xCC\x4C\x3D\x89\x88\x88\x3D", 8) == 0) {
+            g_fx_factor = (float *)(ULONG_PTR)(base + 0x200B8);
+            set_fx_factor(g_game_w, g_game_h);
+            say("ok   %-40s %08X", "renderer: wide view (Hor+)", base + 0x200B8);
+        } else {
+            say("skip %-40s %08X: unexpected bytes, unknown game build?", "renderer: wide view (Hor+)", base + 0x200B8);
+        }
+    }
 }
 
 static HMODULE WINAPI load_library(LPCSTR name)
@@ -221,21 +281,24 @@ static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
  * screen change (menus 640x480, battles the launcher's resolution), a small window on today's
  * monitors. Now the window is placed once, since the renderer copes with any size (see
  * game_client_rect). [Display] Borderless=1 covers the monitor, otherwise it is the largest
- * window with the game's aspect ratio that fits the work area. After that it keeps the size
- * and state the player gives it. */
+ * window that fits the work area, in the shape of a wide battle or else of the first screen:
+ * the menus are always 4:3 and get bars at the sides of a wide window. After that it keeps the
+ * size and state the player gives it. */
 static BOOL g_borderless;
 
 static void __stdcall size_game_window(int w, int h)
 {
     HWND hwnd = *(HWND *)0x520860;
     MONITORINFO mi = { sizeof mi };
-    RECT r = { 0, 0, w, h };
+    RECT r = { 0, 0, 0, 0 };
     int fw, fh, cw, ch;
 
     g_game_w = w;
     g_game_h = h;
+    set_fx_factor(w, h);
     if (!hwnd || g_game_proc)
         return;
+    wide_battle(&w, &h);
     g_game_proc = (WNDPROC)SetWindowLongA(hwnd, GWL_WNDPROC, (LONG)game_window_proc);
     GetMonitorInfoA(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &mi);
     if (g_borderless) {
@@ -245,8 +308,8 @@ static void __stdcall size_game_window(int w, int h)
         return;
     }
     AdjustWindowRectEx(&r, (DWORD)GetWindowLongA(hwnd, GWL_STYLE), FALSE, (DWORD)GetWindowLongA(hwnd, GWL_EXSTYLE));
-    fw = r.right - r.left - w; /* frame and caption */
-    fh = r.bottom - r.top - h;
+    fw = r.right - r.left; /* frame and caption */
+    fh = r.bottom - r.top;
     cw = mi.rcWork.right - mi.rcWork.left - fw;
     ch = mi.rcWork.bottom - mi.rcWork.top - fh;
     if (cw * h > ch * w)
@@ -258,31 +321,101 @@ static void __stdcall size_game_window(int w, int h)
                  SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-/* [Startup] SkipLauncher=1: the game asks for adapter, resolution and detail level in the
- * "LauncherBox" dialog on every start (FUN_00481230). Its WM_INITDIALOG (FUN_004815D0) selects
- * the choice saved in launch.bin and stores it in the game config; Start (IDOK) only ends the
- * dialog with 1. So with a launch.bin from an earlier start, the dialog ends right after
- * WM_INITDIALOG, before it is shown. Shift held while the game starts shows it as before. */
+/* The loading screen and the "press a key" screen before a battle (FUN_0045C460, FUN_0045CBB0,
+ * FUN_0045D2E0) are already in the battle resolution: they stretch a 640x480 picture and its
+ * progress bar over all of it, x by width / 640. In a wide battle both stay 4:3 in the middle,
+ * with black at the sides. This takes the place of the game's Blt wrapper FUN_0044D5F0(dst,
+ * src, dst rect, src rect, flags, fx) in those five calls. */
+static HRESULT __stdcall blit_4x3(void *dst, void *src, RECT *d, RECT *s, DWORD flags, void *fx)
+{
+    HRESULT(__stdcall *blit)(void *, void *, RECT *, RECT *, DWORD, void *) = (void *)0x44D5F0;
+    RECT r = *d; /* a copy: the game passes the same rectangle again for the next frame */
+    int w = g_game_w, h = g_game_h, picture = h * 4 / 3, side = (w - picture) / 2;
+
+    if (w * 3 > h * 4) {
+        if (r.left == 0 && r.right == w) { /* the picture: nothing else paints the sides */
+            DWORD black[25] = { sizeof black }; /* a DDBLTFX, dwFillColor = 0 */
+            RECT bar = { 0, 0, side, h };
+
+            blit(dst, NULL, &bar, NULL, 0x01000400, black); /* DDBLT_WAIT | DDBLT_COLORFILL */
+            SetRect(&bar, side + picture, 0, w, h);
+            blit(dst, NULL, &bar, NULL, 0x01000400, black);
+        }
+        r.left = side + r.left * picture / w;
+        r.right = side + r.right * picture / w;
+    }
+    return blit(dst, src, &r, s, flags, fx);
+}
+
+/* The game asks for adapter, resolution and detail level in the "LauncherBox" dialog on every
+ * start (FUN_00481230). Its WM_INITDIALOG (FUN_004815D0) selects the choice saved in launch.bin
+ * and stores it in the game config; Start (IDOK) only ends the dialog with 1, and the game then
+ * writes launch.bin.
+ * - First start, no launch.bin yet: the dialog selects 640x480. Select the first mode of its
+ *   list instead, where ddraw.dll puts the one that suits the monitor. cfg+0x4F0 / +0x4F4 are
+ *   the width and height the dialog hands over, each item's data is width << 16 | height.
+ * - [Startup] SkipLauncher=1: the dialog ends right after WM_INITDIALOG, before it is shown.
+ *   Shift held while the game starts shows it as before. */
 static char g_launch_bin[MAX_PATH];
 static DLGPROC g_launcher_proc;
+static BOOL g_skip_launcher, g_first_start;
 
 static INT_PTR CALLBACK launcher_start(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
 {
     INT_PTR r = g_launcher_proc(dlg, msg, wp, lp);
 
-    if (msg == WM_INITDIALOG)
-        EndDialog(dlg, 1);
+    if (msg == WM_INITDIALOG) {
+        LRESULT mode = SendDlgItemMessageA(dlg, 0x3EA, CB_GETITEMDATA, 0, 0);
+        int *cfg = *(int **)0x520668;
+
+        if (g_first_start && mode != CB_ERR && cfg) {
+            SendDlgItemMessageA(dlg, 0x3EA, CB_SETCURSEL, 0, 0);
+            cfg[0x4F0 / 4] = HIWORD(mode);
+            cfg[0x4F4 / 4] = LOWORD(mode);
+        }
+        if (g_skip_launcher && !(GetAsyncKeyState(VK_SHIFT) & 0x8000))
+            EndDialog(dlg, 1);
+    }
     return r;
 }
 
 static INT_PTR WINAPI launcher_box(HINSTANCE inst, LPCSTR name, HWND parent, DLGPROC proc, LPARAM lp)
 {
-    if (!IS_INTRESOURCE(name) && strcmp(name, "LauncherBox") == 0 && !(GetAsyncKeyState(VK_SHIFT) & 0x8000) &&
-        GetFileAttributesA(g_launch_bin) != INVALID_FILE_ATTRIBUTES) {
+    if (!IS_INTRESOURCE(name) && strcmp(name, "LauncherBox") == 0) {
+        g_first_start = GetFileAttributesA(g_launch_bin) == INVALID_FILE_ATTRIBUTES;
         g_launcher_proc = proc;
         proc = launcher_start;
     }
     return DialogBoxParamA(inst, name, parent, proc, lp);
+}
+
+/* The game reads its install folder, source folder and language from the registry
+ * (HKLM\...\Uninstall\Hogs Of War, FUN_00481D00) and exits with an error box when a value is
+ * missing. Steam writes that key in its first-time setup, so a game folder copied from another
+ * PC never started. The install folder is where the exe is; the game makes it the working
+ * directory (0x47F317). For the rest the registry still wins, and what it lacks gets the values
+ * of an English install. */
+static BYTE __cdecl install_info(void)
+{
+    BYTE(__cdecl *reg_string)(const char *, BYTE *) = (void *)0x47F6C0;
+    BYTE(__cdecl *reg_dword)(const char *, BYTE *) = (void *)0x47F740;
+    void(__cdecl *load_launcher_text)(void) = (void *)0x481D80; /* in the language just read */
+    BYTE *cfg = *(BYTE **)0x520668;
+    char *folder = (char *)cfg + 0x10C, *slash;
+
+    if (!reg_string("InstallSource", cfg + 0xC))
+        strcpy((char *)cfg + 0xC, ".\\");
+    if (!reg_string("LanguageLetter", cfg + 0x20C))
+        strcpy((char *)cfg + 0x20C, "E");
+    if (!reg_dword("Footprint", cfg + 0x30C))
+        *(DWORD *)(cfg + 0x30C) = 1;
+    if (!GetModuleFileNameA(NULL, folder, 256))
+        folder[0] = '\0';
+    slash = strrchr(folder, '\\');
+    if (slash)
+        slash[1] = '\0';
+    load_launcher_text();
+    return 1;
 }
 
 /* [Startup] SkipIntro=1: the start-up chain (FUN_0047DE90) plays infologo.bik, sheff.bik, a 3 s
@@ -358,6 +491,22 @@ static DWORD WINAPI promotion_points_key(LPVOID unused)
     }
 }
 
+/* The game's message loops (menus 0x427380, battle 0x47DE90, 0x480780) poll with PeekMessageA
+ * and never wait. A minimized window draws nothing, so nothing slowed the menu loop down and it
+ * kept one core busy: wait for the next message there. The gamepad is read from here too, in
+ * the game's thread. */
+static BOOL(WINAPI *g_peek_message)(LPMSG, HWND, UINT, UINT, UINT);
+
+static BOOL WINAPI peek_message(LPMSG msg, HWND hwnd, UINT first, UINT last, UINT remove)
+{
+    HWND game = GAME_WINDOW;
+
+    if (game && IsIconic(game))
+        MsgWaitForMultipleObjectsEx(0, NULL, 50, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+    gamepad_poll();
+    return g_peek_message(msg, hwnd, first, last, remove);
+}
+
 static void apply_fixes(void)
 {
     /* call [SystemParametersInfoA] -> add esp,16 (the stdcall's 4 arguments) */
@@ -370,6 +519,7 @@ static void apply_fixes(void)
     DWORD deadzone_value = (DWORD)(deadzone < 0 ? 0 : deadzone > 100 ? 100 : deadzone) * 100;
 
     hook(0x44CE80, 0xE9, "\x8B\x44\x24\x08\x33", keep_foreign_windows, "leave foreign windows enabled");
+    hook(0x481D00, 0xE9, "\xA1\x68\x06\x52\x00", install_info, "start without the registry key");
 
     /* SystemParametersInfoA(SPI_SCREENSAVERRUNNING) is a Win9x trick to block Alt+Tab and
      * Ctrl+Alt+Del; the game sets it on window creation and clears it on WM_DESTROY. */
@@ -392,7 +542,15 @@ static void apply_fixes(void)
         hook(0x44D040, 0xE9, "\xA1\x60\x08\x52\x00", size_game_window, "big game window, keeps its size");
 
         /* The launcher lists modes up to 1024x768 only (FUN_004815D0); a window takes any size. */
-        patch(0x481726, "\x3D\x00\x04\x00\x00", "\x3D\x00\x08\x00\x00", 5, "launcher: modes up to 2048 wide");
+        g_widescreen = GetPrivateProfileIntA("Display", "Widescreen", 1, g_ini);
+        if (g_widescreen) {
+            hook(0x45C6B7, 0xE8, "\xE8\x34\x0F\xFF\xFF", blit_4x3, "wide battle: loading picture 4:3");
+            hook(0x45C6DE, 0xE8, "\xE8\x0D\x0F\xFF\xFF", blit_4x3, "wide battle: loading bar 4:3");
+            hook(0x45CE24, 0xE8, "\xE8\xC7\x07\xFF\xFF", blit_4x3, "wide battle: loading picture 4:3");
+            hook(0x45CE56, 0xE8, "\xE8\x95\x07\xFF\xFF", blit_4x3, "wide battle: loading bar 4:3");
+            hook(0x45D488, 0xE8, "\xE8\x63\x01\xFF\xFF", blit_4x3, "wide battle: briefing picture 4:3");
+        }
+        patch(0x481726, "\x3D\x00\x04\x00\x00", "\x3D\x00\x10\x00\x00", 5, "launcher: modes up to 4096 wide");
         patch(0x481740, "\x81\xF9\x00\x03\x00\x00", "\x81\xF9\x00\x06\x00\x00", 6, "launcher: modes up to 1536 high");
 
         /* g_camera switches the zoom on: fill it only if table entries 0 and 1 are the known ones */
@@ -407,9 +565,9 @@ static void apply_fixes(void)
         SetProcessDPIAware();
     }
 
-    if (GetPrivateProfileIntA("Startup", "SkipLauncher", 1, g_ini))
-        hook_import(0x54F55C, "user32.dll", "DialogBoxParamA", launcher_box, NULL,
-                    "start without the launcher (Shift: show)");
+    g_skip_launcher = GetPrivateProfileIntA("Startup", "SkipLauncher", 1, g_ini);
+    hook_import(0x54F55C, "user32.dll", "DialogBoxParamA", launcher_box, NULL,
+                g_skip_launcher ? "start without the launcher (Shift: show)" : "launcher: mode for the monitor at first");
     if (GetPrivateProfileIntA("Startup", "SkipIntro", 1, g_ini))
         hook(0x47DF2B, 0xE8, "\xE8\xE0\x0E\xFC\xFF", skip_intro, "no intro videos");
 
@@ -425,6 +583,29 @@ static void apply_fixes(void)
                 "music volume: set on the CD player");
     hook_import(0x54F608, "winmm.dll", "mixerGetControlDetailsA", cd_volume_get, NULL,
                 "music volume: read from the CD player");
+
+    /* MainWndProc clears the "window is active" flag (config+0x310) on WM_SIZE(SIZE_MINIMIZED)
+     * and nothing sets it again: once the window had been minimized, the menus stayed frozen.
+     * Every WM_SIZE now sets the flag, 0 when minimized and 1 otherwise:
+     * cmp edi,1 / jne / mov eax,[cfg] / mov byte [eax+0x310],0
+     * -> mov eax,[cfg] / cmp edi,1 / setne byte [eax+0x310] / nop / nop */
+    patch(0x47EA43, "\x83\xFF\x01\x75\x0C\xA1\x68\x06\x52\x00\xC6\x80\x10\x03\x00\x00\x00",
+          "\xA1\x68\x06\x52\x00\x83\xFF\x01\x0F\x95\x80\x10\x03\x00\x00\x90\x90", 17, "menus go on after a minimize");
+    hook_import(0x54F560, "user32.dll", "PeekMessageA", peek_message, &g_peek_message,
+                "idle while minimized, read the gamepad");
+
+    /* Computer pigs never walked. The path request FUN_00461A80 ran the path finder only for a
+     * destination outside the walk grid (x 0xC00..0x7000, y 0xE00..0x7000) and returned "no
+     * path" for one inside, and its only caller (0x44A170) clamps every destination to the
+     * inside. Four jumps of the range check swapped: outside -> no path, inside -> find one. */
+    if (GetPrivateProfileIntA("Battle", "ComputerWalks", 1, g_ini))
+        patch(0x461AEA,
+              "\x7E\x26\x3D\x00\x70\x00\x00\x7D\x1F\x8B\xC2\x25\x00\xFE\xFF\xFF\x3D\x00\x0E\x00\x00\x7E\x11\x3D\x00\x70\x00\x00\x7D\x0A",
+              "\x7E\x1C\x3D\x00\x70\x00\x00\x7D\x15\x8B\xC2\x25\x00\xFE\xFF\xFF\x3D\x00\x0E\x00\x00\x7E\x07\x3D\x00\x70\x00\x00\x7C\x0A",
+              30, "computer pigs find their way");
+
+    frames_init();
+    gamepad_init();
 
     if (GetPrivateProfileIntA("Cheats", "PromotionPoints", 0, g_ini)) {
         if (memcmp((void *)0x42BDB6, "\x8B\x15\x60\xC5\x51\x00", 6) || memcmp((void *)0x42BDD5, "\x66\x8B\x42\x50", 4))

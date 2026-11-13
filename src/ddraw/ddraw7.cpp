@@ -4,10 +4,13 @@
 
 DirectDraw *g_ddraw;
 
-/* Modes offered to the game's launcher, all 16-bit 4:3. Its filter stopped at 1024x768;
- * hogs.dll raises it, and in a window the game renders at any of them. */
+/* Modes offered to the game's launcher, all 16-bit. Its filter stopped at 1024x768; hogs.dll
+ * raises it, and in a window the game renders at any of them. The game resolution sets the size
+ * of the HUD, which is drawn in game pixels: 480 lines give the HUD of the original, 1440 a third
+ * of it. Sharpness comes from [Render] Scale, so more lines are only for a smaller HUD. */
 static const struct { int w, h; } kModes[] = { { 640, 480 },   { 800, 600 },   { 1024, 768 },
                                                { 1280, 960 },  { 1600, 1200 }, { 1920, 1440 } };
+static const int kWideHeights[] = { 480, 600, 720, 900, 1080, 1440 };
 
 static HWND game_window()
 {
@@ -86,13 +89,26 @@ HRESULT STDMETHODCALLTYPE DirectDraw::GetDisplayMode(LPDDSURFACEDESC2 d)
 
 HRESULT STDMETHODCALLTYPE DirectDraw::EnumDisplayModes(DWORD, LPDDSURFACEDESC2, LPVOID ctx, LPDDENUMMODESCALLBACK2 cb)
 {
-    for (auto &m : kModes) {
+    std::vector<SIZE> modes;
+    MONITORINFO mi = { sizeof mi };
+    GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi);
+    int mw = mi.rcMonitor.right - mi.rcMonitor.left, mh = mi.rcMonitor.bottom - mi.rcMonitor.top;
+    /* On a monitor wider than 4:3, modes in its shape, whatever it is (16:9, 16:10, 21:9...).
+     * They come first, smallest first: hogs.dll starts a new player in the first mode. Widths
+     * are even, so a 16-bit row has no padding. */
+    if (g_config.widescreen && mw * 3 > mh * 4)
+        for (int h : kWideHeights)
+            if (h <= mh)
+                modes.push_back({ (h * mw / mh + 1) & ~1, h });
+    for (auto &m : kModes)
+        modes.push_back({ m.w, m.h });
+    for (auto &m : modes) {
         DDSURFACEDESC2 d = {};
         d.dwSize = sizeof d;
         d.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PITCH | DDSD_PIXELFORMAT | DDSD_REFRESHRATE;
-        d.dwWidth = m.w;
-        d.dwHeight = m.h;
-        d.lPitch = m.w * 2;
+        d.dwWidth = m.cx;
+        d.dwHeight = m.cy;
+        d.lPitch = m.cx * 2;
         d.dwRefreshRate = 60;
         rgb565_format(d.ddpfPixelFormat);
         if (cb(&d, ctx) == DDENUMRET_CANCEL)

@@ -30,6 +30,42 @@ function HexBytes($s) { [byte[]]($s -split '(..)' -ne '' | ForEach-Object { [Con
 function Has($path) { Test-Path -LiteralPath $path }
 function Drop($path) { if (Has $path) { Remove-Item -LiteralPath $path -Force } }
 function OwnDdraw($path) { (Has $path) -and [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($path)).Contains($ddrawSig) }
+# what is inserted into hogs.ini is CRLF whatever the line ends of the template are
+function Crlf($s) { ($s.TrimEnd() -replace '\r\n|\r|\n', "`r`n") + "`r`n" }
+# the line before the insert position is the last one of the file and may have no line end
+function NewLine($text, $pos) { if ($pos -eq 0 -or $text[$pos - 1] -match '[\r\n]') { '' } else { "`r`n" } }
+
+# The game reads hogs.ini with GetPrivateProfile*, so "this section / setting is there" has to mean what that API finds:
+# only the first [name] of a name counts (a second header would be ignored), names ignore case and the blanks around them,
+# a line starting with ; is a comment (a commented-out setting is not there), a lone CR also ends a line.
+# $text is decoded as Latin-1 so that every byte survives the round trip.
+# Returns name -> @{ Name; Start; End; Settings = key -> @{ Name; Text } } (PowerShell dictionaries ignore case, whatever
+# the culture of the PC). End is after the last non-blank line, so new settings land above the blank line that separates
+# the next section. Text is the setting's line together with the comment lines above it.
+function IniSections($text) {
+    $secs = [ordered]@{}
+    $cur = $null; $from = 0
+    foreach ($m in [regex]::Matches($text, '[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$')) {
+        $end = $m.Index + $m.Length
+        if ($m.Value -match '^[ \t]*\[([^\]\r\n]*)') {
+            $name = $Matches[1].Trim(" `t")
+            $cur = $null
+            if (-not $secs.Contains($name)) {
+                $cur = @{ Name = $name; Start = $m.Index; Settings = [ordered]@{} }
+                $secs[$name] = $cur
+            }
+            $from = $end
+        } elseif ($cur -and $m.Value -match '^[ \t]*([^;\s=][^=\r\n]*)=') {
+            $key = $Matches[1].Trim(" `t")
+            if (-not $cur.Settings.Contains($key)) {
+                $cur.Settings[$key] = @{ Name = $key; Text = $text.Substring($from, $end - $from) }
+            }
+            $from = $end
+        }
+        if ($cur -and $m.Value -match '\S') { $cur.End = $end }
+    }
+    $secs
+}
 
 if (-not $GameDir) {
     $GameDir = Split-Path $here -Parent
@@ -129,7 +165,7 @@ if ($hash -eq $patch.output_sha256) {
     Say "warhogs_.exe patched: $($patch.changes.Count) changes (original kept as warhogs_.exe.orig)" 'Green'
 }
 
-# 2. hogs.dll: the runtime fixes. hogs.ini is the player's: keep it, and add the sections a newer version needs.
+# 2. hogs.dll: the runtime fixes. hogs.ini is the player's: keep it, and add what a newer version needs.
 Copy-Item -LiteralPath (Join-Path $files 'hogs.dll') -Destination $GameDir -Force
 $ini = Join-Path $GameDir 'hogs.ini'
 if (-not (Has $ini)) {
@@ -137,13 +173,43 @@ if (-not (Has $ini)) {
 } else {
     $b = [IO.File]::ReadAllBytes($ini)
     if ($b.Length -ge 2 -and (($b[0] -eq 0xFF -and $b[1] -eq 0xFE) -or ($b[0] -eq 0xFE -and $b[1] -eq 0xFF))) {
-        Say 'hogs.ini is saved as UTF-16: copy the [Render] section from files\hogs.ini into it by hand' 'Yellow'
-    } elseif ([IO.File]::ReadAllText($ini) -notmatch '(?im)^[ \t]*\[Render\]') {
-        # append only: the player's text, values and encoding stay exactly as they are
-        $block = [regex]::Match([IO.File]::ReadAllText((Join-Path $files 'hogs.ini')), '(?ms)^\[Render\].*?(?=^\[|\z)').Value
-        $nl = if ($b.Length -gt 0 -and $b[$b.Length - 1] -ne 10) { "`r`n" } else { '' }
-        [IO.File]::AppendAllText($ini, $nl + "`r`n" + ($block -replace '\r?\n', "`r`n"), [Text.Encoding]::ASCII)
-        Say 'hogs.ini: added the [Render] section (your settings are unchanged)' 'Green'
+        Say 'hogs.ini is saved as UTF-16 and was not updated: copy new sections and settings from files\hogs.ini into it by hand' 'Yellow'
+    } else {
+        # Only insertions, so the player's text, values and encoding stay exactly as they are: a section the file lacks goes
+        # to its end, a setting a section lacks goes to the end of that section (the game would use the default otherwise).
+        $latin1 = [Text.Encoding]::GetEncoding(28591)   # one byte per char, so nothing is re-encoded
+        $text = $latin1.GetString($b)
+        $tplText = $latin1.GetString([IO.File]::ReadAllBytes((Join-Path $files 'hogs.ini')))
+        $mine = IniSections $text
+        $sections = @(); $settings = @(); $inserts = @(); $tail = ''
+        foreach ($e in (IniSections $tplText).GetEnumerator()) {
+            $t = $e.Value
+            if (-not $mine.Contains($e.Key)) {
+                $sections += "[$($t.Name)]"
+                $tail += "`r`n" + (Crlf $tplText.Substring($t.Start, $t.End - $t.Start))
+                continue
+            }
+            $add = ''; $names = @()
+            foreach ($s in $t.Settings.GetEnumerator()) {
+                if (-not $mine[$e.Key].Settings.Contains($s.Key)) { $add += Crlf $s.Value.Text; $names += $s.Value.Name }
+            }
+            if ($add) {
+                $inserts += @{ Pos = $mine[$e.Key].End; Text = $add }
+                $settings += "$($names -join ', ') in [$($t.Name)]"
+            }
+        }
+        # last position first, so the earlier ones stay valid
+        foreach ($i in ($inserts | Sort-Object { $_.Pos } -Descending)) {
+            $text = $text.Insert($i.Pos, (NewLine $text $i.Pos) + $i.Text)
+        }
+        if ($tail) { $text += (NewLine $text $text.Length) + $tail }
+        if ($sections -or $settings) {
+            [IO.File]::WriteAllBytes($ini, $latin1.GetBytes($text))
+            $what = @()
+            if ($sections) { $what += 'the sections ' + ($sections -join ', ') }
+            if ($settings) { $what += 'the settings ' + ($settings -join '; ') }
+            Say "hogs.ini: added $($what -join ' and ') (your settings are unchanged)" 'Green'
+        }
     }
 }
 Say 'hogs.dll installed (settings: hogs.ini)' 'Green'

@@ -19,16 +19,13 @@
 #   B  update from the previous release, old -Restore  G  game running (a dummy warhogs_ process)
 #   C  hand-installed dgVoodoo kept as *.orig        H  Steam "verify files", missing or damaged .orig
 #   D  refuses when a *.orig is in the way           X  missing package file, unknown exe, old switches, patch.cmd
-#   E  hogs.ini variants and the [Render] append     Y  foreign ddraw.dll later, leftovers, logs, locked file
+#   E  hogs.ini variants: what the update adds    Y  foreign ddraw.dll later, leftovers, logs, locked file
 [CmdletBinding()]
 param([ValidateSet('All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'X', 'Y')][string]$Which = 'All')
 if ($PSVersionTable.PSVersion.Major -lt 7) { throw 'test_patcher: run it with PowerShell 7: pwsh tools\test_patcher.ps1' }
 . (Join-Path $PSScriptRoot 'test_patcher_lib.ps1')
 
 function P8([string]$h) { if ($h.Length -ge 8) { $h.Substring(0, 8) } else { $h } }
-
-# bytes of the text the patcher must append to an ini that has no [Render]: the template's section, CRLF
-function RenderBlock { $tpl = [IO.File]::ReadAllText((Join-Path $dist 'files\hogs.ini')); ([regex]::Match($tpl, '(?ms)^\[Render\].*?(?=^\[|\z)').Value -replace '\r?\n', "`r`n") }
 
 function InstalledChecks([string]$sc, [string]$g, [string]$tag) {
     Check $sc "$tag exe is the patched one" ((FileSha $g 'warhogs_.exe') -eq $HX.patched) (P8 (FileSha $g 'warhogs_.exe'))
@@ -84,7 +81,7 @@ function ScenB {
     $iniText = [regex]::Replace([IO.File]::ReadAllText($ini), '(?ms)^\[Render\].*?(?=^\[|\z)', '')
     [IO.File]::WriteAllText($ini, $iniText.Replace('Windowed=1', 'Windowed=0').Replace('Resizable=1', 'Resizable=0'))
     Check 'B' 'old state: DDraw.dll is dgVoodoo 2.87.5, old hogs.dll, ini has no [Render]' (((FileSha $g 'DDraw.dll') -eq $HX.dgvDD) -and ((FileSha $g 'hogs.dll') -ne $HX.hogs) -and -not ([IO.File]::ReadAllText($ini) -match '\[Render\]')) ''
-    $iniBefore = [IO.File]::ReadAllBytes($ini)
+    $iniBefore = Join-Path $T 'B\hogs.ini.before'; Copy-Item -LiteralPath $ini -Destination $iniBefore
     $winmmBefore = FileSha $g 'winmm.dll'; $origBefore = FileSha $g 'warhogs_.exe.orig'; $exeBefore = FileSha $g 'warhogs_.exe'
     # copy of this state for B2 (-Restore straight from the old install)
     $g2 = Join-Path $T 'B2\game'; CleanDir (Join-Path $T 'B2'); [void][IO.Directory]::CreateDirectory((Split-Path $g2 -Parent))
@@ -96,11 +93,9 @@ function ScenB {
     Check 'B' 'update: ddraw.dll is ours (= package), not dgVoodoo' (((FileSha $g 'ddraw.dll') -eq $HX.dd) -and ((FileSha $g 'ddraw.dll') -ne $HX.dgvDD)) (P8 (FileSha $g 'ddraw.dll'))
     Check 'B' 'update: hogs.dll replaced by the new one' ((FileSha $g 'hogs.dll') -eq $HX.hogs)
     Check 'B' 'update: exe, exe.orig, winmm.dll untouched' (((FileSha $g 'warhogs_.exe') -eq $exeBefore) -and ((FileSha $g 'warhogs_.exe.orig') -eq $origBefore) -and ((FileSha $g 'winmm.dll') -eq $winmmBefore)) ''
-    $iniAfter = [IO.File]::ReadAllBytes($ini)
-    $prefix = ($iniAfter.Length -gt $iniBefore.Length) -and ([Linq.Enumerable]::SequenceEqual([byte[]]$iniAfter[0..($iniBefore.Length - 1)], [byte[]]$iniBefore))
-    $tail = [Text.Encoding]::ASCII.GetString($iniAfter, $iniBefore.Length, $iniAfter.Length - $iniBefore.Length)
-    Check 'B' 'update: hogs.ini = old bytes untouched + appended [Render] block (CRLF)' ($prefix -and ($tail -ceq ("`r`n" + (RenderBlock)))) "old $($iniBefore.Length) B -> $($iniAfter.Length) B"
-    Check 'B' "update: player's values kept, [Render] defaults present" ((IniVals $ini) -eq 'Windowed=0 Resizable=0 Scale=0 VSync=1') (IniVals $ini)
+    $v = IniVerdict $iniBefore $ini $r.Out
+    Check 'B' 'update: hogs.ini keeps every old line, gets the template sections and settings it lacked, one message' (($r.Out -match 'hogs\.ini: added') -and -not $v) ($v -join '; ')
+    Check 'B' "update: player's values kept (Windowed=0, Resizable=0)" (((IniGet $ini 'Display' 'Windowed') -eq '0') -and ((IniGet $ini 'Display' 'Resizable') -eq '0')) "$((Get-Item $iniBefore).Length) B -> $((Get-Item $ini).Length) B"
     $sUpd = Snap $g
     $r = RunPatch $new
     Check 'B' 'update again: idempotent (identical tree)' (($r.Code -eq 0) -and (SameSnap $sUpd (Snap $g))) "exit $($r.Code)"
@@ -148,51 +143,64 @@ function ScenD {
     Check 'D2' 'collision on dgVoodoo.conf.orig also refuses before any change' (($r.Code -ne 0) -and ($r.Out -match 'dgVoodoo\.conf\.orig is in the way') -and (SameSnap $s0 (Snap $g))) "exit $($r.Code)"
 }
 
+# The player's hogs.ini before the update, in the ways such files differ. What the patcher must do with each is worked out
+# from the template (IniVerdict in the lib), so these keep passing when the template gets new sections and keys. Display,
+# Windowed, Resizable and Render below are only the contents of the fixtures.
 function ScenE {
-    $block = RenderBlock
-    $enc = [Text.Encoding]::ASCII
-    $variants = [ordered]@{
-        'crlf, trailing newline'      = $enc.GetBytes("; mine`r`n[Display]`r`nWindowed=0`r`nResizable=0`r`n")
-        'lf, no trailing newline'     = $enc.GetBytes("[Display]`nWindowed=0`nResizable=0")
-        'utf8 BOM, comment first'     = ([byte[]](0xEF, 0xBB, 0xBF) + $enc.GetBytes("; mine`r`n[Display]`r`nWindowed=0`r`nResizable=0`r`n"))
-        'utf8 BOM, [Display] first'   = ([byte[]](0xEF, 0xBB, 0xBF) + $enc.GetBytes("[Display]`r`nWindowed=0`r`nResizable=0`r`n"))
-        'utf16le'                     = ([byte[]](0xFF, 0xFE) + [Text.Encoding]::Unicode.GetBytes("[Display]`r`nWindowed=0`r`nResizable=0`r`n"))
-        'has [Render] (custom)'       = $enc.GetBytes("[Display]`r`nWindowed=0`r`n[Render]`r`nScale=3`r`n")
-        'has indented [render]'       = $enc.GetBytes("[Display]`r`nWindowed=0`r`n  [render]`r`nVSync=0`r`n")
-        'empty file'                  = [byte[]]@()
-        'mac-style trailing CR only'  = $enc.GetBytes("[Display]`r`nWindowed=0`r`nResizable=0`r")
+    $lat = [Text.Encoding]::Latin1
+    $tplFile = Join-Path $dist 'files\hogs.ini'
+    $tpl = $lat.GetString([IO.File]::ReadAllBytes($tplFile)) -replace '\r?\n', "`r`n"
+    $s1 = (IniList $tplFile)[0]; $k1 = (IniList $tplFile $s1)[0]     # the template's first section, and its first key
+    $keyLine = '(?m)^[ \t]*[^;\s=\[][^=\r\n]*=[^\r\n]*\r\n'
+    $lastKey = [regex]::Matches($tpl, $keyLine) | Select-Object -Last 1
+    $bom = [string]::new([char[]](0xEF, 0xBB, 0xBF))
+    $text = [ordered]@{
+        'crlf, trailing newline'          = "; mine`r`n[Display]`r`nWindowed=0`r`nResizable=0`r`n"
+        'lf, no trailing newline'         = "[Display]`nWindowed=0`nResizable=0"
+        'utf8 BOM, comment first'         = $bom + "; mine`r`n[Display]`r`nWindowed=0`r`nResizable=0`r`n"
+        'utf8 BOM, [Display] first'       = $bom + "[Display]`r`nWindowed=0`r`nResizable=0`r`n"   # the API ignores that first section: it counts as missing
+        'two sections, custom values'     = "[Display]`r`nWindowed=0`r`n[Render]`r`nScale=3`r`n"
+        'indented, other case, spaces'    = "[Display]`r`nWindowed=0`r`n  [ render ] ; mine`r`n vsync = 0`r`n"
+        'empty file'                      = ''
+        'comment only'                    = "; mine`r`n"
+        'mac-style trailing CR only'      = "[Display]`r`nWindowed=0`r`nResizable=0`r"
+        'all CR line ends'                = "[Display]`rWindowed=0`rResizable=0`r[Render]`rScale=3`r"
+        'blank lines at the end'          = "[Display]`r`nWindowed=0`r`n`r`n`r`n"
+        'non-ASCII bytes, LF, no newline' = "; caf$([char]0xE9) $([char]0xC3)$([char]0xA9) $([char]0x80)$([char]0xFF)`n[Display]`nWindowed=0 ; $([char]0xE9)"
+        'the template itself'             = $tpl
+        'the template with LF line ends'  = $tpl -replace '\r\n', "`n"
+        'template minus its first key'    = [regex]::new($keyLine).Replace($tpl, '', 1)
+        'template minus its last key'     = $tpl.Remove($lastKey.Index, $lastKey.Length)
+        'every section, no keys'          = [regex]::Replace($tpl, $keyLine, '')
+        'every key commented out'         = [regex]::Replace($tpl, '(?m)^([ \t]*[^;\s=\[][^=\r\n]*=)', '; $1')
+        'first key: other case, spaces'   = "  [$($s1.ToUpper())]  `r`n`t$($k1.ToLower())  =  77 `r`n"
+        'first key commented out'         = "[$s1]`r`n; $k1=77`r`n"
+        'first section twice'             = "[$s1]`r`n; empty`r`n`r`n[Mine]`r`nA=1`r`n`r`n[$s1]`r`n$k1=77`r`n"   # the API reads the first one only
     }
-    $expect = @{
-        'crlf, trailing newline' = 'Windowed=0 Resizable=0 Scale=0 VSync=1'; 'lf, no trailing newline' = 'Windowed=0 Resizable=0 Scale=0 VSync=1'
-        'utf8 BOM, comment first' = 'Windowed=0 Resizable=0 Scale=0 VSync=1'
-        'utf8 BOM, [Display] first' = 'Windowed=99 Resizable=99 Scale=0 VSync=1'   # the API ignores the first section of such a file, with or without us
-        'utf16le' = 'Windowed=0 Resizable=0 Scale=99 VSync=99'; 'has [Render] (custom)' = 'Windowed=0 Resizable=99 Scale=3 VSync=99'
-        'has indented [render]' = 'Windowed=0 Resizable=99 Scale=99 VSync=0'; 'empty file' = 'Windowed=99 Resizable=99 Scale=0 VSync=1'
-        'mac-style trailing CR only' = 'Windowed=0 Resizable=0 Scale=0 VSync=1'
-    }
+    $bytes = [ordered]@{}
+    foreach ($k in $text.Keys) { $bytes[$k] = $lat.GetBytes($text[$k]) }
+    $bytes['utf16le'] = [byte[]](0xFF, 0xFE) + [Text.Encoding]::Unicode.GetBytes("[Display]`r`nWindowed=0`r`nResizable=0`r`n")
+    $pureAppend = 'utf8 BOM, [Display] first', 'empty file', 'comment only'   # no section of the template in them: the old bytes stay an exact prefix
     $i = 0
-    foreach ($k in $variants.Keys) {
+    foreach ($k in $bytes.Keys) {
         $i++
         $g = NewGame "E$i"; $pkg = AddPkg $g
-        $ini = Join-Path $g 'hogs.ini'
-        [IO.File]::WriteAllBytes($ini, [byte[]]$variants[$k])
-        $before = [IO.File]::ReadAllBytes($ini); $valsBefore = IniVals $ini
+        $ini = Join-Path $g 'hogs.ini'; $before = Join-Path $T "E$i\hogs.ini.before"
+        [IO.File]::WriteAllBytes($ini, $bytes[$k]); [IO.File]::WriteAllBytes($before, $bytes[$k])
         $r = RunPatch $pkg
-        $after = [IO.File]::ReadAllBytes($ini); $vals = IniVals $ini
-        $kept = ($after.Length -ge $before.Length) -and ($before.Length -eq 0 -or [Linq.Enumerable]::SequenceEqual([byte[]]$after[0..($before.Length - 1)], [byte[]]$before))
-        $grew = $after.Length -gt $before.Length
-        $null = RunPatch $pkg; $after2 = [IO.File]::ReadAllBytes($ini)
-        $idem = [Linq.Enumerable]::SequenceEqual([byte[]]$after2, [byte[]]$after)
-        $wantGrow = ($k -notin 'utf16le', 'has [Render] (custom)', 'has indented [render]')
-        $note = ''
-        if ($grew) { $tail = [Text.Encoding]::ASCII.GetString($after, $before.Length, $after.Length - $before.Length); $note = if ($tail.EndsWith($block) -and $tail.StartsWith("`r`n")) { 'appended = CRLF + template [Render]' } else { 'TAIL MISMATCH' } }
-        if ($k -eq 'utf16le') { $note = if ($r.Out -match 'UTF-16') { 'warned: UTF-16' } else { 'no warning' } }
-        $ok = ($r.Code -eq 0) -and $kept -and ($grew -eq $wantGrow) -and $idem -and ($vals -eq $expect[$k]) -and ($note -ne 'TAIL MISMATCH') -and ($note -ne 'no warning')
-        Check 'E' "ini '$k'" $ok "before: $valsBefore | after: $vals | $($before.Length)->$($after.Length) B, old bytes kept=$kept, 2nd run unchanged=$idem, $note"
+        $after = [IO.File]::ReadAllBytes($ini)
+        $r2 = RunPatch $pkg
+        $idem = [Linq.Enumerable]::SequenceEqual([byte[]][IO.File]::ReadAllBytes($ini), [byte[]]$after) -and ($r2.Out -notmatch 'hogs\.ini: added')
+        if ($k -eq 'utf16le') {   # not touched, the player is told
+            $problems = @(if (-not [Linq.Enumerable]::SequenceEqual($after, [byte[]]$bytes[$k])) { 'file changed' }; if ($r.Out -notmatch 'UTF-16') { 'no UTF-16 warning' })
+        } else {
+            $problems = IniVerdict $before $ini $r.Out -Append:($k -in $pureAppend)
+        }
+        Check 'E' "ini '$k'" (($r.Code -eq 0) -and $idem -and -not $problems) "$($bytes[$k].Length)->$($after.Length) B, 2nd run unchanged=$idem$(if ($problems) { ' | ' + ($problems -join '; ') })"
     }
     $g = NewGame 'E0'; $pkg = AddPkg $g
     $r = RunPatch $pkg
-    Check 'E' 'no hogs.ini: template copied byte for byte' (($r.Code -eq 0) -and ((FileSha $g 'hogs.ini') -eq (Sha (Join-Path $dist 'files\hogs.ini')))) (IniVals (Join-Path $g 'hogs.ini'))
+    Check 'E' 'no hogs.ini: template copied byte for byte' (($r.Code -eq 0) -and ((FileSha $g 'hogs.ini') -eq (Sha $tplFile))) "exit $($r.Code)"
 }
 
 function ScenF {

@@ -301,8 +301,9 @@ HRESULT STDMETHODCALLTYPE Device::DrawPrimitive(D3DPRIMITIVETYPE type, DWORD fvf
             once = true;
         }
         s.fog = 1;
-        s.fog_start = as_float(rs[D3DRENDERSTATE_FOGSTART]);
-        s.fog_end = as_float(rs[D3DRENDERSTATE_FOGEND]);
+        float far_fog = g_config.fog_distance / 100.f; /* exactly 1 by default */
+        s.fog_start = as_float(rs[D3DRENDERSTATE_FOGSTART]) * far_fog;
+        s.fog_end = as_float(rs[D3DRENDERSTATE_FOGEND]) * far_fog;
         s.fog_color = rs[D3DRENDERSTATE_FOGCOLOR];
     }
     const DWORD *t0 = tss[0];
