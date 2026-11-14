@@ -29,6 +29,7 @@
 - **More resolutions:** 1280×960, 1600×1200 and 1920×1440, in addition to the original 640×480 to 1024×768.
 - **Wide-screen battles.** If your monitor is wider than 4:3, battles run in a resolution of its shape (16:9, 16:10, 21:9): the picture fills the screen and shows more to the sides instead of stretching. Menus and videos stay 4:3, with black bars. The game starts in the largest such resolution. Hold Shift while it starts to choose a smaller one: fewer lines give a larger HUD, and the picture stays as sharp. Wide screen was tested on 16:9 and on a simulated 21:9, so please report problems on other monitors.
 - **Computer pigs walk.** In the original PC game they stayed where they were on their turn, because their path finder never ran. Now they walk, at the same speed as your pigs (`[Battle] ComputerWalks`). This was checked in three computer turns; a whole campaign mission with walking computer pigs has not been played through yet.
+- **Network games over the internet.** The game's Network menu lists the games of other players of the fix, wherever they are. The player who watches another player's turn sees it as smoothly as their own. This is new, see below.
 - **Camera zoom** with the mouse wheel or Numpad + and −.
 - **A usable gamepad.** Xbox controllers (XInput) work without setup, with the button layout of the PlayStation version (see Controls). The stick dead zone of other joysticks is 15 % instead of 50 %. The Xbox support is new and has been tested only with a simulated controller, not a real one, so please tell us how it works for you.
 - **Straight to the title screen.** There is no resolution dialog and no intro videos. You can turn both back on.
@@ -67,19 +68,25 @@ The game can be played in Russian: text, fonts, videos and voices. The translati
 
 ## Network games over the internet
 
-The game has network play: **Multi-player**, then **Network**. It was made for a local network. This fix can send it through a lobby server, so that players anywhere see each other's games.
+The game has network play for two to four players: **Multi-player**, then **Network**. It was made for a local network. With this fix that menu shows the games of all players who have the fix, through a lobby server on the internet. Nobody needs an open port.
 
-1. Open `hogs.ini` in the game folder and set `Server=` in the `[Network]` section to the address of a lobby server. Set `Name=` to your name. Every player sets the same server.
-2. In the game choose **Multi-player**, **Network**, then **- INTERNET -**. You see the games on the server. The last line makes a new game; any other line joins that game.
-3. The player who made the game chooses the level. Everyone chooses a team and presses **Start game**. In the lobby that follows, the maker of the game presses **Tab** when all players are there.
+1. In the game choose **Multi-player**, **Network**, then **- INTERNET -**. You see the games that wait for players. The last line makes a new game; any other line joins that game.
+2. The player who made the game chooses the level. Everyone chooses a team and presses **Start game**. In the lobby that follows, the maker of the game presses **Tab** when all players are there.
 
 A line of the list reads like `BRAVO'S GAME 2-4 125MS`: two players of four are in that game, and your connection to the server and back takes 125 milliseconds.
 
-The server address has two forms: `name` or `name:port` for a direct connection, and `wss://name` for a server behind a web address.
+The settings are in the `[Network]` section of `hogs.ini` in the game folder:
 
-To play only with friends, set the same word as `Password=` in `[Network]` on every PC. Your games are then listed only for players with that word, and you see only theirs. It keeps strangers out of the list; it is not a strong lock.
+- `Name=` is your name in network games. Without it you are PLAYER and a number.
+- `Password=` is for games with friends only. Set the same word on every PC: your games are then listed only for players with that word, and you see only theirs. It keeps strangers out of the list; it is not a strong lock.
+- `Server=` is the lobby server. Empty it to get the game's own network play back: a local network, or the IP address of a player. Another server is written as `name`, `name:port` or `wss://name`.
 
-All players need the same version of this fix. With `Server=` empty the game's own network play is used, as before.
+Good to know:
+
+- All players need the same version of this fix and the same `[Battle] ComputerWalks` setting.
+- The other players do not see your IP address: all messages go through the server.
+- The lobby server is run by fans, with no promise that it is always up.
+- This is new. It was tested with two copies of the game on one PC, not yet between different PCs or with more than two players. Please report how it works for you.
 
 ## Controls
 

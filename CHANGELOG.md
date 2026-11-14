@@ -2,11 +2,11 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`; the technical details of every change are in [docs/WORKLOG.md](docs/WORKLOG.md) (in Russian).
 
-## v1.4.0 — not released yet
+## v1.4.0 — 2026-11-14
 
 ### Added
 
-- Network games over the internet. The game's own network play (Multi-player, Network) needs players who can reach each other directly: a local network or an open port. With `[Network] Server` set in `hogs.ini`, the game's Network menu lists the games on a lobby server instead, and the game's messages go through that server. The menus are the game's own: "- INTERNET -" in the provider list, then the list of games with "make a game" as its last line, then the lobby, where the host starts the battle with Tab.
+- Network games over the internet. The game's own network play (Multi-player, Network) needs players who can reach each other directly: a local network or an open port. Now the game's Network menu lists the games on a lobby server, and the game's messages go through that server. The fix comes with a public lobby server set in `[Network] Server` of `hogs.ini`. The menus are the game's own: "- INTERNET -" in the provider list, then the list of games with "make a game" as its last line, then the lobby, where the host starts the battle with Tab.
 - `[Network] Name` is the player's name in network games. The game itself used the Windows user name.
 - The server address can be a web address, `Server=wss://name`: the game then connects with a WebSocket, for a lobby server that stands behind a web front and does not show its own address.
 - The list of games shows the players of each game and your ping to the server: `BRAVO'S GAME 2-4 125MS`.
@@ -19,7 +19,8 @@ What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`;
 ### Good to know
 
 - All players of a game need the same version of the fix and the same `[Battle] ComputerWalks` setting: each PC runs the battle itself, from the same input.
-- Without `[Network] Server` nothing changes in how players find each other: the game's own network play works as before, and it works with this fix.
+- With `[Network] Server` empty the game's own network play is back: a local network or the IP address of a player. It works with this fix. An update from an older version adds the `[Network]` section with the public server to `hogs.ini`.
+- Players do not see each other's IP addresses: all messages go through the server. The public server is run by fans, with no promise that it is always up.
 - The password keeps other players' games out of your list and yours out of theirs. It is not a strong lock: the server does not check it.
 - Tested with two copies of the game on one PC, through a server on the internet, directly and through a web front. Not tested: more than two players, two PCs.
 

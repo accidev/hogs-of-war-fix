@@ -1,6 +1,13 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v1.3.2**
+**New in v1.4.0**
+
+- Network games over the internet. In the game choose Multi-player, Network, then "- INTERNET -": you see the games of other players of the fix, and the last line makes your own. Nobody needs an open port, and players do not see each other's IP addresses. Two to four players, as in the game's own network play.
+- The list of games shows the players of each game and your ping: `BRAVO'S GAME 2-4 125MS`. Your name and a password for games with friends are in the new `[Network]` section of `hogs.ini`.
+- Watching another player's turn in a network battle is smooth now. It was shown at about 8 frames a second.
+- All players need v1.4.0. This is new and was tested with two copies of the game on one PC only: please report how it works between real PCs. To get the game's own network play back (local network, IP address), empty `Server=` in `[Network]`.
+
+**v1.3.2**
 
 - Fixed a crash with the Russian translation: the game closed on the screen where you name your team or a pig when you pressed D, S or one of 13 other letter keys. If the translation is installed, run `russian.cmd` again after `patch.cmd`: it installs release 1.1.1 of the translation.
 - On that screen the keyboard now types the letters of the current keyboard layout: Russian letters in the Russian layout (with the translation), Latin letters in the English one.
@@ -44,7 +51,9 @@ Video of the whole install: https://youtu.be/oBo27HB4x_4
 
 Update: extract the new zip over the old `HogsFix` folder and run `patch.cmd` again; your `hogs.ini` settings are kept. Uninstall: `HogsFix\uninstall.cmd`. Settings, controls and help: [README](https://github.com/accidev/hogs-of-war-fix#readme).
 
-**Что нового в v1.3.2**: исправлен вылет с русским переводом. Игра закрывалась на экране, где называют команду или свинью, при нажатии D, S и ещё 13 клавиш с буквами. Если перевод уже стоит, после `patch.cmd` запустите `russian.cmd` ещё раз: он поставит версию 1.1.1 перевода. На этом экране клавиатура теперь печатает буквы включённой раскладки: русские при русской, латинские при английской.
+**Что нового в v1.4.0**: сетевая игра через интернет. В игре выберите «Много игроков», «Сеть», затем «- INTERNET -»: откроется список игр других игроков с исправлением, последняя строка создаёт свою. Открывать порты не нужно, игроки не видят IP-адреса друг друга. В списке видно число игроков каждой игры и ваш пинг: `BRAVO'S GAME 2-4 125MS`. Имя и пароль для игры с друзьями задаются в новом разделе `[Network]` файла `hogs.ini`. Чужой ход в сетевом бою теперь идёт плавно, раньше он показывался примерно с 8 кадрами в секунду. У всех игроков должна быть версия 1.4.0. Возможность новая и проверена только на двух копиях игры на одном компьютере: напишите, как она работает у вас. Чтобы вернуть обычную сетевую игру (локальная сеть, IP-адрес), сотрите адрес в `Server=` раздела `[Network]`.
+
+**v1.3.2**: исправлен вылет с русским переводом. Игра закрывалась на экране, где называют команду или свинью, при нажатии D, S и ещё 13 клавиш с буквами. Если перевод уже стоит, после `patch.cmd` запустите `russian.cmd` ещё раз: он поставит версию 1.1.1 перевода. На этом экране клавиатура теперь печатает буквы включённой раскладки: русские при русской, латинские при английской.
 
 **v1.3.1**: `russian.cmd` ставит новую версию русского перевода. В ней весь русский алфавит и вся латиница во всех шрифтах, исправленный текст («НАСТРОЙКИ», «ЭКСПЕРТ», «МАТЧ» вместо «НАСТРОИКИ», «ЕКСПЕРТ», «МАТ4»), читаются английские имена и титры.
 
