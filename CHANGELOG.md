@@ -2,6 +2,26 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`; the technical details of every change are in [docs/WORKLOG.md](docs/WORKLOG.md) (in Russian).
 
+## v1.2.2 — 2026-11-14
+
+### Fixed
+
+- Water ran too fast: its speed followed the frame rate, about 6 times the original on a 144 Hz monitor and 14 times on 360 Hz. It moves at the original speed now, whatever the frame rate. The fault came with the smooth battles of v1.1.0.
+- Thin see-through lines between the pieces of the HUD (the timer, the weapon window). They showed when the picture was drawn larger than the game resolution, which is the default.
+- The names over the pigs sat on their heads in resolutions with more than 480 lines. The original game had this fault too.
+- With `[Display] Widescreen=1`, a game that had a 4:3 resolution saved stayed 4:3, with black bars at the sides.
+
+### Changed
+
+- On a monitor wider than 4:3 the launcher offers only resolutions in its shape, the largest first. The monitor's own resolution is among them, up to 4096×1536.
+- The first start takes the largest resolution for the monitor, not the smallest.
+- The pieces of the HUD are drawn pixel for pixel, without smoothing: sharper, and as the original game showed them.
+
+### Good to know
+
+- If you played 4:3 on a wide monitor, the game now starts wide, in the largest resolution. For 4:3 set `[Display] Widescreen=0`.
+- The HUD is drawn in game pixels: fewer lines give a larger HUD, and the picture stays as sharp. Hold Shift while the game starts to choose a resolution.
+
 ## v1.2.1 — 2026-11-14
 
 ### Fixed

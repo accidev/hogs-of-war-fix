@@ -22,6 +22,7 @@
  * src/battle.c and src/hogsfix.c.
  */
 #include "hogs.h"
+#include <math.h>
 #include <mmsystem.h>
 #include <string.h>
 
@@ -86,6 +87,39 @@ static void wait_until(LONGLONG due, BOOL messages)
         MsgWaitForMultipleObjectsEx(1, &g_timer, 100, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
     else
         WaitForSingleObject(g_timer, 100);
+}
+
+/* ---- water ----
+ * The renderer moved the water plane inside its draw function (_d3d.dll FUN_1000B440): every
+ * frame the 31x31 inner points of its grid went 4 units along y, and from a multiple of 1024
+ * back by 1020. That is 100 units a second at 25 frames a second, and 14 times that at 360.
+ * water_slide takes the place of that loop: 100 units a second by the clock at any frame rate.
+ * The rows of the grid are 1024 apart, so after one row the points start again. */
+float *g_water_y; /* y of the first inner point; +0x68 bytes is the next point, +0xD68 the next row */
+
+void __cdecl water_slide(void)
+{
+    static LONGLONG last;
+    LONGLONG now = now_us();
+    /* after a break (the first frame, a loading screen) one step of the original */
+    float step = now - last > 200000 ? 4.0f : (float)(now - last) * 1e-4f, was, phase;
+    int row, col;
+
+    last = now;
+    if (!g_water_y)
+        return;
+    was = *g_water_y + 15356.0f; /* the first inner point is built at y = 1024 - 16380 */
+    was -= 1024.0f * (float)floor(was / 1024.0f);
+    phase = was + step;
+    if (phase >= 1024.0f)
+        phase -= 1024.0f;
+    for (row = 0; row < 31; row++)
+        for (col = 0; col < 31; col++) {
+            float *y = (float *)((BYTE *)g_water_y + row * 0xD68 + col * 0x68);
+
+            /* from the point's own place in the grid, so that rounding does not add up */
+            *y = 1024.0f * (float)floor((*y - was + 16380.0f) / 1024.0f + 0.5f) - 16380.0f + phase;
+        }
 }
 
 /* ---- [Debug] FrameStats=1: one line every 5 s while frames are drawn ----

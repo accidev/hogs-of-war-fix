@@ -93,15 +93,21 @@ HRESULT STDMETHODCALLTYPE DirectDraw::EnumDisplayModes(DWORD, LPDDSURFACEDESC2, 
     MONITORINFO mi = { sizeof mi };
     GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi);
     int mw = mi.rcMonitor.right - mi.rcMonitor.left, mh = mi.rcMonitor.bottom - mi.rcMonitor.top;
-    /* On a monitor wider than 4:3, modes in its shape, whatever it is (16:9, 16:10, 21:9...).
-     * They come first, smallest first: hogs.c starts a new player in the first mode. Widths
-     * are even, so a 16-bit row has no padding. */
-    if (g_config.widescreen && mw * 3 > mh * 4)
-        for (int h : kWideHeights)
-            if (h <= mh)
-                modes.push_back({ (h * mw / mh + 1) & ~1, h });
-    for (auto &m : kModes)
-        modes.push_back({ m.w, m.h });
+    /* Largest first. The game's launcher takes the first mode it accepts (up to 4096x1536) when
+     * the saved one is not in the list, and hogs.c starts a new player in it.
+     * On a monitor wider than 4:3 only modes in its shape, whatever it is (16:9, 16:10, 21:9...):
+     * the monitor's own size, then the usual line counts below it. So a 4:3 mode saved earlier
+     * gives way to a wide one. Widths are even, so a 16-bit row has no padding. */
+    if (g_config.widescreen && mw * 3 > mh * 4) {
+        modes.push_back({ (mw + 1) & ~1, mh });
+        for (int i = _countof(kWideHeights) - 1; i >= 0; i--)
+            if (kWideHeights[i] < mh)
+                modes.push_back({ (kWideHeights[i] * mw / mh + 1) & ~1, kWideHeights[i] });
+    } else {
+        for (int i = _countof(kModes) - 1; i >= 0; i--)
+            if (i == 0 || (kModes[i].w <= mw && kModes[i].h <= mh)) /* what fits the monitor, and 640x480 */
+                modes.push_back({ kModes[i].w, kModes[i].h });
+    }
     for (auto &m : modes) {
         DDSURFACEDESC2 d = {};
         d.dwSize = sizeof d;

@@ -15,6 +15,8 @@ BOOL hook_import(DWORD slot_va, const char *dll, const char *fn, const void *rep
 /* frames.c: battle loop without a busy spin, frames between the game ticks, menu speed.
  * vsync: [Render] VSync, as the renderer read it. */
 void frames_init(BOOL vsync);
+extern float *g_water_y;      /* the renderer's water grid, set when _d3d.dll is patched */
+void __cdecl water_slide(void); /* called from _d3d.dll in place of its own loop */
 
 /* gamepad.c: XInput controllers */
 void gamepad_init(void);

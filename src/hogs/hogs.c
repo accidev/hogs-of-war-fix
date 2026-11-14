@@ -217,6 +217,21 @@ static void fix_renderer(HMODULE renderer)
     hook_import(base + 0x1ED7298, "user32.dll", "GetClientRect", game_client_rect, NULL,
                 "renderer: game resolution as client size");
 
+    /* The water plane, FUN_1000B440: the loop that moves its grid one step per frame
+     * (0xB4C2..0xB514) becomes a call of water_slide and a jump over the rest of it. The first
+     * instruction holds the address of the grid, moved with the DLL. */
+    {
+        BYTE loop[7] = { 0xBB, 0, 0, 0, 0, 0x8B, 0xF3 }; /* mov ebx, grid / mov esi, ebx */
+        BYTE call[7] = { 0xE8, 0, 0, 0, 0, 0xEB, 0x4C }; /* call water_slide / jmp 0xB515 */
+        DWORD grid = base + 0x1ABEF74, rel = (DWORD)(ULONG_PTR)water_slide - (base + 0xB4C2 + 5);
+
+        memcpy(loop + 1, &grid, 4);
+        memcpy(call + 1, &rel, 4);
+        g_water_y = (float *)(ULONG_PTR)grid;
+        if (!patch(base + 0xB4C2, loop, call, 7, "renderer: water moves by the clock"))
+            g_water_y = NULL;
+    }
+
     if (g_widescreen) {
         /* 0.05f, and behind it the 1/15 of fy */
         if (memcmp((void *)(ULONG_PTR)(base + 0x200B8), "\xCD\xCC\x4C\x3D\x89\x88\x88\x3D", 8) == 0) {
@@ -289,6 +304,24 @@ static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
  * size and state the player gives it. */
 static BOOL g_borderless;
 
+/* The name over a pig stands on a box of 182400 / depth pixels around it (FUN_00459B20,
+ * mov eax, 0x2C880 at 0x459D6D): the size of a pig at 480 lines. With more lines the pig is
+ * larger, the box was not, and the name sat on the pig's head. 182400 is 380 x 480, so the
+ * number becomes 380 x the lines of the current screen. */
+static DWORD *g_name_box;
+
+static void set_name_box(int lines)
+{
+    DWORD prot;
+
+    if (!g_name_box || lines <= 0)
+        return;
+    VirtualProtect(g_name_box, sizeof *g_name_box, PAGE_EXECUTE_READWRITE, &prot);
+    *g_name_box = 380 * (DWORD)lines;
+    VirtualProtect(g_name_box, sizeof *g_name_box, prot, &prot);
+    FlushInstructionCache(GetCurrentProcess(), g_name_box, sizeof *g_name_box);
+}
+
 static void __stdcall size_game_window(int w, int h)
 {
     HWND hwnd = GAME_WINDOW;
@@ -299,6 +332,7 @@ static void __stdcall size_game_window(int w, int h)
     g_game_w = w;
     g_game_h = h;
     set_fx_factor(w, h);
+    set_name_box(h);
     if (!hwnd || g_game_proc)
         return;
     wide_battle(&w, &h);
@@ -542,7 +576,14 @@ static void apply_fixes(int vsync, int widescreen)
         patch(0x44CF58, "\x68\x00\x00\xC8\x00", "\x68\x00\x00\xCF\x00", 5, "resizable window");
 
     g_borderless = GetPrivateProfileIntA("Display", "Borderless", 0, g_ini);
-    hook(0x44D040, 0xE9, "\xA1\x60\x08\x52\x00", size_game_window, "big game window, keeps its size");
+    if (hook(0x44D040, 0xE9, "\xA1\x60\x08\x52\x00", size_game_window, "big game window, keeps its size")) {
+        if (memcmp((void *)0x459D6D, "\xB8\x80\xC8\x02\x00", 5) == 0) {
+            g_name_box = (DWORD *)0x459D6E;
+            say("ok   %-40s %08X", "names above the pigs at any resolution", 0x459D6D);
+        } else {
+            say("skip %-40s %08X: unexpected bytes, unknown game build?", "names above the pigs at any resolution", 0x459D6D);
+        }
+    }
 
     g_widescreen = widescreen;
     if (g_widescreen) {

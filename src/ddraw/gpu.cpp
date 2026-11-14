@@ -627,7 +627,54 @@ int frame_draws()
     return g_gpu_draws;
 }
 
-void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawState &s, Texture *tex)
+/* The game's 2D pieces (HUD, digits, text, billboards) are rectangles on whole pixels with UVs
+ * half a texel further on. D3D7's pixel centres sit on whole coordinates, so every pixel of
+ * [x0, x1) reads the middle of its own texel there. At Scale > 1 the same rectangle covers the
+ * half pixel after x1 instead of the one before x0, and that half reads the next texel of the
+ * page: a line along the right and bottom edge, see-through as a rule, which showed the scene
+ * between the pieces of the timer and of the weapon window. So such a triangle moves half a
+ * pixel up and left, onto the pixels D3D7 filled, and its UVs move with it: every point of the
+ * screen reads the texel it read before (pixel_triangle).
+ *
+ * pixel_rect: is t one triangle of such a rectangle (whole pixels, one rhw, two sides along the
+ * axes)? g gets what one pixel adds to u along x and along y, then to v along x and along y. */
+static bool pixel_rect(const D3DTLVERTEX *t, float g[4])
+{
+    if (t[1].rhw != t[0].rhw || t[2].rhw != t[0].rhw) /* in perspective: world geometry */
+        return false;
+    for (int i = 0; i < 3; i++)
+        if (t[i].sx != floorf(t[i].sx) || t[i].sy != floorf(t[i].sy))
+            return false;
+    for (int i = 0; i < 3; i++) { /* the right-angled corner c, with a beside it and b above or below */
+        const D3DTLVERTEX &c = t[i], *a = &t[(i + 1) % 3], *b = &t[(i + 2) % 3];
+        if (a->sx == c.sx && b->sy == c.sy)
+            std::swap(a, b);
+        float w = a->sx - c.sx, h = b->sy - c.sy;
+        if (a->sy != c.sy || b->sx != c.sx || w == 0 || h == 0)
+            continue;
+        g[0] = (a->tu - c.tu) / w;
+        g[1] = (b->tu - c.tu) / h;
+        g[2] = (a->tv - c.tv) / w;
+        g[3] = (b->tv - c.tv) / h;
+        return true;
+    }
+    return false;
+}
+
+static void pixel_triangle(D3DTLVERTEX *t)
+{
+    float g[4];
+    if (!pixel_rect(t, g))
+        return;
+    for (int k = 0; k < 3; k++) {
+        t[k].sx -= 0.5f;
+        t[k].sy -= 0.5f;
+        t[k].tu -= (g[0] + g[1]) / 2;
+        t[k].tv -= (g[2] + g[3]) / 2;
+    }
+}
+
+void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawState &state, Texture *tex)
 {
     if (!ready())
         return;
@@ -647,6 +694,14 @@ void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawSt
     }
     if (!need || need > kBatchMax)
         return;
+    /* A 2D rectangle with one texel per pixel (the pieces of the HUD): D3D7 read every texel at
+     * its middle, where the linear filter the game asks for gives the texel itself. At Scale > 1
+     * the filter would mix in the texels around the piece, see-through ones as a rule. */
+    DrawState s = state;
+    float g[4];
+    if (tex && s.linear && topo == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST && pixel_rect(v, g) && g[1] == 0 && g[2] == 0 &&
+        fabsf(fabsf(g[0]) * tex->w - 1) < 1e-3f && fabsf(fabsf(g[3]) * tex->h - 1) < 1e-3f)
+        s.linear = 0;
     if (!g_batch.empty() && (topo != g_batch_topo || tex != g_batch_tex || memcmp(&s, &g_batch_state, sizeof s) ||
                              memcmp(&g_clip, &g_batch_clip, sizeof g_clip) || g_batch.size() + need > kBatchMax))
         flush();
@@ -656,11 +711,15 @@ void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawSt
         g_batch_topo = topo;
         g_batch_clip = g_clip;
     }
+    size_t first = g_batch.size();
     if (type == D3DPT_TRIANGLEFAN) /* first vertex first, as D3D7 flat shading expects */
         for (uint32_t i = 1; i + 1 < count; i++)
             g_batch.insert(g_batch.end(), { v[0], v[i], v[i + 1] });
     else
         g_batch.insert(g_batch.end(), v, v + need);
+    if (topo == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+        for (size_t i = first; i < g_batch.size(); i += 3)
+            pixel_triangle(&g_batch[i]);
 }
 
 /* A 4-vertex strip over dst (game pixels) with the blit pixel shader or present shader.

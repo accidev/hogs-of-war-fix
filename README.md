@@ -27,7 +27,7 @@
 - **Smooth battles.** The game draws as many frames per second as your monitor shows instead of 25, and still runs at its original speed. It no longer loads one CPU core to 100 %. `[Battle] FrameRate` sets the number of frames. This was checked by measurement; how it looks on 60 and 144 Hz monitors has not been checked by players yet.
 - **A big window or borderless fullscreen.** The window opens as large as the screen allows and takes the shape of the game resolution, 4:3 or wide. You can resize or maximize it, and Alt+Tab is safe.
 - **More resolutions:** 1280×960, 1600×1200 and 1920×1440, in addition to the original 640×480 to 1024×768.
-- **Wide-screen battles.** If your monitor is wider than 4:3, the game also offers resolutions in the shape of the monitor (16:9, 16:10, 21:9). A battle in one fills the screen and shows more to the sides instead of stretching the picture. Menus and videos stay 4:3, with black bars. A new player starts in a wide resolution automatically. If you update, your saved resolution stays: hold Shift while the game starts to pick a wide one. Wide screen is new: it was tested on 16:9 and on a simulated 21:9, so please report problems on other monitors.
+- **Wide-screen battles.** If your monitor is wider than 4:3, battles run in a resolution of its shape (16:9, 16:10, 21:9): the picture fills the screen and shows more to the sides instead of stretching. Menus and videos stay 4:3, with black bars. The game starts in the largest such resolution. Hold Shift while it starts to choose a smaller one: fewer lines give a larger HUD, and the picture stays as sharp. Wide screen was tested on 16:9 and on a simulated 21:9, so please report problems on other monitors.
 - **Computer pigs walk.** In the original PC game they stayed where they were on their turn, because their path finder never ran. Now they walk, at the same speed as your pigs (`[Battle] ComputerWalks`). This was checked in three computer turns; a whole campaign mission with walking computer pigs has not been played through yet.
 - **Camera zoom** with the mouse wheel or Numpad + and −.
 - **A usable gamepad.** Xbox controllers (XInput) work without setup, with the button layout of the PlayStation version (see Controls). The stick dead zone of other joysticks is 15 % instead of 50 %. The Xbox support is new and has been tested only with a simulated controller, not a real one, so please tell us how it works for you.
@@ -51,7 +51,7 @@ Good to know:
 
 - Windows can warn you that `patch.cmd` came from the internet. Choose **Run**, or **More info** → **Run anyway**.
 - The patcher checks everything before it changes anything. It keeps the original files as `warhogs_.exe.orig` and `winmm.dll.orig`.
-- **Update:** extract the new zip over the old `HogsFix` folder and run `patch.cmd` again. Your settings in `hogs.ini` are kept, and the settings that are new in the version are added to it with their descriptions. The resolution you chose earlier stays too: to play in a wide one, hold Shift while the game starts and choose it.
+- **Update:** extract the new zip over the old `HogsFix` folder and run `patch.cmd` again. Your settings in `hogs.ini` are kept, and the settings that are new in the version are added to it with their descriptions.
 - **Uninstall:** double-click `HogsFix\uninstall.cmd`. It puts the original files back and removes the fix with its settings.
 
 ## Controls
@@ -59,7 +59,7 @@ Good to know:
 | Key | Action |
 |---|---|
 | Mouse wheel, Numpad + and − | Camera closer or farther, 50 to 200 % |
-| Shift, held while the game starts | Resolution and detail dialog. Here you pick a wide resolution after an update |
+| Shift, held while the game starts | Resolution and detail dialog. Fewer lines give a larger HUD |
 | F11 | 10 promotion points, if the cheat is on (see below) |
 
 An Xbox (XInput) controller works without setup. Its buttons sit where the buttons of the PlayStation version were, and in a battle each button presses the key that is set for it in Options → Controls.
@@ -87,8 +87,8 @@ The settings are in `hogs.ini` in the game folder. Restart the game after you ch
 |---|---|---|
 | `[Display] Borderless` | `0` | 1 = full screen: a borderless window over the whole monitor. 0 = a framed window |
 | `[Display] Resizable` | `1` | The framed window can be resized and maximized |
-| `[Display] Widescreen` | `1` | 1 = the launcher also offers resolutions in the shape of your monitor (16:9, 21:9...). A battle in one fills the screen and shows more to the sides. Menus and videos stay 4:3, with black bars. 0 = 4:3 resolutions only |
-| `[Startup] SkipLauncher` | `1` | Start with the resolution chosen last time. The first start takes the smallest one for your monitor, which has the largest interface. Hold Shift at start to choose again |
+| `[Display] Widescreen` | `1` | 1 = on a monitor wider than 4:3, battles run in a resolution of its shape (16:9, 21:9...): they fill the screen and show more to the sides. Menus and videos stay 4:3, with black bars. 0 = 4:3 resolutions only |
+| `[Startup] SkipLauncher` | `1` | Start with the resolution chosen last time. The first start takes the largest one for your monitor. Hold Shift at start to choose again: fewer lines give a larger HUD |
 | `[Startup] SkipIntro` | `1` | No logos and intro videos at start |
 | `[Battle] FrameRate` | `0` | Frames per second in a battle. 0 = as many as the monitor shows (60, 144...), 25 or less = as the original game, a higher number = that many (no more than the monitor shows while `VSync=1`). The game speed does not change |
 | `[Battle] Interpolation` | `1` | 0 = the frames between two game steps repeat the last step instead of showing the motion between them, to find the cause of a glitch |
@@ -112,7 +112,8 @@ PromotionPoints=1
 ## Troubleshooting
 
 - **No music or sound.** Open the Windows volume mixer and raise Hogs of War. The original game changed its own volume there together with the music volume, and it could leave it at 0. The fix stops this, but a 0 that was saved earlier stays.
-- **Black bars at the sides, or no wide resolution in the list.** Menus and videos are always 4:3. For a battle, hold Shift while the game starts and choose a wide resolution; after an update the game keeps the one you chose earlier. Wide resolutions appear only if your monitor is wider than 4:3 and `[Display] Widescreen` is 1. The list stops at 4096 pixels wide.
+- **Black bars at the sides.** Menus and videos are always 4:3. Battles are wide only if your monitor is wider than 4:3 and `[Display] Widescreen` is 1. A resolution can be at most 4096 pixels wide and 1536 lines high.
+- **The HUD and the names over the pigs are too small.** They are drawn in game pixels: fewer lines make them larger, and the picture stays as sharp. Hold Shift while the game starts and choose a smaller resolution, for example 1280×720.
 - **The controller does not react.** Xbox controllers need no setup (`[Gamepad] XInput` is 1). Other joysticks are set up in Options → Controls. The Xbox support is new, so if yours does not work, open an [issue](https://github.com/accidev/hogs-of-war-fix/issues) and say which controller it is.
 - **"Unknown warhogs_.exe".** Only the Steam version 1.2 is supported. If another tool changed the exe, verify the game files in Steam (Properties → Installed Files → Verify integrity of game files) and run `patch.cmd` again.
 - **"Hogs of War is running".** Close the game, then run `patch.cmd` again.
