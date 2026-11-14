@@ -173,14 +173,14 @@ PromotionPoints=1
 pwsh tools/make_release.ps1    # собирает dist/HogsFix и dist/HogsFix.zip
 ```
 
-GitHub Actions собирает такой же архив на каждый push в `main` и на каждый pull request, а тег `v*` публикует его как релиз. Заметки для разработчиков (на английском): [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Технический журнал и разбор рендера: [docs/WORKLOG.md](docs/WORKLOG.md), [docs/renderer/](docs/renderer/).
+GitHub Actions собирает такой же архив на каждый push в `main` и на каждый pull request, а тег `v*` публикует его как релиз.
 
 ## Планы
 
 - Более широкий угол обзора камеры. Он не сделан: у земли и моделей игры разные настройки камеры, так что работы больше, чем кажется.
 - Большая цель: декомпилировать игру и собрать её как родную 64-битную программу.
 
-Изменения по версиям (на английском): [CHANGELOG.md](CHANGELOG.md). Список задач: [docs/TODO.md](docs/TODO.md).
+Изменения по версиям (на английском): [CHANGELOG.md](CHANGELOG.md).
 
 ## Благодарности и лицензия
 

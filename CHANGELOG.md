@@ -1,6 +1,6 @@
 # Changelog
 
-What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`; the technical details of every change are in [docs/WORKLOG.md](docs/WORKLOG.md) (in Russian).
+What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
 ## v1.4.0 — 2026-11-14
 

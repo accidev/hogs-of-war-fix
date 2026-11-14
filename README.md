@@ -173,14 +173,14 @@ You need Visual Studio 2022 or later with C++, CMake and PowerShell 7.
 pwsh tools/make_release.ps1    # builds dist/HogsFix and dist/HogsFix.zip
 ```
 
-GitHub Actions builds the same zip on every push to `main` and every pull request, and a `v*` tag publishes it as a release. Developer notes are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The technical log and the renderer analysis are in Russian: [docs/WORKLOG.md](docs/WORKLOG.md), [docs/renderer/](docs/renderer/).
+GitHub Actions builds the same zip on every push to `main` and every pull request, and a `v*` tag publishes it as a release.
 
 ## Roadmap
 
 - A wider camera view angle. It is not done: the game's ground and models use different camera settings, so it is more work than it looks.
 - Long term: decompile the game and build it as a native 64-bit program.
 
-What changed in each version is in [CHANGELOG.md](CHANGELOG.md). The task list is in [docs/TODO.md](docs/TODO.md) (in Russian).
+What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Credits and license
 

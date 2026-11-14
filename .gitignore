@@ -5,3 +5,15 @@ backup/
 ghidra/
 build/
 dist/
+
+# Working notes stay out too: of docs/ only the pictures of the README are kept.
+docs/*
+!docs/images/
+
+# Editors, logs, scratch files
+.vs/
+.vscode/
+*.user
+*.log
+*.tmp
+*.bak
