@@ -4,3 +4,4 @@ EXPORTS
     DirectDrawCreateEx
     DirectDrawEnumerateExA
     DirectDrawEnumerateA
+    CallDLL

@@ -2,7 +2,22 @@
  "game": "Hogs of War v1.2 (Steam)",
  "file": "warhogs_.exe",
  "input_sha256": "32EB8C28B383D532091DCAE2057D98593BE4DC064F2117212A65CED41509E246",
- "output_sha256": "CF03028F3D5A023281667D77AF26DAC3A92D3C5F13A4831385F15F4D64C222D6",
+ "output_sha256": "867C8344A39029B062AA1B1709F0CEAF9CEC03F9C4D895FC00900B74C8074D91",
+ "older_outputs": [
+  {
+   "sha256": "CF03028F3D5A023281667D77AF26DAC3A92D3C5F13A4831385F15F4D64C222D6",
+   "note": "v1.0-v1.1 of the fix (the exe imports hogs.dll)",
+   "changes": [
+    {
+     "offset": 911990,
+     "va": "0x550276",
+     "old": "686f67732e646c6c000000",
+     "new": "64647261772e646c6c0000",
+     "note": "import hogs.dll (fixes of v1.0-v1.1) -> ddraw.dll (renderer and fixes)"
+    }
+   ]
+  }
+ ],
  "changes": [
   {
    "offset": 157655,
@@ -2283,8 +2298,8 @@
    "offset": 911990,
    "va": "0x550276",
    "old": "776833326c69622e646c6c",
-   "new": "686f67732e646c6c000000",
-   "note": "import wh32lib.dll (LaserLock) -> hogs.dll (fixes)"
+   "new": "64647261772e646c6c0000",
+   "note": "import wh32lib.dll (LaserLock) -> ddraw.dll (renderer and fixes)"
   }
  ]
 }

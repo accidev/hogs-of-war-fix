@@ -6,13 +6,14 @@ $T = Join-Path ([IO.Path]::GetTempPath()) 'hogsfix-patcher-tests'
 $dgvDir = Join-Path $T '_dgv'                 # dgVoodoo files, extracted from downloads\dgVoodoo2_87_5.zip
 $dist = Join-Path $repo 'dist\HogsFix'     # the package under test, built by tools\make_release.ps1
 $ps51 = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-$oldRev = '6943c20'                        # the last commit before the patcher shipped ddraw.dll: its patcher\ is the previous release
+$prevRev = 'fdf30cb'                       # v1.1.1, the previous release: its exe imports hogs.dll
+$dgvRev = '6943c20'                        # the last commit before the patcher shipped ddraw.dll: it installed dgVoodoo2
 
 # Inputs that are not in git (listed in test_patcher.ps1): stop and name the missing one.
 function Need([string]$rel, [string]$what) {
     if (-not [IO.File]::Exists((Join-Path $repo $rel))) { throw "test_patcher: $rel is missing ($what)" }
 }
-foreach ($f in 'patch.cmd', 'patch.ps1', 'warhogs_v12.json', 'files\hogs.dll', 'files\ddraw.dll', 'files\hogs.ini', 'files\winmm.dll', 'files\winmm.ini') {
+foreach ($f in 'patch.cmd', 'patch.ps1', 'warhogs_v12.json', 'files\ddraw.dll', 'files\hogs.ini', 'files\winmm.dll', 'files\winmm.ini') {
     Need "dist\HogsFix\$f" 'build the package first: tools\make_release.ps1'
 }
 Need 'backup\warhogs_.exe.orig' 'a copy of the original Steam v1.2 warhogs_.exe; the folder is not in git'
@@ -21,10 +22,9 @@ Need 'downloads\dgVoodoo2_87_5.zip' 'the dgVoodoo2 2.87.5 release zip; the folde
 
 function Sha([string]$p) { (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash }
 $json = Get-Content -LiteralPath (Join-Path $dist 'warhogs_v12.json') -Raw | ConvertFrom-Json
-# expected hashes: the package as it is now
-$HX = @{ orig = $json.input_sha256; patched = $json.output_sha256 }
+# expected hashes: the package as it is now; older = the exe v1.0-v1.1 made (it imports hogs.dll)
+$HX = @{ orig = $json.input_sha256; patched = $json.output_sha256; older = $json.older_outputs[0].sha256 }
 $HX.bad = Sha (Join-Path $repo 'backup\winmm.dll.ogg-winmm-2014')
-$HX.hogs = Sha (Join-Path $dist 'files\hogs.dll')
 $HX.dd = Sha (Join-Path $dist 'files\ddraw.dll')
 $HX.winmm = Sha (Join-Path $dist 'files\winmm.dll')
 
@@ -143,27 +143,29 @@ function PrepareFixtures {
     $HX.dgvDD = Sha (Join-Path $dgvDir 'MS\x86\DDraw.dll')
 }
 
-# A file as it was committed in $oldRev (raw bytes: PowerShell would re-encode text output).
-function GitShow([string]$path) {
+# A file as it was committed in $rev (raw bytes: PowerShell would re-encode text output).
+function GitShow([string]$rev, [string]$path) {
     $psi = New-Object Diagnostics.ProcessStartInfo 'git'
-    foreach ($a in '-C', $repo, 'show', "${oldRev}:$path") { [void]$psi.ArgumentList.Add($a) }
+    foreach ($a in '-C', $repo, 'show', "${rev}:$path") { [void]$psi.ArgumentList.Add($a) }
     $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.UseShellExecute = $false
     try { $p = [Diagnostics.Process]::Start($psi) } catch { throw "test_patcher: scenario B needs git on PATH to read the previous release from history ($($_.Exception.Message))" }
     $ms = New-Object IO.MemoryStream
     $p.StandardOutput.BaseStream.CopyTo($ms)
     $err = $p.StandardError.ReadToEnd(); $p.WaitForExit()
-    if ($p.ExitCode -ne 0) { throw "test_patcher: git show ${oldRev}:$path failed ($err). Scenario B needs this repository's history." }
+    if ($p.ExitCode -ne 0) { throw "test_patcher: git show ${rev}:$path failed ($err). Scenario B needs this repository's history." }
     , $ms.ToArray()
 }
 
-# The previous release package, built from git; its hogs.dll is a stand-in (the current one plus 3 bytes, so it differs).
-function BuildPrev {
-    $d = Join-Path $T '_prev\HogsFix'
+# An older package, built from git as of $rev. Its DLLs are stand-ins: hogs.dll is any bytes, ddraw.dll the current one
+# plus 3 bytes (so it differs, and both patchers still take it for theirs).
+function BuildPrev([string]$rev = $prevRev) {
+    $d = Join-Path $T "_prev-$rev\HogsFix"
     if (-not [IO.Directory]::Exists($d)) {
         [void][IO.Directory]::CreateDirectory((Join-Path $d 'files'))
-        foreach ($f in 'patch.ps1', 'patch.cmd', 'warhogs_v12.json') { [IO.File]::WriteAllBytes((Join-Path $d $f), (GitShow "patcher/$f")) }
-        [IO.File]::WriteAllBytes((Join-Path $d 'files\hogs.ini'), (GitShow 'src/hogs/hogs.ini'))
-        [IO.File]::WriteAllBytes((Join-Path $d 'files\hogs.dll'), ([IO.File]::ReadAllBytes((Join-Path $dist 'files\hogs.dll')) + [byte[]](0x4F, 0x4C, 0x44)))
+        foreach ($f in 'patch.ps1', 'patch.cmd', 'warhogs_v12.json') { [IO.File]::WriteAllBytes((Join-Path $d $f), (GitShow $rev "patcher/$f")) }
+        [IO.File]::WriteAllBytes((Join-Path $d 'files\hogs.ini'), (GitShow $rev 'src/hogs/hogs.ini'))
+        [IO.File]::WriteAllBytes((Join-Path $d 'files\hogs.dll'), [Text.Encoding]::ASCII.GetBytes("stand-in for the hogs.dll of $rev"))
+        [IO.File]::WriteAllBytes((Join-Path $d 'files\ddraw.dll'), ([IO.File]::ReadAllBytes((Join-Path $dist 'files\ddraw.dll')) + [byte[]](0x4F, 0x4C, 0x44)))
         foreach ($f in 'winmm.dll', 'winmm.ini', 'ogg-winmm-LICENSE.txt', 'ogg-winmm-README.md') {
             Copy-Item -LiteralPath (Join-Path $dist "files\$f") -Destination (Join-Path $d 'files')
         }
@@ -211,6 +213,12 @@ function RunPatch([string]$pkg, [string[]]$extra = @(), [string]$cwd = '') {
         $code = $LASTEXITCODE
     } finally { Set-Location -LiteralPath $here; $ErrorActionPreference = 'Stop' }
     [pscustomobject]@{ Code = $code; Out = $out; Ms = $sw.ElapsedMilliseconds }
+}
+# RunPatch while $file is held open: with -Share Read the patcher can still read and hash it, but not replace or delete
+# it, so the run fails exactly at the step that moves it (an interrupted run).
+function RunLocked([string]$file, [string]$pkg, [string[]]$extra = @(), [string]$share = 'Read') {
+    $lock = [IO.File]::Open($file, 'Open', 'Read', $share)
+    try { RunPatch $pkg $extra } finally { $lock.Dispose() }
 }
 function RunCmd([string]$wrapper) {   # run a .cmd wrapper with cmd.exe from its own folder: no quoting trouble with spaces in the path
     Push-Location -LiteralPath (Split-Path $wrapper -Parent)

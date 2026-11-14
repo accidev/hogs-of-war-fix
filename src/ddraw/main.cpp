@@ -39,6 +39,9 @@ void unimplemented(const char *what)
         log_printf("UNIMPLEMENTED %s", what);
 }
 
+/* the game fixes, src/hogs/hogs.c: only in the patched game, which imports CallDLL from here */
+extern "C" void hogs_init(int vsync, int widescreen);
+
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
 {
     if (reason == DLL_PROCESS_ATTACH) {
@@ -64,6 +67,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
         g_config.frame_dump_at = GetPrivateProfileIntA("Debug", "FrameDumpAt", 0, path);
         log_printf("hogsdraw %s %s: scale %d, vsync %d, frame dump %d", __DATE__, __TIME__, g_config.scale,
                    g_config.vsync, g_config.frame_dump);
+        hogs_init(g_config.vsync, g_config.widescreen);
     } else if (reason == DLL_PROCESS_DETACH && g_log) {
         fclose(g_log);
         g_log = nullptr;

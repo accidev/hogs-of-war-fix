@@ -1,7 +1,10 @@
-/* hogs.dll - runtime fixes for Hogs of War (2000), warhogs_.exe v1.2.
+/* Runtime fixes for Hogs of War (2000), warhogs_.exe v1.2, built into ddraw.dll with the renderer.
  *
- * The patched warhogs_.exe imports this DLL in the slot that used to load LaserLock's
- * wh32lib.dll, so Windows maps it and runs DllMain before the game's entry point.
+ * The patched warhogs_.exe imports CallDLL from ddraw.dll in the slot of LaserLock's wh32lib.dll,
+ * and imports DirectDraw from it too, so Windows maps it and runs DllMain (src/ddraw/main.cpp)
+ * before the game's entry point; DllMain calls hogs_init(). The unpatched exe and any other program
+ * started from the game folder can load the same ddraw.dll, so the fixes go in only for an exe
+ * that imports CallDLL from it.
  * Every fix checks the original bytes first and leaves a build it does not know alone.
  * Settings: hogs.ini next to the exe. Log: hogs.log next to the exe.
  */
@@ -507,7 +510,7 @@ static BOOL WINAPI peek_message(LPMSG msg, HWND hwnd, UINT first, UINT last, UIN
     return g_peek_message(msg, hwnd, first, last, remove);
 }
 
-static void apply_fixes(void)
+static void apply_fixes(int vsync, int widescreen)
 {
     /* call [SystemParametersInfoA] -> add esp,16 (the stdcall's 4 arguments) */
     static const BYTE spi_call[] = { 0xFF, 0x15, 0xE8, 0xF5, 0x54, 0x00 };
@@ -541,7 +544,7 @@ static void apply_fixes(void)
         g_borderless = GetPrivateProfileIntA("Display", "Borderless", 0, g_ini);
         hook(0x44D040, 0xE9, "\xA1\x60\x08\x52\x00", size_game_window, "big game window, keeps its size");
 
-        g_widescreen = GetPrivateProfileIntA("Display", "Widescreen", 1, g_ini);
+        g_widescreen = widescreen;
         if (g_widescreen) {
             hook(0x45C6B7, 0xE8, "\xE8\x34\x0F\xFF\xFF", blit_4x3, "wide battle: loading picture 4:3");
             hook(0x45C6DE, 0xE8, "\xE8\x0D\x0F\xFF\xFF", blit_4x3, "wide battle: loading bar 4:3");
@@ -604,7 +607,7 @@ static void apply_fixes(void)
               "\x7E\x1C\x3D\x00\x70\x00\x00\x7D\x15\x8B\xC2\x25\x00\xFE\xFF\xFF\x3D\x00\x0E\x00\x00\x7E\x07\x3D\x00\x70\x00\x00\x7C\x0A",
               30, "computer pigs find their way");
 
-    frames_init();
+    frames_init(vsync);
     gamepad_init();
 
     if (GetPrivateProfileIntA("Cheats", "PromotionPoints", 0, g_ini)) {
@@ -623,26 +626,44 @@ int CallDLL(void)
     return 0;
 }
 
-BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved)
+/* The fixes read and write fixed addresses of warhogs_.exe v1.2, so they need that exe. Only the
+ * patcher makes an exe import CallDLL from ddraw.dll, and only from that build; a renamed copy
+ * still does. The unpatched exe or a tool that loads this DLL gets the renderer only. */
+static BOOL patched_game(void)
+{
+    const BYTE *exe = (const BYTE *)GetModuleHandleA(NULL);
+    const IMAGE_NT_HEADERS *nt = (const IMAGE_NT_HEADERS *)(exe + ((const IMAGE_DOS_HEADER *)exe)->e_lfanew);
+    const IMAGE_DATA_DIRECTORY *imports = &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    const IMAGE_IMPORT_DESCRIPTOR *d;
+    const FARPROC *slot;
+
+    if (nt->OptionalHeader.NumberOfRvaAndSizes <= IMAGE_DIRECTORY_ENTRY_IMPORT || !imports->VirtualAddress)
+        return FALSE;
+    /* the loader has filled the exe's import slots before any DllMain runs */
+    for (d = (const IMAGE_IMPORT_DESCRIPTOR *)(exe + imports->VirtualAddress); d->FirstThunk; d++)
+        for (slot = (const FARPROC *)(exe + d->FirstThunk); *slot; slot++)
+            if (*slot == (FARPROC)CallDLL)
+                return TRUE;
+    return FALSE;
+}
+
+/* DllMain (src/ddraw/main.cpp) passes [Render] VSync and [Display] Widescreen as the renderer
+ * read them, so the fixes and the renderer go by the same values. */
+void hogs_init(int vsync, int widescreen)
 {
     char dir[MAX_PATH], log[MAX_PATH];
     char *slash;
 
-    (void)reserved;
-    if (reason == DLL_PROCESS_ATTACH) {
-        DisableThreadLibraryCalls(inst);
-        GetModuleFileNameA(NULL, dir, MAX_PATH);
-        slash = strrchr(dir, '\\');
-        if (slash)
-            slash[1] = '\0';
-        snprintf(g_ini, sizeof g_ini, "%shogs.ini", dir);
-        snprintf(log, sizeof log, "%shogs.log", dir);
-        snprintf(g_launch_bin, sizeof g_launch_bin, "%slaunch.bin", dir);
-        g_log = fopen(log, "w");
-        say("hogs.dll %s %s", __DATE__, __TIME__);
-        apply_fixes();
-    } else if (reason == DLL_PROCESS_DETACH && g_log) {
-        fclose(g_log);
-    }
-    return TRUE;
+    if (!patched_game())
+        return; /* before hogs.log is opened: the log of the last game run stays */
+    GetModuleFileNameA(NULL, dir, MAX_PATH);
+    slash = strrchr(dir, '\\');
+    if (slash)
+        slash[1] = '\0';
+    snprintf(g_ini, sizeof g_ini, "%shogs.ini", dir);
+    snprintf(log, sizeof log, "%shogs.log", dir);
+    snprintf(g_launch_bin, sizeof g_launch_bin, "%slaunch.bin", dir);
+    g_log = fopen(log, "w"); /* open until the game exits; say() flushes every line */
+    say("ddraw.dll %s %s", __DATE__, __TIME__);
+    apply_fixes(vsync, widescreen);
 }

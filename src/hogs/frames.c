@@ -516,7 +516,7 @@ static DWORD __cdecl battle_step(void)
     return result;
 }
 
-void frames_init(void)
+void frames_init(BOOL vsync)
 {
     /* the three battle hooks work together, and quiet frames copy the HUD and the message
      * banner, whose sizes must be the known ones: all bytes must match, or none is hooked */
@@ -537,7 +537,7 @@ void frames_init(void)
     g_rate = GetPrivateProfileIntA("Battle", "FrameRate", 0, g_ini);
     g_rate = g_rate < 0 ? 0 : g_rate > 1000 ? 1000 : g_rate;
     g_interpolate = GetPrivateProfileIntA("Battle", "Interpolation", 1, g_ini);
-    g_vsync = GetPrivateProfileIntA("Render", "VSync", 1, g_ini);
+    g_vsync = vsync;
 
     hook(0x42745F, 0xE8, "\xE8\xCC\x70\x08\x00", menu_frame_clock, "menus at their speed, 25 frames a second");
 

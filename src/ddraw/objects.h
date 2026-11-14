@@ -134,11 +134,12 @@ struct DirectDraw : IDirectDraw7Stubs {
     HRESULT STDMETHODCALLTYPE GetVerticalBlankStatus(LPBOOL b) override { *b = TRUE; return DD_OK; }
 };
 
-/* settings from hogs.ini [Render], [Display] and [Debug] */
+/* settings from hogs.ini [Render], [Display] and [Debug]; DllMain hands vsync and widescreen to
+ * the game fixes too (hogs_init) */
 struct Config {
     int scale = 0;      /* back buffer = game resolution x scale; 0 = enough to cover the monitor */
     int vsync = 1;
-    int widescreen = 1; /* [Display] Widescreen: offer modes in the monitor's shape (hogs.dll widens the view) */
+    int widescreen = 1; /* [Display] Widescreen: offer modes in the monitor's shape (hogs.c widens the view) */
     int fog_distance = 100; /* [Render] FogDistance: the game's fog start and end, in percent */
     int frame_dump = 0; /* [Debug] FrameDump: F12 dumps a frame, see capture.cpp */
     int frame_dump_at = 0; /* [Debug] FrameDumpAt: also dump this frame number by itself */

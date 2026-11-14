@@ -3,9 +3,11 @@
 ll_unwrap.py <original warhogs_.exe> <ll_table.json> <out.exe> <out_sites.json>
 
 Every `call [0x550238]` (wh32lib!CallDLL) is rewritten to `call/jmp [IAT slot]` of the
-API it really reaches. The wh32lib.dll import descriptor is then pointed at hogs.dll
+API it really reaches. The wh32lib.dll import descriptor is then pointed at ddraw.dll
 (same imported name `CallDLL`), so the protection DLL is never loaded and the loader
-brings in hogs.dll — which carries all runtime fixes — before the game's entry point.
+brings in our ddraw.dll, which carries the renderer and all runtime fixes, before the
+game's entry point. The exe imports DDRAW.dll already; both descriptors load the same
+module, and the exe does not start without our ddraw.dll (Windows' own has no CallDLL).
 
 Decryption: ptr = (enc ^ key[i % 9]) + exe_delta. The 9 keys come from table rows that
 LaserLock had already rewritten in memory (see ll_table.py); entry i uses the
@@ -83,10 +85,10 @@ assert known.get('0x4811bf') == 'KERNEL32.dll!LoadLibraryA', known.get('0x4811bf
 left = exe.count(b'\xff\x15' + struct.pack('<I', CALLDLL_SLOT)) + exe.count(b'\xff\x25' + struct.pack('<I', CALLDLL_SLOT))
 assert left == 0, f'{left} CallDLL references left'
 
-# load hogs.dll in place of wh32lib.dll: rewrite the DLL name of the first descriptor
+# load ddraw.dll in place of wh32lib.dll: rewrite the DLL name of the first descriptor
 assert descs[0].lower() == 'wh32lib.dll', descs
 name_off = off(struct.unpack_from('<I', exe, off(imp_rva) + 12)[0])
-exe[name_off:name_off + len('wh32lib.dll')] = b'hogs.dll'.ljust(len('wh32lib.dll'), b'\0')
+exe[name_off:name_off + len('wh32lib.dll')] = b'ddraw.dll'.ljust(len('wh32lib.dll'), b'\0')
 # clear the bound-import directory (DataDirectory[11]) in case it lists wh32lib
 struct.pack_into('<II', exe, opt + 96 + 11 * 8, 0, 0)
 

@@ -353,8 +353,8 @@ bool init(HWND hwnd, int scale)
     if (xd) {
         /* A vsynced Present returns at once until this many frames wait for the monitor. With
          * the default of 3 the game ran up to three frames ahead of the screen (50 ms at 60 Hz).
-         * With 1, Present waits one refresh per frame: that paces the battle frames of hogs.dll
-         * (frames.c). */
+         * With 1, Present waits one refresh per frame: that paces the battle frames of
+         * src/hogs/frames.c. */
         xd->SetMaximumFrameLatency(1);
         xd->GetAdapter(&ad);
     }

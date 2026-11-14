@@ -2,6 +2,25 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`; the technical details of every change are in [docs/WORKLOG.md](docs/WORKLOG.md) (in Russian).
 
+## v1.2.0 — 2026-11-14
+
+One DLL less in the game folder. Nothing new to set up and nothing changes in the game: update as usual.
+
+### Changed
+
+- `hogs.dll` is gone: its fixes are in `ddraw.dll` now, with the renderer. The fix puts `ddraw.dll`, `winmm.dll` with `winmm.ini`, and `hogs.ini` into the game folder.
+- `patch.cmd` moves a game with v1.0–v1.1 of the fix over by itself: it updates `warhogs_.exe`, also when `warhogs_.exe.orig` is no longer there, and removes `hogs.dll`.
+- The fixed game needs the `ddraw.dll` of this fix. With dgVoodoo2 or another `ddraw.dll` put over it the game does not start; run `patch.cmd` again to repair it.
+- The fixes start only in the fixed `warhogs_.exe`. Another program that loads `ddraw.dll` from the game folder gets the renderer only.
+
+### Fixed
+
+- An install or uninstall that fails at any step (a locked file, a full disk) leaves a game that starts. Before, a failed copy of `ddraw.dll` could leave a half-written file.
+
+### Good to know
+
+- Uninstall with the `uninstall.cmd` of this version. The one of v1.0–v1.1 does not know the new `warhogs_.exe`: if `warhogs_.exe.orig` is missing, it leaves a game that does not start until `patch.cmd` runs again.
+
 ## v1.1.1 — 2026-11-14
 
 A review of the whole code after v1.1.0. Nothing new to set up: update as usual.

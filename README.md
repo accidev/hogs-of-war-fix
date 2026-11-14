@@ -117,15 +117,15 @@ PromotionPoints=1
 - **The controller does not react.** Xbox controllers need no setup (`[Gamepad] XInput` is 1). Other joysticks are set up in Options → Controls. The Xbox support is new, so if yours does not work, open an [issue](https://github.com/accidev/hogs-of-war-fix/issues) and say which controller it is.
 - **"Unknown warhogs_.exe".** Only the Steam version 1.2 is supported. If another tool changed the exe, verify the game files in Steam (Properties → Installed Files → Verify integrity of game files) and run `patch.cmd` again.
 - **"Hogs of War is running".** Close the game, then run `patch.cmd` again.
+- **The game does not start after you added dgVoodoo2 or another `ddraw.dll`.** The fixed game needs the `ddraw.dll` of this fix: it holds the fixes and the renderer. Run `patch.cmd` again; it keeps the other files as `*.orig`.
 - **The game does not start or crashes.** Open an [issue](https://github.com/accidev/hogs-of-war-fix/issues) and attach `hogs.log` and `hogsdraw.log` from the game folder.
 
 ## How it works
 
 | File in the game folder | Role |
 |---|---|
-| `warhogs_.exe` | Patched by `patch.cmd`. 325 calls that went through the LaserLock copy protection (`wh32lib.dll`) now call Windows directly, and the game loads `hogs.dll` in its place |
-| `hogs.dll` | Fixes applied in memory when the game starts: windows, start-up, the battle loop with its frames, computer pigs, wide screen, menu speed, gamepad, camera, music volume, the lookup of the game's registry entry and the game's renderer `_d3d.dll`. Each fix checks the original bytes first. Log: `hogs.log` |
-| `ddraw.dll` | hogsdraw, the game's DirectDraw 7 and Direct3D 7 on Direct3D 11. Log: `hogsdraw.log` |
+| `warhogs_.exe` | Patched by `patch.cmd`. 325 calls that went through the LaserLock copy protection (`wh32lib.dll`) now call Windows directly, and the game loads the fixes from `ddraw.dll` in its place |
+| `ddraw.dll` | The fixes and the renderer. The fixes are applied in memory when the game starts: windows, start-up, the battle loop with its frames, computer pigs, wide screen, menu speed, gamepad, camera, music volume, the lookup of the game's registry entry and the game's renderer `_d3d.dll`. Each fix checks the original bytes first. Log: `hogs.log`. The renderer, hogsdraw, is the game's DirectDraw 7 and Direct3D 7 on Direct3D 11. Log: `hogsdraw.log` |
 | `winmm.dll`, `winmm.ini` | [ogg-winmm](https://github.com/ayuanx/ogg-winmm) by ayuanx (GPL-2.0): CD music from OGG files |
 | `hogs.ini` | Settings |
 

@@ -4,7 +4,7 @@
 
 DirectDraw *g_ddraw;
 
-/* Modes offered to the game's launcher, all 16-bit. Its filter stopped at 1024x768; hogs.dll
+/* Modes offered to the game's launcher, all 16-bit. Its filter stopped at 1024x768; hogs.c
  * raises it, and in a window the game renders at any of them. The game resolution sets the size
  * of the HUD, which is drawn in game pixels: 480 lines give the HUD of the original, 1440 a third
  * of it. Sharpness comes from [Render] Scale, so more lines are only for a smaller HUD. */
@@ -94,7 +94,7 @@ HRESULT STDMETHODCALLTYPE DirectDraw::EnumDisplayModes(DWORD, LPDDSURFACEDESC2, 
     GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi);
     int mw = mi.rcMonitor.right - mi.rcMonitor.left, mh = mi.rcMonitor.bottom - mi.rcMonitor.top;
     /* On a monitor wider than 4:3, modes in its shape, whatever it is (16:9, 16:10, 21:9...).
-     * They come first, smallest first: hogs.dll starts a new player in the first mode. Widths
+     * They come first, smallest first: hogs.c starts a new player in the first mode. Widths
      * are even, so a 16-bit row has no padding. */
     if (g_config.widescreen && mw * 3 > mh * 4)
         for (int h : kWideHeights)

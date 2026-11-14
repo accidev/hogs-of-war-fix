@@ -2,10 +2,17 @@
 
 The JSON holds only offsets and the few bytes around each change (old and new), plus the
 SHA-256 of the input and output files, so the patcher can verify both ends. No game code.
+
+older_outputs: the exe that v1.0-v1.1 of the fix made, with the changes that turn it into the
+new output, so the patcher updates such an exe in place (also when warhogs_.exe.orig is gone).
+Those versions named the descriptor hogs.dll, which then held the fixes; nothing else differs.
 """
 import hashlib, json, struct, sys
 
 BASE = 0x400000
+IMPORT_NOTE = 'import wh32lib.dll (LaserLock) -> ddraw.dll (renderer and fixes)'
+# what the v1.0-v1.1 patcher wrote: rebuilding that file from this one must give exactly this
+V11_SHA256 = 'CF03028F3D5A023281667D77AF26DAC3A92D3C5F13A4831385F15F4D64C222D6'
 orig = open(sys.argv[1], 'rb').read()
 new = open(sys.argv[2], 'rb').read()
 sites = {int(s['site'], 16): s for s in json.load(open(sys.argv[3]))}
@@ -31,6 +38,10 @@ def to_fo(va):
     raise ValueError(hex(va))
 
 
+def sha(b):
+    return hashlib.sha256(b).hexdigest().upper()
+
+
 runs, i = [], 0
 while i < len(orig):
     if orig[i] != new[i]:
@@ -52,8 +63,8 @@ for start, end in runs:
         note = f"LaserLock: {s['op']} [CallDLL] -> {s['op']} [{s['api']}]"
     elif va is None:
         note = 'PE header: clear bound-import directory'
-    elif orig[start:end].lower().startswith(b'wh32') or new[start:end].startswith(b'hogs'):
-        note = 'import wh32lib.dll (LaserLock) -> hogs.dll (fixes)'
+    elif orig[start:end].lower().startswith(b'wh32') and new[start:end].startswith(b'ddraw.dll'):
+        note = IMPORT_NOTE
     else:
         note = 'unexplained change'
     if changes and changes[-1]['offset'] == start:
@@ -62,12 +73,26 @@ for start, end in runs:
                     'new': new[start:end].hex(), 'note': note})
 
 assert not any(c['note'] == 'unexplained change' for c in changes), [c for c in changes if c['note'] == 'unexplained change']
+
+imp = next(c for c in changes if c['note'] == IMPORT_NOTE)
+was = b'hogs.dll'.ljust(len(imp['new']) // 2, b'\0')
+older = bytearray(new)
+older[imp['offset']:imp['offset'] + len(was)] = was
+assert sha(older) == V11_SHA256, sha(older)
+
 out = {
     'game': 'Hogs of War v1.2 (Steam)',
     'file': 'warhogs_.exe',
-    'input_sha256': hashlib.sha256(orig).hexdigest().upper(),
-    'output_sha256': hashlib.sha256(new).hexdigest().upper(),
+    'input_sha256': sha(orig),
+    'output_sha256': sha(new),
+    'older_outputs': [{
+        'sha256': sha(older),
+        'note': 'v1.0-v1.1 of the fix (the exe imports hogs.dll)',
+        'changes': [{'offset': imp['offset'], 'va': imp['va'], 'old': was.hex(), 'new': imp['new'],
+                     'note': 'import hogs.dll (fixes of v1.0-v1.1) -> ddraw.dll (renderer and fixes)'}],
+    }],
     'changes': changes,
 }
 json.dump(out, open(sys.argv[4], 'w'), indent=1)
-print(f"{len(changes)} changes, input {out['input_sha256'][:16]}, output {out['output_sha256'][:16]}")
+print(f"{len(changes)} changes, input {out['input_sha256'][:16]}, output {out['output_sha256'][:16]}, "
+      f"older outputs {', '.join(o['sha256'][:16] for o in out['older_outputs'])}")

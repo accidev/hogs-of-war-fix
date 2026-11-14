@@ -2,10 +2,10 @@
 # tools\make_release.ps1 builds. Developer tool, not shipped.
 #
 #   pwsh tools\test_patcher.ps1              all scenarios
-#   pwsh tools\test_patcher.ps1 -Which B     one scenario: A B C D E F G H X or Y
+#   pwsh tools\test_patcher.ps1 -Which B     one scenario: A B C D E F G H I X or Y
 #
 # Needs: PowerShell 7 (pwsh) to run it, Windows PowerShell 5.1 (the patcher under test runs in it), git
-# (scenario B builds the previous release from history) and, in the repo:
+# (scenarios B and I build older releases from history) and, in the repo:
 #   dist\HogsFix                       run tools\make_release.ps1 first
 #   backup\warhogs_.exe.orig           the original Steam v1.2 warhogs_.exe    (backup\ and downloads\ are not in git)
 #   backup\winmm.dll.ogg-winmm-2014    the winmm.dll that comes with the game
@@ -16,12 +16,13 @@
 # no game folder is touched. It prints one line per check and ends with "--- N checks, M failed" (exit code 1 if M > 0).
 #
 #   A  patch.cmd, re-run, -Restore, uninstall.cmd   F  game folder with [ ] and spaces, relative -GameDir
-#   B  update from the previous release, old -Restore  G  game running (a dummy warhogs_ process)
-#   C  hand-installed dgVoodoo kept as *.orig        H  Steam "verify files", missing or damaged .orig
+#   B  update from v1.1.1 and from the dgVoodoo2 era, G  game running (a dummy warhogs_ process)
+#      no .orig, -Restore old/new in both directions H  Steam "verify files", missing or damaged .orig
+#   C  hand-installed dgVoodoo kept as *.orig        I  interrupted update and -Restore (locked files)
 #   D  refuses when a *.orig is in the way           X  missing package file, unknown exe, old switches, patch.cmd
 #   E  hogs.ini variants: what the update adds    Y  foreign ddraw.dll later, leftovers, logs, locked file
 [CmdletBinding()]
-param([ValidateSet('All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'X', 'Y')][string]$Which = 'All')
+param([ValidateSet('All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'X', 'Y')][string]$Which = 'All')
 if ($PSVersionTable.PSVersion.Major -lt 7) { throw 'test_patcher: run it with PowerShell 7: pwsh tools\test_patcher.ps1' }
 . (Join-Path $PSScriptRoot 'test_patcher_lib.ps1')
 
@@ -30,14 +31,28 @@ function P8([string]$h) { if ($h.Length -ge 8) { $h.Substring(0, 8) } else { $h 
 function InstalledChecks([string]$sc, [string]$g, [string]$tag) {
     Check $sc "$tag exe is the patched one" ((FileSha $g 'warhogs_.exe') -eq $HX.patched) (P8 (FileSha $g 'warhogs_.exe'))
     Check $sc "$tag warhogs_.exe.orig is the original" ((FileSha $g 'warhogs_.exe.orig') -eq $HX.orig) (P8 (FileSha $g 'warhogs_.exe.orig'))
-    Check $sc "$tag hogs.dll = package" ((FileSha $g 'hogs.dll') -eq $HX.hogs)
-    Check $sc "$tag ddraw.dll = package" ((FileSha $g 'ddraw.dll') -eq $HX.dd)
+    Check $sc "$tag no hogs.dll, ddraw.dll = package" ((-not (Has (Join-Path $g 'hogs.dll'))) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd))
     Check $sc "$tag winmm.dll = ayuanx, winmm.dll.orig = the 2014 one" (((FileSha $g 'winmm.dll') -eq $HX.winmm) -and ((FileSha $g 'winmm.dll.orig') -eq $HX.bad)) ''
     Check $sc "$tag winmm.ini present" (Has (Join-Path $g 'winmm.ini'))
 }
 
+# the end state of an update from v1.1.1: new exe, hogs.dll gone, our ddraw.dll, no *.new left behind
+function Updated([string]$g) {
+    ((FileSha $g 'warhogs_.exe') -eq $HX.patched) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd) -and
+        -not ((Has (Join-Path $g 'hogs.dll')) -or (Has (Join-Path $g 'warhogs_.exe.new')) -or (Has (Join-Path $g 'ddraw.dll.new')))
+}
+
+# A game folder as the previous release (v1.1.1, from git) leaves it: its exe imports hogs.dll, hogs.dll and its ddraw.dll.
+function OldInstall([string]$name) {
+    $g = NewGame $name
+    $r = RunPatch (BuildPrev) @('-GameDir', $g)
+    if ($r.Code -ne 0) { throw "test_patcher: the previous release did not install in $name (exit $($r.Code)): $(Short $r.Out)" }
+    $g
+}
+
 function ScenA {
     $g = NewGame 'A'; $pkg = AddPkg $g; $s0 = Snap $g
+    Check 'A' 'package has no files\hogs.dll' (-not (Has (Join-Path $pkg 'files\hogs.dll')))
     $wrap = Join-Path $T 'A\run.cmd'
     [IO.File]::WriteAllText($wrap, "@echo off`r`ncall `"$pkg\patch.cmd`" < nul`r`n")
     $o = RunCmd $wrap
@@ -64,35 +79,20 @@ function ScenA {
 
 function ScenB {
     $g = NewGame 'B'; $s0 = Snap $g
-    $old = AddPkg $g (BuildPrev)
-    # the released script, except that its dgVoodoo "download" copies the zip we already have
-    $ps = Join-Path $old 'patch.ps1'; $txt = [IO.File]::ReadAllText($ps)
-    $line = 'Invoke-WebRequest $dgvUrl -OutFile $zip -UseBasicParsing'
-    if (-not $txt.Contains($line)) { throw 'old script changed?' }
-    $zipSrc = (Join-Path $repo 'downloads\dgVoodoo2_87_5.zip') -replace "'", "''"
-    [IO.File]::WriteAllText($ps, $txt.Replace($line, "Copy-Item -LiteralPath '$zipSrc' -Destination `$zip"))
-    $tmpd = Join-Path $T 'B\tmp'; [void][IO.Directory]::CreateDirectory($tmpd)
-    $oldTemp = $env:TEMP; $oldTmp = $env:TMP; $env:TEMP = $tmpd; $env:TMP = $tmpd
-    try { $r = RunPatch $old @('-DgVoodoo') } finally { $env:TEMP = $oldTemp; $env:TMP = $oldTmp }
-    CleanDir $tmpd
-    Check 'B' 'previous release (old patch.ps1, old files) installed incl. dgVoodoo + marker' (($r.Code -eq 0) -and (Has (Join-Path $g 'dgVoodoo.installed-by-hogsfix')) -and (Has (Join-Path $g 'dgVoodooCpl.exe'))) "exit $($r.Code)"
+    $r = RunPatch (BuildPrev) @('-GameDir', $g)
+    $oldDd = Sha (Join-Path (BuildPrev) 'files\ddraw.dll')
+    Check 'B' 'previous release (v1.1.1 patch.ps1 and JSON) installed: its exe (imports hogs.dll), hogs.dll, its ddraw.dll' (($r.Code -eq 0) -and ((FileSha $g 'warhogs_.exe') -eq $HX.older) -and (Has (Join-Path $g 'hogs.dll')) -and ((FileSha $g 'ddraw.dll') -eq $oldDd)) "exit $($r.Code) $(P8 (FileSha $g 'warhogs_.exe'))"
     # the player's file: made before [Render] existed (so without it), and two settings changed
     $ini = Join-Path $g 'hogs.ini'
     $iniText = [regex]::Replace([IO.File]::ReadAllText($ini), '(?ms)^\[Render\].*?(?=^\[|\z)', '')
     [IO.File]::WriteAllText($ini, $iniText.Replace('Windowed=1', 'Windowed=0').Replace('Resizable=1', 'Resizable=0'))
-    Check 'B' 'old state: DDraw.dll is dgVoodoo 2.87.5, old hogs.dll, ini has no [Render]' (((FileSha $g 'DDraw.dll') -eq $HX.dgvDD) -and ((FileSha $g 'hogs.dll') -ne $HX.hogs) -and -not ([IO.File]::ReadAllText($ini) -match '\[Render\]')) ''
     $iniBefore = Join-Path $T 'B\hogs.ini.before'; Copy-Item -LiteralPath $ini -Destination $iniBefore
-    $winmmBefore = FileSha $g 'winmm.dll'; $origBefore = FileSha $g 'warhogs_.exe.orig'; $exeBefore = FileSha $g 'warhogs_.exe'
-    # copy of this state for B2 (-Restore straight from the old install)
-    $g2 = Join-Path $T 'B2\game'; CleanDir (Join-Path $T 'B2'); [void][IO.Directory]::CreateDirectory((Split-Path $g2 -Parent))
-    Copy-Item -LiteralPath $g -Destination $g2 -Recurse
+    $winmmBefore = FileSha $g 'winmm.dll'; $origBefore = FileSha $g 'warhogs_.exe.orig'
     $new = AddPkg $g
     $r = RunPatch $new
-    Check 'B' 'update: exit 0, exe "already patched", old dgVoodoo reported removed' (($r.Code -eq 0) -and ($r.Out -match 'already patched') -and ($r.Out -match 'dgVoodoo2 installed by an older version removed')) "exit $($r.Code)"
-    Check 'B' 'update: dgVoodoo files and marker gone (D3DImm.dll, dgVoodoo.conf, dgVoodooCpl.exe, marker)' (-not ((Has (Join-Path $g 'D3DImm.dll')) -or (Has (Join-Path $g 'dgVoodoo.conf')) -or (Has (Join-Path $g 'dgVoodooCpl.exe')) -or (Has (Join-Path $g 'dgVoodoo.installed-by-hogsfix')))) ''
-    Check 'B' 'update: ddraw.dll is ours (= package), not dgVoodoo' (((FileSha $g 'ddraw.dll') -eq $HX.dd) -and ((FileSha $g 'ddraw.dll') -ne $HX.dgvDD)) (P8 (FileSha $g 'ddraw.dll'))
-    Check 'B' 'update: hogs.dll replaced by the new one' ((FileSha $g 'hogs.dll') -eq $HX.hogs)
-    Check 'B' 'update: exe, exe.orig, winmm.dll untouched' (((FileSha $g 'warhogs_.exe') -eq $exeBefore) -and ((FileSha $g 'warhogs_.exe.orig') -eq $origBefore) -and ((FileSha $g 'winmm.dll') -eq $winmmBefore)) ''
+    Check 'B' 'update: exit 0, exe moved over, hogs.dll reported removed' (($r.Code -eq 0) -and ($r.Out -match 'warhogs_\.exe updated') -and ($r.Out -match 'hogs\.dll removed')) "exit $($r.Code)"
+    Check 'B' 'update: exe has the new hash, hogs.dll gone, ddraw.dll = package, no *.new left' (Updated $g) (P8 (FileSha $g 'warhogs_.exe'))
+    Check 'B' 'update: exe.orig and winmm.dll untouched' (((FileSha $g 'warhogs_.exe.orig') -eq $origBefore) -and ((FileSha $g 'winmm.dll') -eq $winmmBefore)) ''
     $v = IniVerdict $iniBefore $ini $r.Out
     Check 'B' 'update: hogs.ini keeps every old line, gets the template sections and settings it lacked, one message' (($r.Out -match 'hogs\.ini: added') -and -not $v) ($v -join '; ')
     Check 'B' "update: player's values kept (Windowed=0, Resizable=0)" (((IniGet $ini 'Display' 'Windowed') -eq '0') -and ((IniGet $ini 'Display' 'Resizable') -eq '0')) "$((Get-Item $iniBefore).Length) B -> $((Get-Item $ini).Length) B"
@@ -101,10 +101,63 @@ function ScenB {
     Check 'B' 'update again: idempotent (identical tree)' (($r.Code -eq 0) -and (SameSnap $sUpd (Snap $g))) "exit $($r.Code)"
     $r = RunPatch $new @('-Restore')
     Check 'B' '-Restore after update: tree identical to the original' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
+
+    $g = OldInstall 'B2'; $pkg = AddPkg $g
+    $r = RunPatch $pkg @('-Restore')
+    Check 'B2' '-Restore on a v1.1.1 install: exit 0, tree identical to the original (hogs.dll removed too)' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
+
+    # the player deleted warhogs_.exe.orig: the update needs no original, -Restore does
+    $g = OldInstall 'B3'; $pkg = AddPkg $g
+    [IO.File]::Delete((Join-Path $g 'warhogs_.exe.orig')); $sNo = Snap $g
+    $r = RunPatch $pkg @('-Restore')
+    Check 'B3' 'v1.1.1 install without .orig: -Restore refuses with the Steam hint, removes nothing (hogs.dll stays)' (($r.Code -ne 0) -and ($r.Out -match 'Verify integrity') -and (SameSnap $sNo (Snap $g))) "exit $($r.Code) $(DiffSnap $sNo (Snap $g))"
+    $r = RunPatch $pkg
+    Check 'B3' 'v1.1.1 install without .orig: update moves the exe over directly (new hash, hogs.dll gone, ddraw.dll = package)' (($r.Code -eq 0) -and (Updated $g) -and -not (Has (Join-Path $g 'warhogs_.exe.orig'))) "exit $($r.Code)"
+    $sUpd = Snap $g
+    $r = RunPatch $pkg @('-Restore')
+    Check 'B3' '... then -Restore refuses with the Steam hint, removes nothing (ddraw.dll stays)' (($r.Code -ne 0) -and ($r.Out -match 'Verify integrity') -and (SameSnap $sUpd (Snap $g))) "exit $($r.Code) $(DiffSnap $sUpd (Snap $g))"
+
+    # the previous release's -Restore (its uninstall.cmd) on a new install
+    $g = NewGame 'B4'; $pkg = AddPkg $g
+    $r = RunPatch $pkg
+    $r = RunPatch (BuildPrev) @('-Restore', '-GameDir', $g)
+    Check 'B4' 'old -Restore on a new install with .orig: exit 0, tree identical to the original' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
+    $r = RunPatch $pkg
+    [IO.File]::Delete((Join-Path $g 'warhogs_.exe.orig'))
+    $r = RunPatch (BuildPrev) @('-Restore', '-GameDir', $g)
+    # cannot be fixed: the old script does not know the new exe, leaves it, and still removes our ddraw.dll and hogs.ini
+    Check 'B4' 'old -Restore on a new install without .orig: as expected, exe left patched, ddraw.dll removed (the game does not start)' (($r.Code -eq 0) -and ($r.Out -match 'not a version this fix knows') -and ((FileSha $g 'warhogs_.exe') -eq $HX.patched) -and -not (Has (Join-Path $g 'ddraw.dll'))) "exit $($r.Code)"
+    $r = RunPatch $pkg
+    Check 'B4' '... the new patch.cmd repairs it (exe already patched, ddraw.dll = package)' (($r.Code -eq 0) -and ($r.Out -match 'already patched') -and ((FileSha $g 'ddraw.dll') -eq $HX.dd)) "exit $($r.Code)"
+
+    # an install by the patcher of the dgVoodoo2 era: its exe imports hogs.dll too, its DDraw.dll is dgVoodoo
+    $g = NewGame 'B5'
+    $old = AddPkg $g (BuildPrev $dgvRev)
+    # the old script, except that its dgVoodoo "download" copies the zip we already have
+    $ps = Join-Path $old 'patch.ps1'; $txt = [IO.File]::ReadAllText($ps)
+    $line = 'Invoke-WebRequest $dgvUrl -OutFile $zip -UseBasicParsing'
+    if (-not $txt.Contains($line)) { throw 'old script changed?' }
+    $zipSrc = (Join-Path $repo 'downloads\dgVoodoo2_87_5.zip') -replace "'", "''"
+    [IO.File]::WriteAllText($ps, $txt.Replace($line, "Copy-Item -LiteralPath '$zipSrc' -Destination `$zip"))
+    $tmpd = Join-Path $T 'B5\tmp'; [void][IO.Directory]::CreateDirectory($tmpd)
+    $oldTemp = $env:TEMP; $oldTmp = $env:TMP; $env:TEMP = $tmpd; $env:TMP = $tmpd
+    try { $r = RunPatch $old @('-DgVoodoo') } finally { $env:TEMP = $oldTemp; $env:TMP = $oldTmp }
+    CleanDir $tmpd
+    Check 'B5' 'dgVoodoo2-era release installed: its exe (imports hogs.dll), hogs.dll, dgVoodoo 2.87.5 + marker' (($r.Code -eq 0) -and ((FileSha $g 'warhogs_.exe') -eq $HX.older) -and (Has (Join-Path $g 'hogs.dll')) -and ((FileSha $g 'DDraw.dll') -eq $HX.dgvDD) -and (Has (Join-Path $g 'dgVoodoo.installed-by-hogsfix'))) "exit $($r.Code)"
+    # copy of this state for B6 (-Restore straight from the old install)
+    $g2 = Join-Path $T 'B6\game'; CleanDir (Join-Path $T 'B6'); [void][IO.Directory]::CreateDirectory((Split-Path $g2 -Parent))
+    Copy-Item -LiteralPath $g -Destination $g2 -Recurse
+    $new = AddPkg $g
+    $r = RunPatch $new
+    Check 'B5' 'update: exit 0, exe moved over, old dgVoodoo reported removed' (($r.Code -eq 0) -and ($r.Out -match 'warhogs_\.exe updated') -and ($r.Out -match 'dgVoodoo2 installed by an older version removed')) "exit $($r.Code)"
+    Check 'B5' 'update: dgVoodoo files and marker gone (D3DImm.dll, dgVoodoo.conf, dgVoodooCpl.exe, marker)' (-not ((Has (Join-Path $g 'D3DImm.dll')) -or (Has (Join-Path $g 'dgVoodoo.conf')) -or (Has (Join-Path $g 'dgVoodooCpl.exe')) -or (Has (Join-Path $g 'dgVoodoo.installed-by-hogsfix')))) ''
+    InstalledChecks 'B5' $g 'update:'
+    $r = RunPatch $new @('-Restore')
+    Check 'B5' '-Restore after update: tree identical to the original' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
     $new2 = AddPkg $g2 $dist (Join-Path $g2 'HogsFix')
     $r = RunPatch $new2 @('-Restore')
-    Check 'B2' '-Restore on an old-version install: exit 0, dgVoodoo reported removed' (($r.Code -eq 0) -and ($r.Out -match 'dgVoodoo2 installed by an older version removed')) "exit $($r.Code)"
-    Check 'B2' '-Restore on an old-version install: tree identical to the original' (SameSnap $s0 (Snap $g2)) (DiffSnap $s0 (Snap $g2))
+    Check 'B6' '-Restore on a dgVoodoo2-era install: exit 0, dgVoodoo reported removed' (($r.Code -eq 0) -and ($r.Out -match 'dgVoodoo2 installed by an older version removed')) "exit $($r.Code)"
+    Check 'B6' '-Restore on a dgVoodoo2-era install: tree identical to the original' (SameSnap $s0 (Snap $g2)) (DiffSnap $s0 (Snap $g2))
 }
 
 function ScenC {
@@ -136,7 +189,7 @@ function ScenD {
     $s0 = Snap $g
     $r = RunPatch $pkg
     Check 'D' 'foreign ddraw.dll + existing DDraw.dll.orig: refuses (exit != 0, message)' (($r.Code -ne 0) -and ($r.Out -match 'DDraw\.dll\.orig is in the way')) "exit $($r.Code)"
-    Check 'D' 'nothing changed (tree identical, exe still original, no hogs.dll)' ((SameSnap $s0 (Snap $g)) -and ((FileSha $g 'warhogs_.exe') -eq $HX.orig) -and -not (Has (Join-Path $g 'hogs.dll'))) (DiffSnap $s0 (Snap $g))
+    Check 'D' 'nothing changed (tree identical, exe still original, no warhogs_.exe.new)' ((SameSnap $s0 (Snap $g)) -and ((FileSha $g 'warhogs_.exe') -eq $HX.orig)) (DiffSnap $s0 (Snap $g))
     [IO.File]::Delete((Join-Path $g 'DDraw.dll.orig')); [IO.File]::WriteAllText((Join-Path $g 'dgVoodoo.conf.orig'), 'x')
     $s0 = Snap $g
     $r = RunPatch $pkg
@@ -258,7 +311,7 @@ function ScenH {
     $sNo = Snap $g
     $r = RunPatch $pkg @('-Restore')
     Check 'H2' 'patched exe + missing .orig: -Restore refuses with the Steam hint' (($r.Code -ne 0) -and ($r.Out -match 'Verify integrity')) "exit $($r.Code)"
-    Check 'H2' '... and removed nothing (hogs.dll, ddraw.dll, ini, winmm still there)' ((SameSnap $sNo (Snap $g)) -and (Has (Join-Path $g 'hogs.dll'))) (DiffSnap $sNo (Snap $g))
+    Check 'H2' '... and removed nothing (ddraw.dll, ini, winmm still there)' ((SameSnap $sNo (Snap $g)) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd)) (DiffSnap $sNo (Snap $g))
     [IO.File]::WriteAllBytes((Join-Path $g 'warhogs_.exe.orig'), [byte[]](1..100))
     $sBad = Snap $g
     $r = RunPatch $pkg @('-Restore')
@@ -273,6 +326,41 @@ function ScenH {
     [IO.File]::WriteAllBytes((Join-Path $g 'warhogs_.exe.orig'), [byte[]](1..100))
     $r = RunPatch $pkg
     Check 'H5' 'damaged .orig + original exe: install replaces .orig by a good copy' (($r.Code -eq 0) -and ((FileSha $g 'warhogs_.exe.orig') -eq $HX.orig) -and ((FileSha $g 'warhogs_.exe') -eq $HX.patched)) "exit $($r.Code)"
+}
+
+# A run that fails half-way must leave a game that starts. Each check locks the file that one step replaces or deletes,
+# so the run stops at that step; it looks at what is left, then runs again without the lock.
+function ScenI {
+    $oldDd = Sha (Join-Path (BuildPrev) 'files\ddraw.dll')
+    $g = OldInstall 'I1'; $pkg = AddPkg $g
+    $r = RunLocked (Join-Path $g 'ddraw.dll') $pkg
+    Check 'I1' 'update, ddraw.dll cannot be replaced: fails, exe still the v1.1 one with hogs.dll and its ddraw.dll' (($r.Code -ne 0) -and ((FileSha $g 'warhogs_.exe') -eq $HX.older) -and (Has (Join-Path $g 'hogs.dll')) -and ((FileSha $g 'ddraw.dll') -eq $oldDd)) "exit $($r.Code)"
+    $r = RunPatch $pkg
+    Check 'I1' '... re-run finishes the update' (($r.Code -eq 0) -and (Updated $g)) "exit $($r.Code)"
+    $g = OldInstall 'I2'; $pkg = AddPkg $g
+    $r = RunLocked (Join-Path $g 'warhogs_.exe') $pkg
+    Check 'I2' 'update, exe cannot be replaced: fails after ddraw.dll, v1.1 exe + hogs.dll + new ddraw.dll (fixes twice, safe)' (($r.Code -ne 0) -and ((FileSha $g 'warhogs_.exe') -eq $HX.older) -and (Has (Join-Path $g 'hogs.dll')) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd)) "exit $($r.Code)"
+    $r = RunPatch $pkg
+    Check 'I2' '... re-run finishes the update' (($r.Code -eq 0) -and (Updated $g)) "exit $($r.Code)"
+    $g = OldInstall 'I3'; $pkg = AddPkg $g
+    $r = RunLocked (Join-Path $g 'hogs.dll') $pkg
+    Check 'I3' 'update, hogs.dll cannot be deleted: fails with the new exe and ddraw.dll in place (hogs.dll unused)' (($r.Code -ne 0) -and ((FileSha $g 'warhogs_.exe') -eq $HX.patched) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd) -and (Has (Join-Path $g 'hogs.dll'))) "exit $($r.Code)"
+    $r = RunPatch $pkg
+    Check 'I3' '... re-run removes it' (($r.Code -eq 0) -and (Updated $g)) "exit $($r.Code)"
+    $g = NewGame 'I4'; $pkg = AddPkg $g; $s0 = Snap $g
+    $r = RunLocked (Join-Path $g 'warhogs_.exe') $pkg
+    Check 'I4' 'fresh install, exe cannot be replaced: fails with the original exe and our ddraw.dll' (($r.Code -ne 0) -and ((FileSha $g 'warhogs_.exe') -eq $HX.orig) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd)) "exit $($r.Code)"
+    $r = RunPatch $pkg
+    Check 'I4' '... re-run finishes the install' (($r.Code -eq 0) -and ((FileSha $g 'warhogs_.exe') -eq $HX.patched) -and -not (Has (Join-Path $g 'warhogs_.exe.new'))) "exit $($r.Code)"
+    $r = RunLocked (Join-Path $g 'ddraw.dll') $pkg @('-Restore')
+    Check 'I5' '-Restore, ddraw.dll cannot be deleted: fails with the original exe already back' (($r.Code -ne 0) -and ((FileSha $g 'warhogs_.exe') -eq $HX.orig) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd)) "exit $($r.Code)"
+    $r = RunPatch $pkg @('-Restore')
+    Check 'I5' '... re-run -Restore: tree identical to the original' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
+    $r = RunPatch $pkg; $s1 = Snap $g
+    $r = RunLocked (Join-Path $g 'warhogs_.exe') $pkg @('-Restore')
+    Check 'I6' '-Restore, exe cannot be put back: fails and removes nothing' (($r.Code -ne 0) -and (SameSnap $s1 (Snap $g))) "exit $($r.Code) $(DiffSnap $s1 (Snap $g))"
+    $r = RunPatch $pkg @('-Restore')
+    Check 'I6' '... re-run -Restore: tree identical to the original' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
 }
 
 function ScenX {
@@ -331,7 +419,13 @@ function ScenY {
     $other = FileSha $g 'ddraw.dll'
     $r = RunPatch $pkg @('-Restore')
     Check 'C3' 'foreign ddraw.dll put in later: -Restore leaves it, keeps DDraw.dll.orig, warns' (($r.Code -eq 0) -and ((FileSha $g 'ddraw.dll') -eq $other) -and ((FileSha $g 'DDraw.dll.orig') -eq $HX.dgvDD) -and ($r.Out -match 'DDraw\.dll\.orig left in place')) "exit $($r.Code)"
-    Check 'C3' '... and the rest is restored (exe original, D3DImm.dll / dgVoodoo.conf / dgVoodooCpl.exe back, hogs.dll gone)' (((FileSha $g 'warhogs_.exe') -eq $HX.orig) -and (Has (Join-Path $g 'D3DImm.dll')) -and (Has (Join-Path $g 'dgVoodoo.conf')) -and (Has (Join-Path $g 'dgVoodooCpl.exe')) -and -not (Has (Join-Path $g 'hogs.dll'))) ''
+    Check 'C3' '... and the rest is restored (exe original, D3DImm.dll / dgVoodoo.conf / dgVoodooCpl.exe back)' (((FileSha $g 'warhogs_.exe') -eq $HX.orig) -and (Has (Join-Path $g 'D3DImm.dll')) -and (Has (Join-Path $g 'dgVoodoo.conf')) -and (Has (Join-Path $g 'dgVoodooCpl.exe'))) ''
+    # the patched exe does not start with dgVoodoo's DDraw.dll in place of ours: a re-run puts ours back and says why
+    $g = NewGame 'Y4'; $pkg = AddPkg $g
+    $r = RunPatch $pkg
+    foreach ($n in 'MS\x86\DDraw.dll', 'MS\x86\D3DImm.dll', 'dgVoodoo.conf', 'dgVoodooCpl.exe') { Copy-Item -LiteralPath (Join-Path $dgvDir $n) -Destination $g -Force }
+    $r = RunPatch $pkg
+    Check 'C4' 'dgVoodoo put over ours later: re-run puts ours back, keeps dgVoodoo as *.orig, says it does not start with it' (($r.Code -eq 0) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd) -and ((FileSha $g 'DDraw.dll.orig') -eq $HX.dgvDD) -and ($r.Out -match 'with another one \(dgVoodoo2\) it does not start')) "exit $($r.Code)"
     $g = NewGame 'Y2'; $pkg = AddPkg $g; $s0 = Snap $g
     foreach ($n in 'D3DImm.dll', 'dgVoodoo.conf', 'dgVoodooCpl.exe') { [IO.File]::WriteAllText((Join-Path $g $n), 'old') }
     [IO.File]::WriteAllText((Join-Path $g 'dgVoodoo.installed-by-hogsfix'), 'marker')
@@ -345,15 +439,14 @@ function ScenY {
     $dd2 = [IO.File]::ReadAllBytes((Join-Path $pkg 'files\ddraw.dll')) + [byte[]](7, 7, 7, 7)
     [IO.File]::WriteAllBytes((Join-Path $pkg 'files\ddraw.dll'), $dd2)           # "the new release": a different ddraw.dll
     $newDd = Sha (Join-Path $pkg 'files\ddraw.dll')
-    $lock = [IO.File]::Open((Join-Path $g 'ddraw.dll'), 'Open', 'Read', 'None')
-    try { $r = RunPatch $pkg } finally { $lock.Dispose() }
+    $r = RunLocked (Join-Path $g 'ddraw.dll') $pkg @() 'None'
     Check 'X12' 'update while ddraw.dll is locked: fails loudly (exit != 0), old ddraw.dll intact' (($r.Code -ne 0) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd)) ("exit $($r.Code): " + (Short $r.Out).Substring([Math]::Max(0, (Short $r.Out).Length - 110)))
     $r = RunPatch $pkg
     Check 'X12' 're-run after the lock is gone: finishes the update (ddraw.dll = new one)' (($r.Code -eq 0) -and ((FileSha $g 'ddraw.dll') -eq $newDd)) "exit $($r.Code)"
 }
 
 if (Get-Process -Name warhogs_ -ErrorAction SilentlyContinue) { throw 'test_patcher: close Hogs of War first (the patcher refuses to run while it is running)' }
-$list = if ($Which -eq 'All') { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'X', 'Y' } else { $Which }
+$list = if ($Which -eq 'All') { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'X', 'Y' } else { $Which }
 CleanDir $T   # left over from an aborted run
 [void][IO.Directory]::CreateDirectory($T)
 try {

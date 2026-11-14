@@ -6,6 +6,11 @@
 #
 # Windows PowerShell 5.1 compatible (ships with Windows 10/11). Keep this file ASCII.
 # CmdletBinding makes an unknown switch (e.g. the old -NoDgVoodoo) an error instead of silently ignoring it.
+#
+# The patched warhogs_.exe imports CallDLL from ddraw.dll, so it starts only with our ddraw.dll (the one of Windows has
+# no CallDLL). The exe of v1.0-v1.1 imports it from hogs.dll and starts only with that file. So that a failed or
+# interrupted run always leaves a game that starts: our ddraw.dll is in place before such an exe is, hogs.dll goes
+# only once no exe imports it, and -Restore puts the original exe back before it removes ddraw.dll.
 [CmdletBinding()] param([string]$GameDir, [switch]$Restore)
 
 $ErrorActionPreference = 'Stop'
@@ -34,6 +39,24 @@ function OwnDdraw($path) { (Has $path) -and [Text.Encoding]::ASCII.GetString([IO
 function Crlf($s) { ($s.TrimEnd() -replace '\r\n|\r|\n', "`r`n") + "`r`n" }
 # the line before the insert position is the last one of the file and may have no line end
 function NewLine($text, $pos) { if ($pos -eq 0 -or $text[$pos - 1] -match '[\r\n]') { '' } else { "`r`n" } }
+
+# warhogs_.exe with one change list of the JSON applied, written next to it as warhogs_.exe.new and checked against
+# output_sha256. The exe itself is replaced later, by a move of that file.
+function PatchedExe($changes) {
+    $bytes = [IO.File]::ReadAllBytes($exe)
+    foreach ($c in $changes) {
+        $old = HexBytes $c.old
+        $new = HexBytes $c.new
+        for ($i = 0; $i -lt $old.Length; $i++) {
+            if ($bytes[$c.offset + $i] -ne $old[$i]) { throw "Unexpected bytes at offset $($c.offset) ($($c.note))." }
+        }
+        [Array]::Copy($new, 0, $bytes, $c.offset, $new.Length)
+    }
+    $tmp = "$exe.new"
+    [IO.File]::WriteAllBytes($tmp, $bytes)
+    if ((Sha $tmp) -ne $patch.output_sha256) { Drop $tmp; throw 'Patched file has a wrong checksum; nothing was changed.' }
+    $tmp
+}
 
 # The game reads hogs.ini with GetPrivateProfile*, so "this section / setting is there" has to mean what that API finds:
 # only the first [name] of a name counts (a second header would be ignored), names ignore case and the blanks around them,
@@ -76,22 +99,25 @@ $GameDir = (Resolve-Path -LiteralPath $GameDir).ProviderPath
 $exe = Join-Path $GameDir $patch.file
 if (-not (Has $exe)) { throw "$($patch.file) not found in '$GameDir'. Put this folder inside the game folder or pass -GameDir." }
 Say "Game folder: $GameDir"
-# a running game holds warhogs_.exe, hogs.dll, ddraw.dll and winmm.dll open
+# a running game holds warhogs_.exe and our DLLs open
 if (Get-Process -Name warhogs_ -ErrorAction SilentlyContinue) { throw 'Hogs of War is running. Close it and run this again.' }
 
 $exeOrig = "$exe.orig"
 $winmm = Join-Path $GameDir 'winmm.dll'
 $dd = Join-Path $GameDir 'ddraw.dll'
+$hogsDll = Join-Path $GameDir 'hogs.dll'
 $marker = Join-Path $GameDir $dgvMarker
+$hash = Sha $exe
+# an exe patched by an older version, with the changes that make it the current one
+$older = $patch.older_outputs | Where-Object { $_.sha256 -eq $hash } | Select-Object -First 1
 
 if ($Restore) {
     $origOk = (Has $exeOrig) -and (Sha $exeOrig) -eq $patch.input_sha256
-    $hash = Sha $exe
     if ($origOk) {
         Move-Item -LiteralPath $exeOrig -Destination $exe -Force
         Say 'warhogs_.exe restored' 'Green'
-    } elseif ($hash -eq $patch.output_sha256) {
-        # the patched exe needs hogs.dll: remove nothing while there is no original to go back to
+    } elseif ($hash -eq $patch.output_sha256 -or $older) {
+        # the patched exe needs ddraw.dll (or hogs.dll): remove nothing while there is no original to go back to
         throw 'warhogs_.exe.orig is missing or is not the original. In Steam: game > Properties > Installed Files > Verify integrity of game files, then run -Restore again.'
     } elseif ($hash -eq $patch.input_sha256) {
         Drop $exeOrig
@@ -103,7 +129,8 @@ if ($Restore) {
         Drop (Join-Path $GameDir 'winmm.ini')
         Say 'winmm.dll restored' 'Green'
     }
-    foreach ($f in 'hogs.dll', 'hogs.ini', 'hogs.log', 'hogsdraw.log') { Drop (Join-Path $GameDir $f) }
+    # hogs.dll held the fixes up to v1.1; a *.new file is left by a run that failed before it could move it into place
+    foreach ($f in 'hogs.dll', 'hogs.ini', 'hogs.log', 'hogsdraw.log', 'warhogs_.exe.new', 'ddraw.dll.new', 'winmm.dll.new') { Drop (Join-Path $GameDir $f) }
     if (Has $marker) {
         # dgVoodoo2 from an older version of this patcher (its DDraw.dll may already be ours)
         foreach ($f in $dgvFiles + $dgvMarker) { Drop (Join-Path $GameDir $f) }
@@ -125,7 +152,7 @@ if ($Restore) {
 }
 
 # Everything that can refuse is checked before the first change.
-foreach ($f in 'hogs.dll', 'ddraw.dll', 'hogs.ini', 'winmm.dll', 'winmm.ini') {
+foreach ($f in 'ddraw.dll', 'hogs.ini', 'winmm.dll', 'winmm.ini') {
     if (-not (Has (Join-Path $files $f))) { throw "files\$f is missing. Extract the whole zip, then run patch.cmd again." }
 }
 # A dgVoodoo2 the player installed by hand (no marker) is not ours to delete: it is kept as *.orig.
@@ -137,10 +164,14 @@ if ((Has $dd) -and -not (OwnDdraw $dd) -and -not (Has $marker)) {
     }
 }
 
-# 1. warhogs_.exe: remove LaserLock, load hogs.dll
-$hash = Sha $exe
+# 1. warhogs_.exe: remove LaserLock, load the fixes from ddraw.dll. The new exe is only made here, as warhogs_.exe.new:
+#    it takes its place in step 3, once our ddraw.dll is there.
+$tmp = $null
 if ($hash -eq $patch.output_sha256) {
     Say 'warhogs_.exe is already patched'
+} elseif ($older) {
+    # made by an older version: its own changes turn it into the current exe, without warhogs_.exe.orig
+    $tmp = PatchedExe $older.changes
 } elseif ($hash -ne $patch.input_sha256) {
     throw "Unknown warhogs_.exe (SHA-256 $hash). Supported: $($patch.game), SHA-256 $($patch.input_sha256)."
 } else {
@@ -149,26 +180,40 @@ if ($hash -eq $patch.output_sha256) {
         Copy-Item -LiteralPath $exe -Destination $exeOrig -Force
         if ((Sha $exeOrig) -ne $patch.input_sha256) { throw 'Could not copy the original warhogs_.exe; nothing was changed.' }
     }
-    $bytes = [IO.File]::ReadAllBytes($exe)
-    foreach ($c in $patch.changes) {
-        $old = HexBytes $c.old
-        $new = HexBytes $c.new
-        for ($i = 0; $i -lt $old.Length; $i++) {
-            if ($bytes[$c.offset + $i] -ne $old[$i]) { throw "Unexpected bytes at offset $($c.offset) ($($c.note))." }
-        }
-        [Array]::Copy($new, 0, $bytes, $c.offset, $new.Length)
-    }
-    $tmp = "$exe.new"
-    [IO.File]::WriteAllBytes($tmp, $bytes)
-    if ((Sha $tmp) -ne $patch.output_sha256) { Drop $tmp; throw 'Patched file has a wrong checksum; nothing was changed.' }
-    # the patched exe does not start without hogs.dll, so that file is in place first (the original exe ignores it)
-    Copy-Item -LiteralPath (Join-Path $files 'hogs.dll') -Destination $GameDir -Force
-    Move-Item -LiteralPath $tmp -Destination $exe -Force
-    Say "warhogs_.exe patched: $($patch.changes.Count) changes (original kept as warhogs_.exe.orig)" 'Green'
+    $tmp = PatchedExe $patch.changes
 }
 
-# 2. hogs.dll: the runtime fixes. hogs.ini is the player's: keep it, and add what a newer version needs.
-Copy-Item -LiteralPath (Join-Path $files 'hogs.dll') -Destination $GameDir -Force
+# 2. ddraw.dll: the fixes and the built-in Direct3D 11 renderer (it replaces dgVoodoo2). Every exe this step can find
+#    starts with it: the original, the current one, and the one of v1.0-v1.1 together with its hogs.dll.
+foreach ($f in $keep) { Move-Item -LiteralPath (Join-Path $GameDir $f) -Destination (Join-Path $GameDir "$f.orig") }
+if ($keep) {
+    Say "Found dgVoodoo2/ddraw files, renamed to *.orig (patch.cmd -Restore puts them back): $($keep -join ', ')" 'Yellow'
+    Say 'The fixed game needs the ddraw.dll of this fix: with another one (dgVoodoo2) it does not start.' 'Yellow'
+}
+# complete next to it before it takes its place: an interrupted copy must not leave a broken ddraw.dll
+Copy-Item -LiteralPath (Join-Path $files 'ddraw.dll') -Destination "$dd.new" -Force
+Move-Item -LiteralPath "$dd.new" -Destination $dd -Force
+if (Has $marker) {
+    # installed by an older version of this patcher: DDraw.dll was just replaced, the rest is not needed
+    foreach ($f in $dgvSiblings + $dgvMarker) { Drop (Join-Path $GameDir $f) }
+    Say 'dgVoodoo2 installed by an older version removed' 'Green'
+}
+Say 'ddraw.dll installed (the fixes and the Direct3D 11 renderer, settings: hogs.ini)' 'Green'
+
+# 3. the new exe: it imports ddraw.dll, which is ours now
+if ($tmp) {
+    Move-Item -LiteralPath $tmp -Destination $exe -Force
+    if ($older) { Say 'warhogs_.exe updated: it loads the fixes from ddraw.dll now' 'Green' }
+    else { Say "warhogs_.exe patched: $($patch.changes.Count) changes (original kept as warhogs_.exe.orig)" 'Green' }
+}
+
+# 4. hogs.dll held the fixes up to v1.1. The exe imports it no longer.
+if (Has $hogsDll) {
+    Drop $hogsDll
+    Say 'hogs.dll removed (its fixes are in ddraw.dll now)' 'Green'
+}
+
+# 5. hogs.ini is the player's: keep it, and add what a newer version needs.
 $ini = Join-Path $GameDir 'hogs.ini'
 if (-not (Has $ini)) {
     Copy-Item -LiteralPath (Join-Path $files 'hogs.ini') -Destination $ini
@@ -217,9 +262,8 @@ if (-not (Has $ini)) {
     # the file is optional (a missing setting has its default in the DLLs): the steps below must still run
     Say "hogs.ini was not updated ($($_.Exception.Message)): new settings keep their defaults" 'Yellow'
 } }
-Say 'hogs.dll installed (settings: hogs.ini)' 'Green'
 
-# 3. CD music: replace the ogg-winmm build that hangs the game on start
+# 6. CD music: replace the ogg-winmm build that hangs the game on start
 if ((Has $winmm) -and (Sha $winmm) -eq $badWinmm) {
     # the new file is complete before the old one moves away: a failed copy must not leave the game without winmm.dll
     Copy-Item -LiteralPath (Join-Path $files 'winmm.dll') -Destination "$winmm.new" -Force
@@ -228,16 +272,5 @@ if ((Has $winmm) -and (Sha $winmm) -eq $badWinmm) {
     Copy-Item -LiteralPath (Join-Path $files 'winmm.ini') -Destination $GameDir -Force
     Say 'winmm.dll replaced with a working ogg-winmm build (old one kept as winmm.dll.orig)' 'Green'
 }
-
-# 4. ddraw.dll: the built-in Direct3D 11 renderer (it replaces dgVoodoo2)
-foreach ($f in $keep) { Move-Item -LiteralPath (Join-Path $GameDir $f) -Destination (Join-Path $GameDir "$f.orig") }
-if ($keep) { Say "Found dgVoodoo2/ddraw files, renamed to *.orig (patch.cmd -Restore puts them back): $($keep -join ', ')" 'Yellow' }
-Copy-Item -LiteralPath (Join-Path $files 'ddraw.dll') -Destination $dd -Force
-if (Has $marker) {
-    # installed by an older version of this patcher: DDraw.dll was just replaced, the rest is not needed
-    foreach ($f in $dgvSiblings + $dgvMarker) { Drop (Join-Path $GameDir $f) }
-    Say 'dgVoodoo2 installed by an older version removed' 'Green'
-}
-Say 'ddraw.dll installed (Direct3D 11 renderer, settings: hogs.ini [Render])' 'Green'
 
 Say 'Done. Start the game as usual.' 'Green'

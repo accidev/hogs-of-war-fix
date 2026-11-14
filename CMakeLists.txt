@@ -8,6 +8,5 @@ endif()
 # Static CRT, so players do not need a Visual C++ redistributable.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_subdirectory(src/hogs)
 add_subdirectory(src/d3dtrace)
 add_subdirectory(src/ddraw)
