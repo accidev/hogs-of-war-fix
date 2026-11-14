@@ -280,19 +280,80 @@ static void zoom_camera(int step)
     say("camera distance %d%%", z);
 }
 
+/* Typing a name (team, pig). While the name screen is the current menu (menu+0x24 is 0),
+ * MainWndProc gives the keys A-Z and Space to FUN_0042E440, which finds the key's Latin letter
+ * in the letter grid on screen with strchr and presses that cell. Two changes:
+ * - It took the strchr result for a cell without a check. A grid without the letter (the one
+ *   of a translation, with another alphabet) gave a negative cell: the name screen closed as
+ *   if "End" was pressed, the cell number of "End" went into the menu behind it, and that menu
+ *   indexed a table with it and crashed (write at 0x420001). A key without a cell now presses
+ *   the cell after "End", for which FUN_0042AF50 does nothing.
+ * - A key means the character it types in the keyboard layout, if the grid has it: Russian
+ *   letters with the Russian translation, digits and the grid's signs in any game. If not, it
+ *   is the Latin letter of the key, as before.
+ * A text byte is the ASCII code - 0x1F. The Russian translation (github.com/accidev/hogs-of-war-ru)
+ * keeps the letters that look Latin on the Latin codes and has the other 22 from 0x6F on. */
+#define MENU (*(const int **)0x51AAD8)       /* the menu the keys go to */
+#define NAME_GRID (*(const char **)0x51AAF4) /* the letter grid, as the name screen last drew it */
+#define KEY_WANTED (*(DWORD *)0x51AC50)      /* Options, Controls waits for the key to bind */
+
+static BOOL g_name_cell; /* name_cell() is in the game */
+static char g_cell;      /* text byte of the key MainWndProc has now, 0: the Latin letter of the key */
+
+static char key_cell(UINT vk, LPARAM lp)
+{
+    /* U+0410..U+042F as ASCII codes of the translation */
+    static const BYTE kRussian[32] = { 'A',  0x6F, 'B',  0x70, 0x71, 'E',  0x73, 0x74, 0x75, 0x76, 'K',
+                                       0x77, 'M',  'H',  'O',  0x78, 'P',  'C',  'T',  0x79, 0x7A, 'X',
+                                       0x7B, 0x7C, 0x7D, 0x7E, 0x7F, 0x80, 0x81, 0x82, 0x83, 0x84 };
+    static const BYTE no_shift[256] = { 0 }; /* the grid has capitals only */
+    const int *menu = MENU;
+    const char *grid = NAME_GRID;
+    WCHAR c = 0;
+    int code = 0;
+
+    if (!g_name_cell || !FRONTEND || KEY_WANTED || !menu || menu[9] || !grid)
+        return 0;
+    /* flag 4: leave the dead-key state of the layout alone (Windows 10 1607 and later) */
+    if (ToUnicodeEx(vk, (UINT)(lp >> 16) & 0xFF, no_shift, &c, 1, 4, GetKeyboardLayout(0)) != 1)
+        return 0;
+    if (c >= 'a' && c <= 'z')
+        code = c - 0x20;
+    else if (c > ' ' && c < 'a')
+        code = c;
+    else if (strchr(grid, 0x6F - 0x1F)) /* a grid with the Russian letters */
+        code = c >= 0x430 && c <= 0x44F ? kRussian[c - 0x430] : c == 0x451 ? 0x72 : 0;
+    return code && strchr(grid, code - 0x1F) ? (char)(code - 0x1F) : 0;
+}
+
+/* In place of FUN_0042E440's strchr(grid, letter of the key). */
+static const char *__cdecl name_cell(const char *grid, int letter)
+{
+    const char *at = strchr(grid, g_cell ? g_cell : letter);
+
+    return at ? at : grid + strlen(grid) + 3;
+}
+
 static WNDPROC g_game_proc;
 
 static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+    LRESULT r;
+
     if (msg == WM_MOUSEWHEEL) {
         for (g_wheel += GET_WHEEL_DELTA_WPARAM(wp); g_wheel >= WHEEL_DELTA; g_wheel -= WHEEL_DELTA)
             zoom_camera(-10); /* wheel forward: closer */
         for (; g_wheel <= -WHEEL_DELTA; g_wheel += WHEEL_DELTA)
             zoom_camera(10);
-    } else if (msg == WM_KEYDOWN && (wp == VK_ADD || wp == VK_SUBTRACT)) {
-        zoom_camera(wp == VK_ADD ? -10 : 10);
+    } else if (msg == WM_KEYDOWN) {
+        if ((g_cell = key_cell((UINT)wp, lp)) != 0)
+            wp = 'A'; /* a key MainWndProc passes to the name screen; name_cell() takes g_cell */
+        else if (wp == VK_ADD || wp == VK_SUBTRACT)
+            zoom_camera(wp == VK_ADD ? -10 : 10);
     }
-    return CallWindowProcA(g_game_proc, hwnd, msg, wp, lp);
+    r = CallWindowProcA(g_game_proc, hwnd, msg, wp, lp);
+    g_cell = 0;
+    return r;
 }
 
 /* Windowed mode: FUN_0044D040(w, h) sized the game window to a w x h client area on every
@@ -636,6 +697,8 @@ static void apply_fixes(int vsync, int widescreen)
           "\xA1\x68\x06\x52\x00\x83\xFF\x01\x0F\x95\x80\x10\x03\x00\x00\x90\x90", 17, "menus go on after a minimize");
     hook_import(0x54F560, "user32.dll", "PeekMessageA", peek_message, &g_peek_message,
                 "idle while minimized, read the gamepad");
+
+    g_name_cell = hook(0x42E4A3, 0xE8, "\xE8\xE8\x01\x08\x00", name_cell, "name typing: no crash, keyboard layout");
 
     /* Computer pigs never walked. The path request FUN_00461A80 ran the path finder only for a
      * destination outside the walk grid (x 0xC00..0x7000, y 0xE00..0x7000) and returned "no

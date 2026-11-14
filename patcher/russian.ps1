@@ -2,7 +2,7 @@
 #
 #   russian.cmd                 download the translation and install it
 #   russian.cmd -Remove         put the English files back (russian-remove.cmd does this)
-#   russian.cmd -Zip "D:\Downloads\hogs-of-war-ru-1.1.0.zip"    install from a zip you downloaded yourself
+#   russian.cmd -Zip "D:\Downloads\hogs-of-war-ru-1.1.1.zip"    install from a zip you downloaded yourself
 #   russian.cmd -GameDir "D:\Games\Hogs of War"                 game folder (default: the folder above this one)
 #
 # The translation is not part of this fix. It comes from github.com/accidev/hogs-of-war-ru: the release named below,
@@ -16,10 +16,10 @@
 
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
-$version = '1.1.0'
+$version = '1.1.1'
 $name = "hogs-of-war-ru-$version.zip"
 $url = "https://github.com/accidev/hogs-of-war-ru/releases/download/v$version/$name"
-$sha = '102B41E53BF84D37F14DE187A94E7F1F65FD6952B0C29E6B5D050EC2A8338BB0'
+$sha = 'B319AFC625668656E6CEA4E15A2B9E78BFA1CF8051709DADB09B60E9448A762A'
 # all a translation may hold: these folders, these file types (what the game reads from them)
 $folders = 'FEText', 'Language', 'Speech'
 $types = '.wav', '.bmp', '.bik', '.tab', '.tim', '.bin', '.mad', '.ofs'

@@ -1,8 +1,13 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v1.3.1**
+**New in v1.3.2**
 
-- `russian.cmd` installs release 1.1.0 of the Russian translation: the whole Russian alphabet and the Latin letters in every font, corrected text, readable English names and credits. If the translation is already installed, run `russian.cmd` again to update it.
+- Fixed a crash with the Russian translation: the game closed on the screen where you name your team or a pig when you pressed D, S or one of 13 other letter keys. If the translation is installed, run `russian.cmd` again after `patch.cmd`: it installs release 1.1.1 of the translation.
+- On that screen the keyboard now types the letters of the current keyboard layout: Russian letters in the Russian layout (with the translation), Latin letters in the English one.
+
+**v1.3.1**
+
+- `russian.cmd` installs a newer Russian translation: the whole Russian alphabet and the Latin letters in every font, corrected text, readable English names and credits.
 
 **v1.3.0**
 
@@ -39,7 +44,9 @@ Video of the whole install: https://youtu.be/oBo27HB4x_4
 
 Update: extract the new zip over the old `HogsFix` folder and run `patch.cmd` again; your `hogs.ini` settings are kept. Uninstall: `HogsFix\uninstall.cmd`. Settings, controls and help: [README](https://github.com/accidev/hogs-of-war-fix#readme).
 
-**Что нового в v1.3.1**: `russian.cmd` ставит версию 1.1.0 русского перевода. В ней весь русский алфавит и вся латиница во всех шрифтах, исправленный текст («НАСТРОЙКИ», «ЭКСПЕРТ», «МАТЧ» вместо «НАСТРОИКИ», «ЕКСПЕРТ», «МАТ4»), читаются английские имена и титры. Если перевод уже стоит, запустите `russian.cmd` ещё раз.
+**Что нового в v1.3.2**: исправлен вылет с русским переводом. Игра закрывалась на экране, где называют команду или свинью, при нажатии D, S и ещё 13 клавиш с буквами. Если перевод уже стоит, после `patch.cmd` запустите `russian.cmd` ещё раз: он поставит версию 1.1.1 перевода. На этом экране клавиатура теперь печатает буквы включённой раскладки: русские при русской, латинские при английской.
+
+**v1.3.1**: `russian.cmd` ставит новую версию русского перевода. В ней весь русский алфавит и вся латиница во всех шрифтах, исправленный текст («НАСТРОЙКИ», «ЭКСПЕРТ», «МАТЧ» вместо «НАСТРОИКИ», «ЕКСПЕРТ», «МАТ4»), читаются английские имена и титры.
 
 **v1.3.0**: русский перевод игры (текст, шрифты, ролики и озвучка) теперь ставится из исправления. Дважды щёлкните `HogsFix\russian.cmd`: он скачает перевод (около 330 МБ) из репозитория [hogs-of-war-ru](https://github.com/accidev/hogs-of-war-ru), проверит его и положит в папку игры. На компьютере с русским языком Windows `patch.cmd` сам спросит, ставить ли перевод. Английский возвращает `HogsFix\russian-remove.cmd`, а также `uninstall.cmd`. В самой игре с v1.2.2 ничего не изменилось.
 

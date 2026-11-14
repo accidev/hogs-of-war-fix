@@ -72,7 +72,7 @@ Not in git (`.gitignore`): `build/`, `dist/`, `downloads/`, `backup/`, `work/` a
 
 ## Debugging
 
-- `hogs.log` and `hogsdraw.log` are written next to the game. `hogs.log` has one line per fix: `ok`, or `skip` when the bytes do not match. On the supported build (Steam v1.2) it has 37 `ok` lines and no `skip`.
+- `hogs.log` and `hogsdraw.log` are written next to the game. `hogs.log` has one line per fix: `ok`, or `skip` when the bytes do not match. On the supported build (Steam v1.2) it has 38 `ok` lines and no `skip`.
 - The fixes start only in an exe that imports `CallDLL` from `ddraw.dll`, which is what the patcher makes. In the original exe and in any other program `ddraw.dll` is a renderer only and does not write `hogs.log`.
 - Frame rate: add `[Debug]` with `FrameStats=1` to `hogs.ini`. `hogs.log` then gets one `stats:` line every 5 seconds while frames are drawn, with the game ticks per second (25.00 when the game runs at its original speed) and the frames per second.
 - Gamepad without a gamepad: add `[Debug]` with `PadTest=1`. A named file mapping `HogsPadTest` that holds an `XINPUT_GAMEPAD` then acts as a connected controller, also when the game window has no focus. A test script writes the buttons and sticks into it.

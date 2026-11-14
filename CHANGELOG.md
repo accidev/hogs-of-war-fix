@@ -2,6 +2,21 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`; the technical details of every change are in [docs/WORKLOG.md](docs/WORKLOG.md) (in Russian).
 
+## v1.3.2 — 2026-11-14
+
+### Fixed
+
+- With the Russian translation 1.1.0 the game crashed on the screen where a team or a pig is named, when one of the keys D, F, G, I, J, L, N, Q, R, S, U, V, W, Y, Z was pressed. The game looks the Latin letter of a key up in the letter grid on screen and did not check that it found it, and the grid of that translation did not have these letters. A key without a letter in the grid does nothing now, and `russian.cmd` installs release 1.1.1 of the translation, whose grid has all Latin letters.
+
+### Added
+
+- On the name screen a key types the character of the current keyboard layout, if the letter grid has it. With the Russian translation the Russian layout types Russian letters. In the English game the digits and the signs of the grid can be typed too; before, only A–Z and Space worked.
+
+### Good to know
+
+- To update a translation that is already installed, run `russian.cmd` again.
+- The letter grid of the translation has no digits now: the board has room for 49 characters, and the Russian alphabet with the Latin letters takes 48.
+
 ## v1.3.1 — 2026-11-14
 
 ### Changed
