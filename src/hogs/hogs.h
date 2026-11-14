@@ -19,6 +19,9 @@ void frames_init(BOOL vsync);
 extern float *g_water_y;      /* the renderer's water grid, set when _d3d.dll is patched */
 void __cdecl water_slide(void); /* called from _d3d.dll in place of its own loop */
 
+/* net.c: network games through a lobby server, [Network] Server */
+void net_init(void);
+
 /* gamepad.c: XInput controllers */
 void gamepad_init(void);
 void gamepad_poll(void); /* from the game's message loops, see peek_message() in hogs.c */

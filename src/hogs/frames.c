@@ -509,14 +509,102 @@ static void __fastcall mid_tick_frame(BYTE *renderer)
         game_draw(renderer);
 }
 
+/* ---- network battle: the other player's turn ----
+ *
+ * The player on turn sends the pad state of every game tick, three ticks to a message
+ * (FUN_00461120). The other PCs run the same ticks from a queue of them (FUN_0048CE00 takes one
+ * a tick). The step took every tick the moment it had come, and with an empty queue it spun in
+ * FUN_0048CEF0 until the next message: three ticks at once, eight times a second, no frame in
+ * between and a whole core busy. Here the step is held back instead: the queue plays out one tick
+ * per tick length, some ticks behind what has come, and frames are drawn in between as always. */
+#define NETWORK_BATTLE (*(BYTE *)0x51ABC8)
+#define LOCAL_CLOCK (*(BYTE *)0x4D1900) /* 0: a tick takes its clock and pad from the queue of the player on turn */
+/* ticks to have before playing: two messages. ponytail: a fixed number; if players on poor
+ * connections see the picture stop and go, measure the gaps between messages and follow them */
+enum { REMOTE_BUFFER = 6 };
+
+static BOOL g_remote_buffering;
+static int g_remote_seen;      /* the queue's length at the last look, -1: no queue is played */
+static DWORD g_remote_since;   /* timeGetTime when it last grew or ran empty */
+
+/* The ticks of the player on turn that wait in the queue; -1 when the step takes none from it. */
+static int remote_backlog(BYTE *turn_manager)
+{
+    BYTE *game = GAME_CONFIG, *player;
+    int state, n;
+
+    /* +0x478: every player has loaded the battle; +1 and +0x541: the battle is being left */
+    if (!NETWORK_BATTLE || LOCAL_CLOCK || !turn_manager || !game || !game[0x478] || game[1] || turn_manager[0x541])
+        return -1;
+    state = *(int *)(turn_manager + 0x510);
+    player = *(BYTE **)(turn_manager + 0x4FC);
+    if (state == 2 || state == 0x12 || !player)
+        return -1;
+    n = *(int *)(player + 0x6118) - *(int *)(player + 0x611C); /* written, taken: a ring of 0x800 */
+    return n < 0 ? n + 0x800 : n;
+}
+
+/* TRUE: do not call the step now. Otherwise the tick time is set so that the step runs no more
+ * ticks than the queue has, one after a wait, and two when the queue has grown long. */
+static BOOL hold_remote_tick(BYTE *turn_manager)
+{
+    static BOOL held; /* the step was held back: the time that passed is not a debt of ticks */
+    int backlog = remote_backlog(turn_manager), period, late, most = 1;
+    DWORD ms = timeGetTime();
+
+    if (backlog < 0) {
+        g_remote_seen = -1;
+        g_remote_buffering = TRUE;
+        if (!held || !turn_manager)
+            return FALSE;
+    } else {
+        if (backlog > g_remote_seen || (!backlog && g_remote_seen))
+            g_remote_since = ms;
+        g_remote_seen = backlog;
+        if (!backlog)
+            g_remote_buffering = TRUE;
+        else if (backlog >= REMOTE_BUFFER || ms - g_remote_since > 250) /* enough, or no more is coming */
+            g_remote_buffering = FALSE;
+        if (g_remote_buffering && (backlog || ms - g_remote_since < 1000))
+            return held = TRUE;
+        if (!backlog) /* empty for a second: the step has its own ways with a silent player */
+            return held = FALSE;
+        if (!held)
+            most = backlog; /* never more ticks than the queue has: the step would spin for the rest */
+    }
+    period = *(int *)(turn_manager + 0x314);
+    period = period > 0 ? period : 40;
+    late = (int)(ms - TICK_TIME);
+    if (late >= (most + 1) * period)
+        TICK_TIME = ms - most * period;
+    else if (backlog > 2 * REMOTE_BUFFER && late >= period && late < 2 * period)
+        TICK_TIME = ms - 2 * period; /* the queue has grown long: two ticks now */
+    if (late >= period)
+        held = FALSE; /* a tick runs now */
+    return FALSE;
+}
+
 static DWORD __cdecl battle_step(void)
 {
     BYTE *turn_manager = TURN_MANAGER, *renderer = RENDERER;
-    DWORD tick0 = TICK_TIME, result;
+    DWORD tick0, result;
     LONGLONG now, next_tick;
     BOOL frames;
     int period;
 
+    if (hold_remote_tick(turn_manager)) { /* frames of the last tick until the next one can run */
+        now = now_us();
+        frames = g_frame_us && renderer && turn_manager == g_battle && g_snapshot_tick == TICK_TIME &&
+                 !IsIconic(GAME_WINDOW);
+        if (frames && frame_due(now)) {
+            draw_frame(renderer, now, !g_hud_waits);
+            g_hud_waits = FALSE;
+            frame_done(now);
+        }
+        wait_until(frames && g_next_frame < now + 2000 ? g_next_frame : now + 2000, TRUE);
+        return 0;
+    }
+    tick0 = TICK_TIME;
     g_step_tick = tick0;
     g_step_late = turn_manager ? (int)(timeGetTime() - tick0) - *(int *)(turn_manager + 0x314) : 0;
     result = game_step();

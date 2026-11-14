@@ -712,6 +712,7 @@ static void apply_fixes(int vsync, int widescreen)
 
     frames_init(vsync);
     gamepad_init();
+    net_init();
 
     if (GetPrivateProfileIntA("Cheats", "PromotionPoints", 0, g_ini)) {
         if (memcmp((void *)0x42BDB6, "\x8B\x15\x60\xC5\x51\x00", 6) || memcmp((void *)0x42BDD5, "\x66\x8B\x42\x50", 4))

@@ -65,6 +65,22 @@ The game can be played in Russian: text, fonts, videos and voices. The translati
 - It needs about 700 MB of free disk space while it installs, and 360 MB after that.
 - If Steam verifies the game files, it puts the English files back. Run `patch.cmd`, then `russian.cmd` again.
 
+## Network games over the internet
+
+The game has network play: **Multi-player**, then **Network**. It was made for a local network. This fix can send it through a lobby server, so that players anywhere see each other's games.
+
+1. Open `hogs.ini` in the game folder and set `Server=` in the `[Network]` section to the address of a lobby server. Set `Name=` to your name. Every player sets the same server.
+2. In the game choose **Multi-player**, **Network**, then **- INTERNET -**. You see the games on the server. The last line makes a new game; any other line joins that game.
+3. The player who made the game chooses the level. Everyone chooses a team and presses **Start game**. In the lobby that follows, the maker of the game presses **Tab** when all players are there.
+
+A line of the list reads like `BRAVO'S GAME 2-4 125MS`: two players of four are in that game, and your connection to the server and back takes 125 milliseconds.
+
+The server address has two forms: `name` or `name:port` for a direct connection, and `wss://name` for a server behind a web address.
+
+To play only with friends, set the same word as `Password=` in `[Network]` on every PC. Your games are then listed only for players with that word, and you see only theirs. It keeps strangers out of the list; it is not a strong lock.
+
+All players need the same version of this fix. With `Server=` empty the game's own network play is used, as before.
+
 ## Controls
 
 | Key | Action |

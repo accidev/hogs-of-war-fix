@@ -2,6 +2,27 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`; the technical details of every change are in [docs/WORKLOG.md](docs/WORKLOG.md) (in Russian).
 
+## v1.4.0 — not released yet
+
+### Added
+
+- Network games over the internet. The game's own network play (Multi-player, Network) needs players who can reach each other directly: a local network or an open port. With `[Network] Server` set in `hogs.ini`, the game's Network menu lists the games on a lobby server instead, and the game's messages go through that server. The menus are the game's own: "- INTERNET -" in the provider list, then the list of games with "make a game" as its last line, then the lobby, where the host starts the battle with Tab.
+- `[Network] Name` is the player's name in network games. The game itself used the Windows user name.
+- The server address can be a web address, `Server=wss://name`: the game then connects with a WebSocket, for a lobby server that stands behind a web front and does not show its own address.
+- The list of games shows the players of each game and your ping to the server: `BRAVO'S GAME 2-4 125MS`.
+- `[Network] Password`: a word shared with friends. Only players with the same word see each other's games.
+
+### Fixed
+
+- Network battles: the other player's turn was shown at about 8 frames a second, and less over the internet, with one processor core fully busy. The player on turn sends the ticks of the battle in groups of three, and the other PCs played each group the moment it came and then waited. Now they play the ticks evenly, about a quarter of a second behind, and draw every frame as in any other battle. This also holds for the game's own network play, without a lobby server.
+
+### Good to know
+
+- All players of a game need the same version of the fix and the same `[Battle] ComputerWalks` setting: each PC runs the battle itself, from the same input.
+- Without `[Network] Server` nothing changes in how players find each other: the game's own network play works as before, and it works with this fix.
+- The password keeps other players' games out of your list and yours out of theirs. It is not a strong lock: the server does not check it.
+- Tested with two copies of the game on one PC, through a server on the internet, directly and through a web front. Not tested: more than two players, two PCs.
+
 ## v1.3.2 — 2026-11-14
 
 ### Fixed
