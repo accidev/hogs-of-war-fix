@@ -1,22 +1,13 @@
 /* frames.c - when the game draws its frames: battles and menus.
  *
- * Battle. The main loop (0x47DE90) polls: PeekMessageA, then the battle step FUN_0047F930. The
- * step runs a game tick when 40 ms have passed (25 ticks a second), draws one frame after it,
- * and returns at once otherwise. So one core was always busy and the picture moved 25 times a
- * second. Three places are hooked:
+ * Battle: the main loop (0x47DE90) calls the step FUN_0047F930: a game tick every 40 ms, one frame
+ * after it. Frames between ticks draw objects and camera between their last two tick places.
+ * Menus: the loop (0x427380) draws as fast as it can; its animations are made for 25 frames a
+ * second. Hooked:
  *   0x47E42E  call FUN_0047F930 (battle step, main loop)      -> battle_step
  *   0x47FC49  call FUN_0044E290 (draw, after the game ticks)  -> tick_frame
  *   0x47FCC0  jmp  FUN_0044E290 (draw, inside a game tick)    -> mid_tick_frame
- * battle_step waits for the next tick or frame instead of spinning, and draws more frames
- * between two ticks. For those, every object of the draw list and the camera are put between
- * their places of the last two ticks, the game's own draw function runs, and the true values
- * are put back: the game logic never sees a moved object, and it still runs 25 ticks a second
- * off timeGetTime, as before. The picture is one tick (40 ms) behind the logic.
- *
- * Menus. The menu loop (0x427380) draws as fast as it can, and its animations advance once per
- * frame. They were made for 25 frames a second: with a fast renderer the menus ran at the
- * monitor's refresh rate, 2 to 14 times too fast. The loop's clock call (0x42745F) now waits
- * for the next 40 ms slot.
+ *   0x42745F  call clock() in the menu loop                   -> menu_frame_clock
  *
  * The battle loop and the menu pacing are ported from Torisutan/HogsFix (MIT license),
  * src/battle.c and src/hogsfix.c.
@@ -30,14 +21,13 @@
 #define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
 #endif
 
-/* game data */
 #define TICK_TIME (*(DWORD *)0x520884)      /* timeGetTime of the last game tick */
 #define TURN_MANAGER (*(BYTE **)0x537F24)   /* one per battle; +0x314: tick length in ms */
 #define RENDERER (*(BYTE **)0x51C4F8)       /* `this` of the draw function */
 #define CAMERA (*(BYTE **)0x537F98)         /* +0x88: 3 angles, 4096 = a full turn */
 #define DRAW_LIST (*(BYTE **)0x537FBC)      /* objects, linked by +4 */
-#define HUD (*(BYTE **)0x51D38C)            /* 0xE18 bytes (new at 0x485E66) */
-#define MESSAGES (*(BYTE **)0x51D3C4)       /* message banner, 0x96C bytes (new at 0x485DF9) */
+#define HUD (*(BYTE **)0x51D38C)            /* new at 0x485E66 */
+#define MESSAGES (*(BYTE **)0x51D3C4)       /* message banner, new at 0x485DF9 */
 #define MESSAGE_SCROLL (*(DWORD *)0x51D3C0)
 #define NESTED_STEP (*(BYTE *)0x51BCDC)     /* set while 0x448ED0 calls the step from inside a game tick */
 #define HUD_SIZE 0xE18
@@ -50,8 +40,8 @@ static int(__cdecl *const game_clock)(void) = (int(__cdecl *)(void))0x4AE530; /*
 /* ---- time ---- */
 
 static LARGE_INTEGER g_qpc_start, g_qpc_freq;
-static DWORD g_ms_start;   /* timeGetTime at g_qpc_start */
-static LONGLONG g_ms_lead; /* see tick_time_us */
+static DWORD g_ms_start;
+static LONGLONG g_ms_lead;
 static HANDLE g_timer;
 
 static LONGLONG now_us(void)
@@ -62,10 +52,8 @@ static LONGLONG now_us(void)
     return (c.QuadPart - g_qpc_start.QuadPart) * 1000000 / g_qpc_freq.QuadPart;
 }
 
-/* A timeGetTime value on the now_us clock. timeGetTime moves in 1 ms steps, too coarse to
- * place a frame between two ticks at 144 Hz and more. It is the same clock rounded down, so
- * the smallest difference seen between the two is their offset. The estimate creeps up 1 us
- * per call, so it also follows if the two clocks ever drift apart. */
+/* timeGetTime on the now_us clock (1 ms steps are too coarse at 144 Hz); g_ms_lead: smallest
+ * offset seen between the two, +1 us per call to follow drift */
 static LONGLONG tick_time_us(DWORD ms)
 {
     LONGLONG lead = now_us() - (LONGLONG)(int)(timeGetTime() - g_ms_start) * 1000;
@@ -74,7 +62,7 @@ static LONGLONG tick_time_us(DWORD ms)
     return (LONGLONG)(int)(ms - g_ms_start) * 1000 + g_ms_lead;
 }
 
-/* Sleep until `due`. With `messages`, a window message ends the wait early. */
+/* Sleep until `due`; with `messages` a window message ends the wait. */
 static void wait_until(LONGLONG due, BOOL messages)
 {
     LARGE_INTEGER t;
@@ -89,19 +77,17 @@ static void wait_until(LONGLONG due, BOOL messages)
         WaitForSingleObject(g_timer, 100);
 }
 
-/* ---- water ----
- * The renderer moved the water plane inside its draw function (_d3d.dll FUN_1000B440): every
- * frame the 31x31 inner points of its grid went 4 units along y, and from a multiple of 1024
- * back by 1020. That is 100 units a second at 25 frames a second, and 14 times that at 360.
- * water_slide takes the place of that loop: 100 units a second by the clock at any frame rate.
- * The rows of the grid are 1024 apart, so after one row the points start again. */
-float *g_water_y; /* y of the first inner point; +0x68 bytes is the next point, +0xD68 the next row */
+/* ---- water ---- */
 
+float *g_water_y; /* y of the first of 31x31 inner grid points; +0x68 next point, +0xD68 next row */
+
+/* Replaces the loop in _d3d.dll FUN_1000B440 (4 units along y a frame): 100 units a second.
+ * Rows are 1024 apart: after one row the points repeat. */
 void __cdecl water_slide(void)
 {
     static LONGLONG last;
     LONGLONG now = now_us();
-    /* after a break (the first frame, a loading screen) one step of the original */
+    /* after a break (first frame, loading screen): the original step */
     float step = now - last > 200000 ? 4.0f : (float)(now - last) * 1e-4f, was, phase;
     int row, col;
 
@@ -117,14 +103,12 @@ void __cdecl water_slide(void)
         for (col = 0; col < 31; col++) {
             float *y = (float *)((BYTE *)g_water_y + row * 0xD68 + col * 0x68);
 
-            /* from the point's own place in the grid, so that rounding does not add up */
+            /* from the point's grid place, so rounding does not add up */
             *y = 1024.0f * (float)floor((*y - was + 16380.0f) / 1024.0f + 0.5f) - 16380.0f + phase;
         }
 }
 
-/* ---- [Debug] FrameStats=1: one line every 5 s while frames are drawn ----
- * ticks/s is how far the game's tick time moved, in tick lengths: 25.00 when the game runs at
- * its speed. */
+/* ---- [Debug] FrameStats=1: one line every 5 s ---- */
 
 static BOOL g_stats;
 
@@ -148,7 +132,7 @@ static void count_frame(Stats *s, const char *what, int tick_ms)
             s->frames / sec);
     else if (sec >= 5 && sec < 6)
         say("stats: %s %.1f frames/s", what, s->frames / sec);
-    if (sec >= 5) { /* also after a break: start a new period */
+    if (sec >= 5) {
         s->since = now;
         s->tick_time = TICK_TIME;
         s->frames = 0;
@@ -165,7 +149,7 @@ static int __cdecl menu_frame_clock(void)
     LONGLONG now = now_us();
 
     if (now - next > 40000)
-        next = now; /* first frame, or the menu took longer than a slot: no catching up */
+        next = now;
     wait_until(next, FALSE);
     next += 40000;
     count_frame(&stats, "menu", 0);
@@ -174,9 +158,8 @@ static int __cdecl menu_frame_clock(void)
 
 /* ---- battle: objects between two ticks ---- */
 
-/* A draw-list object has its type at +0x38 and a transform at [+0x18]: position, 3 floats at
- * +4, and a 3x3 matrix, 9 floats at +0x20. A pig (type 0x1357) is drawn from its heading at
- * +0x174 (4096 = a full turn). The camera is in the list too (type 0x135C). */
+/* Draw-list object: +0x38 type, [+0x18] transform (pos 3 floats at +4, 3x3 matrix at +0x20).
+ * Pig (type 0x1357): drawn from its heading at +0x174, 4096 = a full turn. Camera: type 0x135C. */
 #define MAX_OBJECTS 512
 #define PIG 0x1357
 
@@ -186,7 +169,7 @@ typedef struct {
     int type;
     float pos[2][3], mat[2][9]; /* [0] the tick before, [1] the last tick */
     int heading[2];
-    BOOL turns; /* the heading changed by a small angle: draw it in between */
+    BOOL turns; /* small heading change: interpolate it */
     float true_pos[3], true_mat[9];
     int true_heading;
     int moved; /* by place_objects: 0 no, 1 transform, 2 transform and heading */
@@ -198,7 +181,6 @@ static int g_object_count;
 static int g_camera[2][3], g_true_camera[3];
 static int g_camera_turns; /* 0 no, 1 yes, 2 moved by place_objects */
 
-/* the shortest way from angle a to b */
 static int angle_diff(int a, int b)
 {
     return ((b - a + 2048) & 4095) - 2048;
@@ -219,7 +201,7 @@ static void read_object(Object *o)
     o->heading[1] = o->type == PIG ? *(int *)(o->obj + 0x174) : 0;
 }
 
-/* Once per game tick, after the camera update: remember where everything is. */
+/* Once per game tick, after the camera update. */
 static void snapshot(void)
 {
     BYTE *obj, *cam = CAMERA;
@@ -234,7 +216,6 @@ static void snapshot(void)
 
         if (!tr || type < 0x1357 || type > 0x1362) /* the object types the draw function knows */
             continue;
-        /* the list keeps its order from tick to tick, so the object is usually at index k */
         o = k < g_object_count && g_objects[k].obj == obj ? &g_objects[k] : NULL;
         for (i = 0; !o && i < g_object_count; i++)
             if (g_objects[i].obj == obj)
@@ -254,11 +235,11 @@ static void snapshot(void)
             for (i = 0; i < 9; i++)
                 if (o->mat[1][i] - o->mat[0][i] > 0.5f || o->mat[1][i] - o->mat[0][i] < -0.5f)
                     break;
-            if (i < 9) /* a big turn: a straight line between two matrices would squash the model */
+            if (i < 9) /* big turn: lerping the matrices would squash the model */
                 memcpy(o->mat[0], o->mat[1], sizeof o->mat[0]);
             turn = angle_diff(o->heading[0], o->heading[1]);
             o->turns = type == PIG && turn != 0 && turn > -600 && turn < 600;
-        } else { /* new in the list: it stands still for its first tick */
+        } else {
             if (!o) {
                 if (g_object_count >= MAX_OBJECTS)
                     continue;
@@ -277,7 +258,7 @@ static void snapshot(void)
         o->moved = 0;
         k = (int)(o - g_objects) + 1;
     }
-    for (i = 0, k = 0; i < g_object_count; i++) /* drop what left the list */
+    for (i = 0, k = 0; i < g_object_count; i++)
         if (g_objects[i].seen) {
             if (k != i)
                 g_objects[k] = g_objects[i];
@@ -300,8 +281,7 @@ static void snapshot(void)
     }
 }
 
-/* Put everything at t (0..1) of the way from the tick before to the last tick. Only what
- * still holds the values of the last tick is touched, and its true values are kept. */
+/* t: 0..1 from the tick before to the last tick; skips objects the game moved since */
 static void place_objects(float t)
 {
     BYTE *cam = CAMERA;
@@ -359,14 +339,14 @@ static void restore_objects(void)
 
 static int g_rate;         /* [Battle] FrameRate: 0 = the monitor's refresh rate, 25 = only after a tick */
 static BOOL g_interpolate; /* [Battle] Interpolation */
-static BOOL g_vsync;       /* [Render] VSync: the renderer's present waits for the monitor */
-static LONGLONG g_frame_us;   /* time between two frames; 0 = one frame per game tick, as the game did */
-static LONGLONG g_next_frame; /* when the next frame is due */
+static BOOL g_vsync;       /* [Render] VSync */
+static LONGLONG g_frame_us;   /* time between two frames; 0 = one frame per game tick */
+static LONGLONG g_next_frame;
 static BYTE *g_battle;        /* the turn manager the state below belongs to */
-static DWORD g_snapshot_tick; /* TICK_TIME of the snapshot */
-static BOOL g_hud_waits;      /* the frame of the last tick was not drawn: the HUD has a step to make */
-static DWORD g_step_tick;     /* TICK_TIME when battle_step called the step */
-static int g_step_late;       /* and how many ms after the tick was due that was, see tick_frame */
+static DWORD g_snapshot_tick;
+static BOOL g_hud_waits;      /* last tick's frame not drawn: HUD step pending */
+static DWORD g_step_tick;
+static int g_step_late;       /* ms after the tick was due when battle_step called the step */
 static Stats g_battle_stats;
 
 static int monitor_refresh_rate(void)
@@ -392,9 +372,8 @@ static void start_battle(BYTE *turn_manager)
     g_snapshot_tick = 0;
     g_hud_waits = FALSE;
     g_frame_us = rate > 25 ? 1000000 / rate : 0;
-    /* With VSync the renderer's present waits for the monitor, and that sets the pace: every
-     * refresh gets one frame. The timer then runs a little faster and only limits the frame
-     * rate when present does not wait, as for a covered window or a locked screen. */
+    /* VSync: present waits for the monitor; the timer runs a little faster, for when it does not
+     * (covered window, locked screen) */
     if (g_frame_us && g_vsync && rate >= monitor)
         g_frame_us = 900000 / monitor;
     g_next_frame = now_us();
@@ -416,10 +395,8 @@ static void frame_done(LONGLONG now)
         g_next_frame = now + g_frame_us; /* late, or the first frame: no catching up */
 }
 
-/* Draw the battle as it is `now`. A quiet frame leaves the HUD as it was: the HUD and the
- * message banner advance their animations inside the draw function, once per frame, and
- * blinking objects (type 0x135B) flip a sign in their model there. Only one frame per game
- * tick may do that, or all of it would run faster. */
+/* HUD, message banner and blinking objects (type 0x135B) advance in each draw call: a quiet
+ * frame restores them, so only one frame per tick advances. */
 static void draw_frame(BYTE *renderer, LONGLONG now, BOOL quiet)
 {
     static BYTE hud_copy[HUD_SIZE], messages_copy[MESSAGES_SIZE];
@@ -462,25 +439,20 @@ static void draw_frame(BYTE *renderer, LONGLONG now, BOOL quiet)
     count_frame(&g_battle_stats, "battle", turn_manager ? *(int *)(turn_manager + 0x314) : 0);
 }
 
-/* The step's own draw call, after its game ticks. Other loops call the step too (the computer
- * player while it thinks, 0x448ED0): they get one frame per tick here, as before. */
+/* The step's draw call, after its ticks; other loops call the step too (computer player, 0x448ED0) */
 static void __fastcall tick_frame(BYTE *renderer)
 {
     BYTE *turn_manager = TURN_MANAGER;
     LONGLONG now = now_us();
     int period, advanced = (int)(TICK_TIME - g_step_tick);
 
-    if (!turn_manager) { /* no battle clock to place frames by, see battle_step: draw as the game did */
+    if (!turn_manager) {
         game_draw(renderer);
         return;
     }
     period = *(int *)(turn_manager + 0x314);
 
-    /* battle_step called the step g_step_late ms after the tick was due: a wait ended, or the
-     * renderer's present had waited for the monitor. Mostly the step adds one period to the
-     * tick time, and being late changes nothing. But in some states (the computer's turn, turn
-     * manager +0x318) it restarts the tick time at the end of the tick: our delay would make
-     * every tick that much longer and the game slower. Take the delay out again. */
+    /* undo g_step_late where the step restarts the tick time at its end (computer's turn, +0x318) */
     if (g_step_late > 0 && !NESTED_STEP && advanced > period && advanced < 2 * period && g_step_late <= advanced - period)
         TICK_TIME -= g_step_late;
     g_step_late = 0;
@@ -492,7 +464,7 @@ static void __fastcall tick_frame(BYTE *renderer)
         g_snapshot_tick = TICK_TIME;
     }
     if (!frame_due(now)) {
-        g_hud_waits = TRUE; /* battle_step draws it with its next frame */
+        g_hud_waits = TRUE;
         return;
     }
     g_hud_waits = FALSE;
@@ -500,23 +472,17 @@ static void __fastcall tick_frame(BYTE *renderer)
     frame_done(now);
 }
 
-/* The computer player draws a frame before and after it thinks (0x441A00), in the middle of a
- * game tick: the world half way into the next tick, ahead of the frames in between. Shown for
- * one frame, objects would jump forward and back. */
+/* The computer player draws before and after thinking (0x441A00), mid-tick: objects would jump */
 static void __fastcall mid_tick_frame(BYTE *renderer)
 {
     if (!g_frame_us || !g_interpolate)
         game_draw(renderer);
 }
 
-/* ---- network battle: the other player's turn ----
- *
- * The player on turn sends the pad state of every game tick, three ticks to a message
- * (FUN_00461120). The other PCs run the same ticks from a queue of them (FUN_0048CE00 takes one
- * a tick). The step took every tick the moment it had come, and with an empty queue it spun in
- * FUN_0048CEF0 until the next message: three ticks at once, eight times a second, no frame in
- * between and a whole core busy. Here the step is held back instead: the queue plays out one tick
- * per tick length, some ticks behind what has come, and frames are drawn in between as always. */
+/* ---- network battle: the other player's turn ---- */
+
+/* The player on turn sends each tick's pad state, 3 to a message (FUN_00461120); the others take
+ * one per tick from a queue (FUN_0048CE00), spinning in FUN_0048CEF0 when it is empty. */
 #define NETWORK_BATTLE (*(BYTE *)0x51ABC8)
 #define LOCAL_CLOCK (*(BYTE *)0x4D1900) /* 0: a tick takes its clock and pad from the queue of the player on turn */
 /* ticks to have before playing: two messages. ponytail: a fixed number; if players on poor
@@ -544,11 +510,10 @@ static int remote_backlog(BYTE *turn_manager)
     return n < 0 ? n + 0x800 : n;
 }
 
-/* TRUE: do not call the step now. Otherwise the tick time is set so that the step runs no more
- * ticks than the queue has, one after a wait, and two when the queue has grown long. */
+/* TRUE: do not call the step now. Else TICK_TIME lets the step run no more ticks than queued. */
 static BOOL hold_remote_tick(BYTE *turn_manager)
 {
-    static BOOL held; /* the step was held back: the time that passed is not a debt of ticks */
+    static BOOL held; /* held back: the elapsed time is not a debt of ticks */
     int backlog = remote_backlog(turn_manager), period, late, most = 1;
     DWORD ms = timeGetTime();
 
@@ -578,9 +543,9 @@ static BOOL hold_remote_tick(BYTE *turn_manager)
     if (late >= (most + 1) * period)
         TICK_TIME = ms - most * period;
     else if (backlog > 2 * REMOTE_BUFFER && late >= period && late < 2 * period)
-        TICK_TIME = ms - 2 * period; /* the queue has grown long: two ticks now */
+        TICK_TIME = ms - 2 * period;
     if (late >= period)
-        held = FALSE; /* a tick runs now */
+        held = FALSE;
     return FALSE;
 }
 
@@ -592,7 +557,7 @@ static DWORD __cdecl battle_step(void)
     BOOL frames;
     int period;
 
-    if (hold_remote_tick(turn_manager)) { /* frames of the last tick until the next one can run */
+    if (hold_remote_tick(turn_manager)) {
         now = now_us();
         frames = g_frame_us && renderer && turn_manager == g_battle && g_snapshot_tick == TICK_TIME &&
                  !IsIconic(GAME_WINDOW);
@@ -619,14 +584,14 @@ static DWORD __cdecl battle_step(void)
         period = 40;
     now = now_us();
     next_tick = tick_time_us(TICK_TIME) + period * 1000;
-    if (now >= next_tick) { /* a tick is due: back to the step */
+    if (now >= next_tick) {
         if (TICK_TIME == tick0)
-            wait_until(now + 5000, TRUE); /* but the step ran none (it waits for the network): no spinning */
+            wait_until(now + 5000, TRUE); /* a tick is due, the step ran none (waits for the network): no spinning */
         return result;
     }
 
-    /* A frame between two ticks: only when the step drew the frame of the last tick, or left
-     * it to us, so the game is in a state it draws itself. */
+    /* only after the step drew the last tick's frame or left it to us: the game is then in a
+     * state it draws itself */
     frames = g_frame_us && renderer && turn_manager == g_battle && g_snapshot_tick == TICK_TIME &&
              !IsIconic(GAME_WINDOW);
     if (frames && frame_due(now)) {
@@ -640,8 +605,7 @@ static DWORD __cdecl battle_step(void)
 
 void frames_init(BOOL vsync)
 {
-    /* the three battle hooks work together, and quiet frames copy the HUD and the message
-     * banner, whose sizes must be the known ones: all bytes must match, or none is hooked */
+    /* all or none: the hooks work together, and quiet frames copy HUD and banner at known sizes */
     BOOL known = !memcmp((void *)0x47E42E, "\xE8\xFD\x14\x00\x00", 5) && !memcmp((void *)0x47FC49, "\xE8\x42\xE6\xFC\xFF", 5) &&
                  !memcmp((void *)0x47FCC0, "\xE9\xCB\xE5\xFC\xFF", 5) && !memcmp((void *)0x485E66, "\x68\x18\x0E\x00\x00", 5) &&
                  !memcmp((void *)0x485DF9, "\x68\x6C\x09\x00\x00", 5);
@@ -650,7 +614,7 @@ void frames_init(BOOL vsync)
     QueryPerformanceCounter(&g_qpc_start);
     g_ms_start = timeGetTime();
     g_ms_lead = 1000000;
-    timeBeginPeriod(1); /* 1 ms steps for timeGetTime, the game's tick clock, and for the timer below */
+    timeBeginPeriod(1); /* 1 ms steps for timeGetTime (the game's tick clock) and the timer */
     g_timer = CreateWaitableTimerExA(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
     if (!g_timer) /* before Windows 10 1803 */
         g_timer = CreateWaitableTimerA(NULL, FALSE, NULL);

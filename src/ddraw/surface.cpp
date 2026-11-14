@@ -84,7 +84,7 @@ void Surface::make_storage()
     } bi = {};
     bi.h.biSize = sizeof bi.h;
     bi.h.biWidth = w;
-    bi.h.biHeight = -h; /* top-down, like a DirectDraw surface */
+    bi.h.biHeight = -h; /* top-down */
     bi.h.biPlanes = 1;
     bi.h.biBitCount = (WORD)bpp;
     if (bpp == 16 || bpp == 32) {
@@ -160,9 +160,7 @@ HRESULT STDMETHODCALLTYPE Surface::QueryInterface(REFIID riid, void **out)
     return E_NOINTERFACE;
 }
 
-/* Clip d to the surface (dw x dh) and cut s by the same share, so a stretched blit keeps its
- * proportions. A mirrored blit shows the far side of the source at each edge of d, so that is
- * the side to cut. */
+/* clip d to dw x dh and cut s by the same share; mirrored: the far side of s is cut */
 static bool clip(RECT &d, RECT &s, int dw, int dh, bool mx = false, bool my = false)
 {
     if (d.right <= d.left || d.bottom <= d.top || s.right <= s.left || s.bottom <= s.top)
@@ -181,14 +179,13 @@ static bool clip(RECT &d, RECT &s, int dw, int dh, bool mx = false, bool my = fa
     return d.right > d.left && d.bottom > d.top && s.right > s.left && s.bottom > s.top;
 }
 
-/* CPU blit with nearest-neighbour stretch, optional source colour key and mirroring. */
 static void cpu_blit(Surface *dst, const RECT &d, Surface *src, const RECT &s, int key, bool mx, bool my)
 {
     if (!dst->bits || !src->bits || dst->bpp != src->bpp || (dst->bpp != 16 && dst->bpp != 8)) {
         log_printf("blit %dbpp -> %dbpp not supported", src->bpp, dst->bpp);
         return;
     }
-    /* DirectDraw refuses a source rectangle that leaves the source; reading it would run off the bits */
+    /* DirectDraw refuses a source rect outside the source */
     if (s.left < 0 || s.top < 0 || s.right > src->w || s.bottom > src->h)
         return;
     int dw = d.right - d.left, dh = d.bottom - d.top, sw = s.right - s.left, sh = s.bottom - s.top;
@@ -233,7 +230,6 @@ static void cpu_fill(Surface *dst, const RECT &d, DWORD color)
     }
 }
 
-/* Common path for Blt and BltFast. */
 static HRESULT do_blit(Surface *dst, RECT d, Surface *src, RECT s, int key, bool mx, bool my)
 {
     if (dst->kind == Kind::Primary) { /* windowed present: back buffer -> window */
@@ -243,7 +239,7 @@ static HRESULT do_blit(Surface *dst, RECT d, Surface *src, RECT s, int key, bool
     if (!clip(d, s, dst->w, dst->h, mx, my))
         return DD_OK;
     if (dst->kind == Kind::Back) {
-        if (src->kind == Kind::Back) { /* back -> back: do it on the CPU copy */
+        if (src->kind == Kind::Back) { /* back -> back: on the CPU copy */
             src->sync_from_gpu();
             cpu_blit(dst, d, src, s, key, mx, my);
             dst->wrote_cpu();
@@ -414,8 +410,7 @@ HRESULT STDMETHODCALLTYPE Surface::Lock(LPRECT r, LPDDSURFACEDESC2 d, DWORD flag
 {
     if (!bits)
         return DDERR_GENERIC;
-    /* even for DDLOCK_WRITEONLY: Bink writes only the rectangles that changed, so the rest
-     * of the surface must hold the previous contents */
+    /* also for DDLOCK_WRITEONLY: Bink writes only the changed rects, the rest must keep its contents */
     sync_from_gpu();
     GetSurfaceDesc(d);
     d->lpSurface = bits + (r ? r->top * pitch + r->left * (bpp / 8) : 0);

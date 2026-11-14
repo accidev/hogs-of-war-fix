@@ -1,6 +1,5 @@
-/* hogsdraw: a DDRAW.dll for Hogs of War that implements the part of DirectDraw 7 /
- * Direct3D 7 the game uses, on top of Direct3D 11. The same DLL carries the game fixes of
- * src/hogs; DllMain (main.cpp) starts them in the patched game only. */
+/* hogsdraw: DDRAW.dll for Hogs of War, DirectDraw 7 / Direct3D 7 on Direct3D 11, plus the game fixes
+ * of src/hogs (DllMain in main.cpp starts them in the patched game only) */
 #pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -12,7 +11,6 @@
 
 /* hogsdraw.log next to the game */
 void log_printf(const char *fmt, ...);
-/* a DirectX 7 method the game called that hogsdraw does not implement (logged once each) */
+/* a called DirectX 7 method that is not implemented, logged once each */
 void unimplemented(const char *what);
-/* QueryInterface for an interface hogsdraw does not provide */
 void unknown_interface(const char *on, REFIID riid);

@@ -1,17 +1,13 @@
-# Hogs of War fix - patcher. Works on the player's own copy of the game; ships no game code.
-#
-#   patch.cmd             install or update the fix
-#   patch.cmd -Restore    put the original files back
-#   russian.cmd           the Russian translation of the game (russian.ps1: a separate download, offered below)
+# Hogs of War fix - patcher for the player's own copy of the game; ships no game code.
+#   patch.cmd                                   install or update the fix
+#   patch.cmd -Restore                          put the original files back
 #   patch.cmd -GameDir "D:\Games\Hogs of War"   game folder (default: the folder above this one)
-#
-# Windows PowerShell 5.1 compatible (ships with Windows 10/11). Keep this file ASCII.
-# CmdletBinding makes an unknown switch (e.g. the old -NoDgVoodoo) an error instead of silently ignoring it.
-#
-# The patched warhogs_.exe imports CallDLL from ddraw.dll, so it starts only with our ddraw.dll (the one of Windows has
-# no CallDLL). The exe of v1.0-v1.1 imports it from hogs.dll and starts only with that file. So that a failed or
-# interrupted run always leaves a game that starts: our ddraw.dll is in place before such an exe is, hogs.dll goes
-# only once no exe imports it, and -Restore puts the original exe back before it removes ddraw.dll.
+#   russian.cmd                                 the Russian translation (russian.ps1, a separate download; see step 7)
+# Windows PowerShell 5.1; keep this file ASCII. CmdletBinding: an unknown switch (the old -NoDgVoodoo) is an error.
+# The patched exe imports CallDLL from ddraw.dll and starts only with our ddraw.dll (Windows' own has none); the exe of
+# v1.0-v1.1 imports it from hogs.dll and needs that file. So that an interrupted run leaves a game that starts: our
+# ddraw.dll goes in before such an exe, hogs.dll goes only once no exe imports it, -Restore puts the original exe back
+# before it removes ddraw.dll.
 [CmdletBinding()] param([string]$GameDir, [switch]$Restore)
 
 $ErrorActionPreference = 'Stop'
@@ -19,15 +15,14 @@ $here = $PSScriptRoot
 $files = Join-Path $here 'files'
 $patch = Get-Content -LiteralPath (Join-Path $here 'warhogs_v12.json') -Raw | ConvertFrom-Json
 
-# Known third-party file: the 2014 ogg-winmm build that deadlocks the Windows 10/11 loader.
+# the 2014 ogg-winmm build, which deadlocks the Windows 10/11 loader
 $badWinmm = '9ACA7D1B2649256970D38ECF346CB90CAE3545DD2DC73F63BC1030E1CCE4CEA4'
-# dgVoodoo2 was the graphics layer before ddraw.dll. Its files were installed either by an older
-# version of this patcher (then the marker file exists) or by the player. DDraw.dll is the same
-# path as our ddraw.dll (file names are case-insensitive).
+# dgVoodoo2 files: installed by an older patcher (then the marker exists) or by the player.
+# DDraw.dll is the same path as our ddraw.dll (names ignore case).
 $dgvSiblings = 'D3DImm.dll', 'dgVoodoo.conf', 'dgVoodooCpl.exe'
 $dgvFiles = @('DDraw.dll') + $dgvSiblings
 $dgvMarker = 'dgVoodoo.installed-by-hogsfix'
-# Our ddraw.dll is recognised by this text inside it (its log file name), whatever its version.
+# text inside every build of our ddraw.dll (its log file name)
 $ddrawSig = 'hogsdraw.log'
 
 function Say($msg, $color = 'Gray') { Write-Host $msg -ForegroundColor $color }
@@ -36,13 +31,12 @@ function HexBytes($s) { [byte[]]($s -split '(..)' -ne '' | ForEach-Object { [Con
 function Has($path) { Test-Path -LiteralPath $path }
 function Drop($path) { if (Has $path) { Remove-Item -LiteralPath $path -Force } }
 function OwnDdraw($path) { (Has $path) -and [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($path)).Contains($ddrawSig) }
-# what is inserted into hogs.ini is CRLF whatever the line ends of the template are
 function Crlf($s) { ($s.TrimEnd() -replace '\r\n|\r|\n', "`r`n") + "`r`n" }
-# the line before the insert position is the last one of the file and may have no line end
+# the text before $pos may end without a line end
 function NewLine($text, $pos) { if ($pos -eq 0 -or $text[$pos - 1] -match '[\r\n]') { '' } else { "`r`n" } }
 
-# warhogs_.exe with one change list of the JSON applied, written next to it as warhogs_.exe.new and checked against
-# output_sha256. The exe itself is replaced later, by a move of that file.
+# Writes warhogs_.exe.new: the exe with one change list of the JSON applied, checked against output_sha256.
+# The exe itself is replaced later (step 3).
 function PatchedExe($changes) {
     $bytes = [IO.File]::ReadAllBytes($exe)
     foreach ($c in $changes) {
@@ -59,13 +53,9 @@ function PatchedExe($changes) {
     $tmp
 }
 
-# The game reads hogs.ini with GetPrivateProfile*, so "this section / setting is there" has to mean what that API finds:
-# only the first [name] of a name counts (a second header would be ignored), names ignore case and the blanks around them,
-# a line starting with ; is a comment (a commented-out setting is not there), a lone CR also ends a line.
-# $text is decoded as Latin-1 so that every byte survives the round trip.
-# Returns name -> @{ Name; Start; End; Settings = key -> @{ Name; Text } } (PowerShell dictionaries ignore case, whatever
-# the culture of the PC). End is after the last non-blank line, so new settings land above the blank line that separates
-# the next section. Text is the setting's line together with the comment lines above it.
+# Mirrors GetPrivateProfile*, which the game reads hogs.ini with: only the first [name] counts, names ignore case and
+# blanks (PowerShell dictionaries do too), a ;-line is a comment, a lone CR ends a line. End is after the last non-blank
+# line: new settings land above the blank line before the next section. Text: the setting's line and the comments above it.
 function IniSections($text) {
     $secs = [ordered]@{}
     $cur = $null; $from = 0
@@ -110,7 +100,6 @@ $hogsDll = Join-Path $GameDir 'hogs.dll'
 $marker = Join-Path $GameDir $dgvMarker
 $russian = Join-Path $here 'russian.ps1'
 $hash = Sha $exe
-# an exe patched by an older version, with the changes that make it the current one
 $older = $patch.older_outputs | Where-Object { $_.sha256 -eq $hash } | Select-Object -First 1
 
 if ($Restore) {
@@ -126,7 +115,7 @@ if ($Restore) {
     } else {
         Say 'warhogs_.exe is not a version this fix knows: left as it is' 'Yellow'
     }
-    # the Russian translation that russian.ps1 installed: the English files go back
+    # english.orig: the English files, put away by russian.ps1
     if ((Has (Join-Path $GameDir 'english.orig')) -and (Has $russian)) {
         try { & $russian -Remove -GameDir $GameDir } catch { Say "The Russian translation was not removed: $($_.Exception.Message)" 'Yellow' }
     }
@@ -135,17 +124,16 @@ if ($Restore) {
         Drop (Join-Path $GameDir 'winmm.ini')
         Say 'winmm.dll restored' 'Green'
     }
-    # hogs.dll held the fixes up to v1.1; a *.new file is left by a run that failed before it could move it into place
+    # hogs.dll is from v1.0-v1.1; *.new is left by a run that failed before moving it into place
     foreach ($f in 'hogs.dll', 'hogs.ini', 'hogs.log', 'hogsdraw.log', 'warhogs_.exe.new', 'ddraw.dll.new', 'winmm.dll.new') { Drop (Join-Path $GameDir $f) }
     if (Has $marker) {
-        # dgVoodoo2 from an older version of this patcher (its DDraw.dll may already be ours)
+        # dgVoodoo2 of an older patcher (its DDraw.dll may already be ours)
         foreach ($f in $dgvFiles + $dgvMarker) { Drop (Join-Path $GameDir $f) }
         Say 'dgVoodoo2 installed by an older version removed' 'Green'
     } elseif (OwnDdraw $dd) {
         Drop $dd
         Say 'ddraw.dll removed' 'Green'
     }
-    # a dgVoodoo2 the player had installed by hand was renamed to *.orig on install
     foreach ($f in $dgvFiles) {
         $p = Join-Path $GameDir $f
         if (Has "$p.orig") {
@@ -161,7 +149,7 @@ if ($Restore) {
 foreach ($f in 'ddraw.dll', 'hogs.ini', 'winmm.dll', 'winmm.ini') {
     if (-not (Has (Join-Path $files $f))) { throw "files\$f is missing. Extract the whole zip, then run patch.cmd again." }
 }
-# A dgVoodoo2 the player installed by hand (no marker) is not ours to delete: it is kept as *.orig.
+# A hand-installed dgVoodoo2 (no marker) is not ours to delete: it is kept as *.orig.
 $keep = @()
 if ((Has $dd) -and -not (OwnDdraw $dd) -and -not (Has $marker)) {
     $keep = @($dgvFiles | Where-Object { Has (Join-Path $GameDir $_) })
@@ -170,7 +158,7 @@ if ((Has $dd) -and -not (OwnDdraw $dd) -and -not (Has $marker)) {
     }
 }
 
-# 1. warhogs_.exe: remove LaserLock, load the fixes from ddraw.dll. The new exe is only made here, as warhogs_.exe.new:
+# 1. warhogs_.exe: remove LaserLock, load the fixes from ddraw.dll. The new exe is only made here, as warhogs_.exe.new;
 #    it takes its place in step 3, once our ddraw.dll is there.
 $tmp = $null
 if ($hash -eq $patch.output_sha256) {
@@ -189,8 +177,8 @@ if ($hash -eq $patch.output_sha256) {
     $tmp = PatchedExe $patch.changes
 }
 
-# 2. ddraw.dll: the fixes and the built-in Direct3D 11 renderer (it replaces dgVoodoo2). Every exe this step can find
-#    starts with it: the original, the current one, and the one of v1.0-v1.1 together with its hogs.dll.
+# 2. ddraw.dll: the fixes and the Direct3D 11 renderer. Every exe this step can meet starts with it: the original, the
+#    current one, and the v1.0-v1.1 one together with its hogs.dll.
 foreach ($f in $keep) { Move-Item -LiteralPath (Join-Path $GameDir $f) -Destination (Join-Path $GameDir "$f.orig") }
 if ($keep) {
     Say "Found dgVoodoo2/ddraw files, renamed to *.orig (patch.cmd -Restore puts them back): $($keep -join ', ')" 'Yellow'
@@ -200,7 +188,7 @@ if ($keep) {
 Copy-Item -LiteralPath (Join-Path $files 'ddraw.dll') -Destination "$dd.new" -Force
 Move-Item -LiteralPath "$dd.new" -Destination $dd -Force
 if (Has $marker) {
-    # installed by an older version of this patcher: DDraw.dll was just replaced, the rest is not needed
+    # of an older patcher: DDraw.dll was just replaced, the rest is not needed
     foreach ($f in $dgvSiblings + $dgvMarker) { Drop (Join-Path $GameDir $f) }
     Say 'dgVoodoo2 installed by an older version removed' 'Green'
 }
@@ -213,7 +201,7 @@ if ($tmp) {
     else { Say "warhogs_.exe patched: $($patch.changes.Count) changes (original kept as warhogs_.exe.orig)" 'Green' }
 }
 
-# 4. hogs.dll held the fixes up to v1.1. The exe imports it no longer.
+# 4. hogs.dll (v1.0-v1.1): no exe imports it any more
 if (Has $hogsDll) {
     Drop $hogsDll
     Say 'hogs.dll removed (its fixes are in ddraw.dll now)' 'Green'
@@ -228,8 +216,8 @@ if (-not (Has $ini)) {
     if ($b.Length -ge 2 -and (($b[0] -eq 0xFF -and $b[1] -eq 0xFE) -or ($b[0] -eq 0xFE -and $b[1] -eq 0xFF))) {
         Say 'hogs.ini is saved as UTF-16 and was not updated: copy new sections and settings from files\hogs.ini into it by hand' 'Yellow'
     } else {
-        # Only insertions, so the player's text, values and encoding stay exactly as they are: a section the file lacks goes
-        # to its end, a setting a section lacks goes to the end of that section (the game would use the default otherwise).
+        # Insertions only, so the player's text, values and encoding stay as they are: a missing section goes to the end of
+        # the file, a missing setting to the end of its section.
         $latin1 = [Text.Encoding]::GetEncoding(28591)   # one byte per char, so nothing is re-encoded
         $text = $latin1.GetString($b)
         $tplText = $latin1.GetString([IO.File]::ReadAllBytes((Join-Path $files 'hogs.ini')))
@@ -265,7 +253,7 @@ if (-not (Has $ini)) {
         }
     }
 } catch {
-    # the file is optional (a missing setting has its default in the DLLs): the steps below must still run
+    # the file is optional (a missing setting has its default): the steps below must still run
     Say "hogs.ini was not updated ($($_.Exception.Message)): new settings keep their defaults" 'Yellow'
 } }
 
@@ -279,9 +267,9 @@ if ((Has $winmm) -and (Sha $winmm) -eq $badWinmm) {
     Say 'winmm.dll replaced with a working ogg-winmm build (old one kept as winmm.dll.orig)' 'Green'
 }
 
-# 7. The Russian translation is a separate download, made by russian.ps1. It is offered on a PC whose display language
-#    is Russian, to a person who can answer: with the input taken from a file or from nul, a script runs this.
-#    It is offered again when russian.ps1 installs a newer release than the one in the game folder.
+# 7. The Russian translation (russian.ps1, a separate download) is offered on a PC with Russian as display language,
+#    to a person who can answer (not with input from a file or nul: a script runs this), and again when russian.ps1
+#    holds a newer release than the game folder has.
 $ruMark = Join-Path $GameDir 'english.orig\version.txt'
 $ruHave = ''
 if (Has $ruMark) { $ruHave = "$(Get-Content -LiteralPath $ruMark -TotalCount 1)".Trim() }
@@ -291,9 +279,9 @@ if ($ruHave -and $ruWant -and $ruHave -ne $ruWant) {
     Say "A newer Russian translation can be installed ($ruWant; the game has $ruHave): run russian.cmd" 'Yellow'
 }
 if ($ruWant -and $ruHave -ne $ruWant -and (Get-UICulture).TwoLetterISOLanguageName -eq 'ru' -and -not [Console]::IsInputRedirected) {
-    # The texts are Russian, written as escapes because this file is ASCII: "The language of Windows is Russian.
-    # Download and install the Russian translation of the game (text and voices, 330 MB)?", "1 = yes, 2 = no",
-    # "The translation was not installed. To install it later: russian.cmd"
+    # The texts are Russian, as escapes because this file is ASCII: "The language of Windows is Russian. Download and
+    # install the Russian translation of the game (text and voices, 330 MB)?", "1 = yes, 2 = no", "The translation was
+    # not installed. To install it later: russian.cmd"
     Say ''
     Say ([regex]::Unescape('\u042f\u0437\u044b\u043a Windows \u0440\u0443\u0441\u0441\u043a\u0438\u0439. \u0421\u043a\u0430\u0447\u0430\u0442\u044c \u0438 \u043f\u043e\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u0440\u0443\u0441\u0441\u043a\u0438\u0439 \u043f\u0435\u0440\u0435\u0432\u043e\u0434 \u0438\u0433\u0440\u044b (\u0442\u0435\u043a\u0441\u0442 \u0438 \u043e\u0437\u0432\u0443\u0447\u043a\u0430, 330 \u041c\u0411)?')) 'Cyan'
     $answer = Read-Host ([regex]::Unescape('1 = \u0434\u0430, 2 = \u043d\u0435\u0442'))

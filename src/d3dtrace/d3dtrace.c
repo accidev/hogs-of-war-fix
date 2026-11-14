@@ -1,15 +1,6 @@
-/* _d3d.dll trace proxy - diagnostic tool, not shipped to players.
- *
- * Install: rename the game's Data\_d3d.dll to Data\_d3d_orig.dll and put this DLL there as
- * _d3d.dll. Every export is forwarded unchanged to the original; on the way the proxy logs
- * the first calls with their stack arguments and keeps per-export call counts, so the
- * renderer API can be checked against the static analysis in docs/renderer/.
- *
- * Output next to this DLL:
- *   d3dtrace.log         call sequence: the first SEQUENCE calls, then the first FIRST_CALLS
- *                        calls of each export (return address + 8 stack dwords)
- *   d3dtrace_counts.txt  call counts per export, rewritten every 2 seconds
- */
+/* _d3d.dll trace proxy, diagnostic tool, not shipped. Install: rename Data\_d3d.dll to _d3d_orig.dll,
+ * put this DLL there as _d3d.dll. Forwards every export; first calls with stack arguments go to
+ * d3dtrace.log, call counts to d3dtrace_counts.txt, both next to the DLL */
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -24,7 +15,7 @@ static const char *const g_names[] = {
 #undef X
 };
 
-/* Export every stub under the original name and ordinal. */
+/* every stub under the original name and ordinal */
 #define X(i, name, ord, internal) __pragma(comment(linker, "/EXPORT:" name "=" internal ",@" #ord))
 #include "exports.h"
 #undef X
@@ -73,7 +64,7 @@ static void dump_counts(void)
     fclose(f);
 }
 
-/* frame[0] = return address into the game, frame[1..] = the call's stack arguments */
+/* frame[0] = game return address, frame[1..] = stack arguments */
 static void __cdecl trace(int i, const DWORD *frame)
 {
     LONG n = InterlockedIncrement(&g_calls[i]);
@@ -99,7 +90,7 @@ static void __cdecl trace(int i, const DWORD *frame)
     LeaveCriticalSection(&g_cs);
 }
 
-/* pushad saves all registers (32 bytes), so [esp+32] is the game's return address. */
+/* pushad = 32 bytes: [esp+32] is the game's return address */
 #define X(i, name, ord, internal)                             \
     __declspec(naked) void stub_##i(void)                     \
     {                                                         \

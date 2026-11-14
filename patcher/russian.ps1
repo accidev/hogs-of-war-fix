@@ -1,17 +1,12 @@
 # Hogs of War fix - the Russian translation: downloads it and puts it into the game folder.
-#
 #   russian.cmd                 download the translation and install it
 #   russian.cmd -Remove         put the English files back (russian-remove.cmd does this)
 #   russian.cmd -Zip "D:\Downloads\hogs-of-war-ru-1.1.1.zip"    install from a zip you downloaded yourself
 #   russian.cmd -GameDir "D:\Games\Hogs of War"                 game folder (default: the folder above this one)
-#
-# The translation is not part of this fix. It comes from github.com/accidev/hogs-of-war-ru: the release named below,
-# accepted only with the SHA-256 written here. It is game data (text, fonts, pictures, videos, speech) and replaces
-# about 1900 files of the game. Each file it replaces is first moved to <game folder>\english.orig, and -Remove moves
-# them back. patch.cmd offers to run this on a PC whose display language is Russian; patch.cmd -Restore removes the
-# translation too. This is the only script of the fix that uses the network.
-#
-# Windows PowerShell 5.1 compatible. Keep this file ASCII.
+# The translation is not part of this fix: github.com/accidev/hogs-of-war-ru, the release named below, accepted only
+# with the SHA-256 written here. It replaces about 1900 game data files; each goes first to <game folder>\english.orig,
+# and -Remove moves them back. patch.cmd offers to run this, and patch.cmd -Restore removes the translation too.
+# The only script of the fix that uses the network. Windows PowerShell 5.1; keep this file ASCII.
 [CmdletBinding()] param([string]$GameDir, [string]$Zip, [switch]$Remove)
 
 $ErrorActionPreference = 'Stop'
@@ -20,7 +15,6 @@ $version = '1.1.1'
 $name = "hogs-of-war-ru-$version.zip"
 $url = "https://github.com/accidev/hogs-of-war-ru/releases/download/v$version/$name"
 $sha = 'B319AFC625668656E6CEA4E15A2B9E78BFA1CF8051709DADB09B60E9448A762A'
-# all a translation may hold: these folders, these file types (what the game reads from them)
 $folders = 'FEText', 'Language', 'Speech'
 $types = '.wav', '.bmp', '.bik', '.tab', '.tim', '.bin', '.mad', '.ofs'
 
@@ -30,8 +24,8 @@ function Has($path) { Test-Path -LiteralPath $path }
 function Drop($path) { if (Has $path) { Remove-Item -LiteralPath $path -Force } }
 function MakeFolderOf($path) { [void][IO.Directory]::CreateDirectory((Split-Path $path -Parent)) }
 
-# Where a file of the translation goes in the game folder. Refuses a path that leaves the three folders or a file type
-# the game does not read from them, so a zip cannot put a program into the game folder.
+# The game folder path of a zip entry. Refuses a path outside the three folders or a file type the game does not read,
+# so a zip cannot put a program into the game folder.
 function Target($rel) {
     $rel = $rel -replace '/', '\'
     $parts = $rel.Split('\')

@@ -1,11 +1,10 @@
-# Run under 32-bit Windows PowerShell.
-# Starts the game under a minimal debugger, presses Start in the launcher dialog, waits RunSec,
-# then acts on the game window and reports access violations with registers and a stack scan,
-# mapped to modules. Puts back windows the game moved.
+# Run under 32-bit Windows PowerShell. Starts the game under a minimal debugger, presses Start in the launcher dialog,
+# waits RunSec, acts on the game window and reports access violations (registers, a stack scan mapped to modules).
+# Puts back windows the game moved.
 #   -Action minimize  minimize the window (what Alt+Tab does to it), wait AfterSec, kill
 #   -Action alttab    Alt+Tab away and back
-#   -Action tour      every 4 s a PrintWindow shot (-Shot x.png gives x_0.png ...), the first
-#                     -EscRounds of them with Esc posted to skip the intro videos; 8 rounds
+#   -Action tour      every 4 s a PrintWindow shot (-Shot x.png gives x_0.png ...), the first -EscRounds of them
+#                     with Esc posted to skip the intro videos; 8 rounds
 #   -Action none      only wait AfterSec, kill
 param([string]$Exe, [int]$RunSec = 10, [int]$AfterSec = 6,
       [ValidateSet('minimize', 'alttab', 'tour', 'none')][string]$Action = 'minimize', [string]$Shot, [int]$EscRounds = 2)

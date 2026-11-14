@@ -1,35 +1,18 @@
 /* net.c - network games over the internet: a stand-in for DirectPlay that talks to a lobby server.
  *
- * The game plays over a network with DirectPlay 4 (Multi-player, Network): one player makes a
- * session, the others find it on the local network or by its IP address. It works with this fix,
- * but only where the players can reach each other directly.
+ * With [Network] Server set, CoCreateInstance returns these two objects instead of DirectPlay and
+ * its lobby. Sessions, players and player data live on the server (frames: PROTOCOL.md of
+ * hogs-of-war-server); messages pass through it over TCP (Server=name:port) or a WebSocket
+ * (Server=wss://name/path).
  *
- * With [Network] Server set in hogs.ini, CoCreateInstance gives the game the two objects of this
- * file in place of DirectPlay and its lobby. They keep the sessions, the players and the players'
- * data on a lobby server and pass the game's messages through it, over one TCP connection. The
- * game's menus stay as they are: its list of games shows the rooms of the server. The server is
- * the hogs-of-war-server project; its PROTOCOL.md describes the frames.
- *
- * The connection is a TCP socket (Server=name:port) or a WebSocket (Server=wss://name/path) whose
- * binary messages carry the same bytes: a server behind a web front such as a Cloudflare Worker is
- * reached that way, and players do not see the server's own address.
- *
- * What the game uses of DirectPlay (its network object is at [0x51D7C0], set up by FUN_0045FF30):
- *   EnumConnections      the providers of menu 47. The callback 0x460180 takes only the TCP/IP and
- *                        IPX providers; a provider with "Internet" or "TCP" in its name makes the
- *                        game ask for an IP address, and its list of games is then read once. Ours
- *                        is given as IPX with another name: no address, the list is read twice a
- *                        second. Its label comes from the name too: "Unkown SP!!!" is replaced.
- *   InitializeConnection with an address made by the lobby object's CreateCompoundAddress
- *   EnumSessions         menu 48; the callback 0x460640 skips sessions closed to joining
- *   Open, CreatePlayer   FUN_004607A0 hosts, FUN_00460990 joins. The player name is the Windows
- *                        user name and the session "<name>'s Game": ours come from hogs.ini.
- *   EnumPlayers          callback 0x460C80, which copies the name into 16 bytes without a check;
- *                        the game numbers the players in the order of their ids
- *   SetPlayerData, GetPlayerData   the player's team, 680 bytes, set again every 100 ms
- *   Send, Receive        messages of 348 bytes; a multimedia timer polls Receive every 32 ms from
- *                        its own thread. Of the system messages the game reads only "player
- *                        destroyed" (5, the id at +8) and "session lost" (0x31).
+ * What the game uses of DirectPlay (network object at [0x51D7C0], set up by FUN_0045FF30):
+ *   EnumConnections      menu 47, callback 0x460180: only TCP/IP and IPX; "Internet"/"TCP" ask for an IP
+ *   InitializeConnection address from the lobby object's CreateCompoundAddress
+ *   EnumSessions         menu 48, callback 0x460640 skips sessions closed to joining
+ *   Open, CreatePlayer   FUN_004607A0 hosts, FUN_00460990 joins; names: Windows user, "<name>'s Game"
+ *   EnumPlayers          callback 0x460C80 copies the name into 16 bytes unchecked; players by id order
+ *   SetPlayerData, GetPlayerData   the team, 680 bytes, set every 100 ms
+ *   Send, Receive        348-byte messages; a multimedia timer thread polls Receive every 32 ms
  *   GetSessionDesc, SetSessionDesc   FUN_004619D0 closes the session when the battle starts
  *   DestroyPlayer, Close, Release
  * Everything else answers "not supported" and writes a line to the log.
@@ -42,7 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NET_VERSION 1 /* raise it when a release changes how a battle runs: such games must not meet */
+#define NET_VERSION 1 /* raise when a release changes a battle: such games must not meet */
 
 #define DP_OK 0
 #define DPERR_UNSUPPORTED ((HRESULT)0x80004001)
@@ -56,7 +39,7 @@
 #define DPSYS_DESTROYPLAYERORGROUP 5
 #define DPSYS_SESSIONLOST 0x31
 
-/* frames of the lobby server */
+/* frame types */
 enum { HELLO = 1, LIST, CREATE, JOIN, LEAVE, SEND, SET_ROOM, SET_PLAYER, PING };
 enum { WELCOME = 0x81, ROOMS, JOINED, PLAYER_JOINED, PLAYER_LEFT, DATA, ROOM_CHANGED, PLAYER_DATA, OK, FAILED, PONG };
 enum { PROTOCOL = 1, PORT = 47800, MAX_FRAME = 16384, ROOM_CLOSED = 1 };
@@ -101,19 +84,19 @@ static const GUID kDirectPlayLobby = { 0x2FE8F810, 0xB2A5, 0x11D0, { 0xA7, 0x87,
 static const GUID kIpx = { 0x685BC400, 0x9D2C, 0x11CF, { 0xA9, 0xCD, 0x00, 0xAA, 0x00, 0x68, 0x86, 0xE3 } };
 
 static char g_server[128], g_port[8], g_path[128], g_name[16];
-static int g_web;            /* [Network] Server is a WebSocket address: 1 ws://, 2 wss:// */
+static int g_web;            /* WebSocket server: 1 ws://, 2 wss:// */
 static DWORD g_compat;
-static CRITICAL_SECTION g_lock; /* everything below, and whole frames on the connection */
-static SOCKET g_sock = INVALID_SOCKET;    /* the connection as a TCP socket, */
-static HINTERNET g_ws, g_ws_host, g_http; /* or as a WebSocket, with its WinHTTP parents */
+static CRITICAL_SECTION g_lock; /* guards everything below and whole frames on the connection */
+static SOCKET g_sock = INVALID_SOCKET;
+static HINTERNET g_ws, g_ws_host, g_http;
 #define CONNECTED (g_sock != INVALID_SOCKET || g_ws)
-static DWORD g_epoch;        /* counts the connections: a reader thread belongs to one */
-static DWORD g_tried, g_sent; /* ticks of the last connection attempt and of the last frame sent */
-static DWORD g_heard, g_pinged; /* ticks of the last frame received and of the last PING */
-static DWORD g_ping;         /* milliseconds to the server and back, 0 when not measured */
-static DWORD g_id;           /* our player id, from WELCOME */
-static HANDLE g_answer;      /* set when CREATE or JOIN is answered or the connection is lost */
-static int g_joined;         /* that answer: 1 in the room, -1 refused */
+static DWORD g_epoch;        /* counts connections; a reader thread belongs to one */
+static DWORD g_tried, g_sent; /* ticks: last connection attempt, last frame sent */
+static DWORD g_heard, g_pinged; /* ticks: last frame received, last PING */
+static DWORD g_ping;         /* round trip in ms, 0 = not measured */
+static DWORD g_id;
+static HANDLE g_answer;      /* CREATE or JOIN answered, or connection lost */
+static int g_joined;         /* the answer: 1 in the room, -1 refused */
 static struct room g_rooms[MAX_ROOMS], g_listing[MAX_ROOMS];
 static int g_room_count, g_listing_count;
 static BOOL g_in_room;
@@ -121,11 +104,11 @@ static struct room g_room;
 static GUID g_application;
 static struct player g_players[MAX_PLAYERS];
 static int g_player_count;
-static DWORD g_open_room, g_open_limit; /* what Open asked for: done by CreatePlayer */
+static DWORD g_open_room, g_open_limit;
 static BOOL g_open_create;
 static struct message g_queue[QUEUE];
 static int g_head, g_count;
-static LONG g_refs[2]; /* of the DirectPlay object and of the lobby object */
+static LONG g_refs[2];
 
 /* ---- frames ---- */
 
@@ -156,7 +139,7 @@ static void drop_connection(const char *why)
     if (!CONNECTED)
         return;
     say("network: connection to %s closed: %s", g_server, why);
-    if (g_ws) { /* the reader thread's read fails, and it ends */
+    if (g_ws) {
         WinHttpCloseHandle(g_ws);
         WinHttpCloseHandle(g_ws_host);
         g_ws = g_ws_host = NULL;
@@ -168,7 +151,7 @@ static void drop_connection(const char *why)
     g_ping = 0;
 }
 
-/* One frame to the server. The lock is held. */
+/* The lock is held. */
 static BOOL send_frame(BYTE type, const BYTE *payload, int size)
 {
     BYTE buf[3 + 2100];
@@ -180,7 +163,7 @@ static BOOL send_frame(BYTE type, const BYTE *payload, int size)
     buf[2] = type;
     memcpy(buf + 3, payload, (size_t)size);
     size += 3;
-    if (g_ws) { /* a whole frame is one binary message */
+    if (g_ws) {
         if (WinHttpWebSocketSend(g_ws, WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, buf, (DWORD)size) == NO_ERROR)
             done = size;
     } else {
@@ -195,7 +178,6 @@ static BOOL send_frame(BYTE type, const BYTE *payload, int size)
     return TRUE;
 }
 
-/* A PING carries the clock: the PONG brings it back, and that is the ping the list of games shows. */
 static void send_ping(void)
 {
     DWORD now = GetTickCount();
@@ -204,8 +186,7 @@ static void send_ping(void)
     send_frame(PING, (const BYTE *)&now, sizeof now);
 }
 
-/* [Debug] NetStats=1: a line every second with the game's messages by type, sent and received,
- * and the sequence numbers of the pad input (type 4) that was sent. The lock is held. */
+/* [Debug] NetStats=1. The lock is held. */
 static BOOL g_net_stats;
 
 static void count_message(BOOL received, const BYTE *data, DWORD size)
@@ -253,7 +234,7 @@ static void push_message(DWORD from, DWORD to, const BYTE *data, DWORD size)
 
 static void push_system(DWORD type, DWORD id)
 {
-    DWORD msg[13] = { 0 }; /* DPMSG_DESTROYPLAYERORGROUP: type, player type, id and fields the game does not read */
+    DWORD msg[13] = { 0 }; /* the game reads only 5 (player destroyed, id at +8) and 0x31 (session lost) */
 
     msg[0] = type;
     msg[1] = 1;
@@ -278,7 +259,6 @@ static void leave_room(void)
     g_head = g_count = 0;
 }
 
-/* The fields of a received frame; `bad` stays set once a read went past the end. */
 struct fields {
     const BYTE *p, *end;
     BOOL bad;
@@ -306,8 +286,7 @@ static DWORD get(struct fields *f, int bytes)
     return v;
 }
 
-/* A character of a name, ours or another player's. The game draws names with its own font:
- * capitals, digits and a few signs; and '/' starts a command in its text. */
+/* the game's font: capitals, digits, a few signs; '/' starts a command in its text */
 static char name_char(char c)
 {
     if (c >= 'a' && c <= 'z')
@@ -315,7 +294,6 @@ static char name_char(char c)
     return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == ' ' || c == '-' || c == '\'' ? c : '-';
 }
 
-/* A name: str8 into a C string of `room` bytes, cut if it is longer */
 static void get_str8(struct fields *f, char *to, DWORD room)
 {
     DWORD n = get(f, 1), i;
@@ -342,7 +320,7 @@ static void get_player(struct fields *f, struct player *pl)
         memcpy(pl->data, p, pl->size);
 }
 
-/* One frame from the server. The lock is held. FALSE: the frame is not what the protocol says. */
+/* The lock is held. FALSE: malformed frame. */
 static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
 {
     struct fields f = { body, body + size, FALSE };
@@ -361,8 +339,8 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
             r.players = (BYTE)get(&f, 1);
             r.limit = (BYTE)get(&f, 1);
             get_str8(&f, r.name, sizeof r.name);
-            take(&f, get(&f, 1)); /* the host's name */
-            take(&f, get(&f, 2)); /* the description */
+            take(&f, get(&f, 1));
+            take(&f, get(&f, 2));
             if (!f.bad && r.compat == g_compat && g_listing_count < MAX_ROOMS)
                 g_listing[g_listing_count++] = r;
         }
@@ -374,7 +352,7 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
         break;
     case JOINED:
         g_room.id = get(&f, 4);
-        get(&f, 4); /* the host */
+        get(&f, 4);
         g_room.flags = (BYTE)get(&f, 1);
         g_room.limit = (BYTE)get(&f, 1);
         get_str8(&f, g_room.name, sizeof g_room.name);
@@ -448,14 +426,12 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
     return !f.bad;
 }
 
-/* One connection as its reader thread holds it. */
 struct link {
     SOCKET s;
     HINTERNET ws;
 };
 
-/* `size` bytes of the connection. A WebSocket gives the bytes of its messages one after another,
- * whatever their borders. With `patient` a quiet server is not an error. FALSE: no connection. */
+/* `patient`: a quiet server is no error. FALSE: no connection. */
 static BOOL read_exact(const struct link *l, BYTE *to, int size, BOOL patient)
 {
     int done = 0, n;
@@ -481,7 +457,7 @@ static BOOL read_exact(const struct link *l, BYTE *to, int size, BOOL patient)
         }
         if (!quiet || !patient)
             return FALSE;
-        /* a quiet server: keep the connection alive, the server drops a silent client */
+        /* the server drops a silent client: keep the connection alive */
         EnterCriticalSection(&g_lock);
         if ((l->ws ? g_ws == l->ws : g_sock == l->s) && GetTickCount() - g_sent > 20000)
             send_ping();
@@ -490,7 +466,7 @@ static BOOL read_exact(const struct link *l, BYTE *to, int size, BOOL patient)
     return TRUE;
 }
 
-/* One thread per connection: reads the server's frames until the connection ends. */
+/* The reader thread, one per connection. */
 static DWORD WINAPI reader(void *arg)
 {
     DWORD epoch = (DWORD)(ULONG_PTR)arg, size;
@@ -509,7 +485,7 @@ static DWORD WINAPI reader(void *arg)
         if (size < 1 || size > MAX_FRAME || !read_exact(&l, frame, (int)size, TRUE))
             break;
         EnterCriticalSection(&g_lock);
-        if (epoch != g_epoch) { /* this connection was closed and another one made */
+        if (epoch != g_epoch) {
             LeaveCriticalSection(&g_lock);
             break;
         }
@@ -534,7 +510,6 @@ static DWORD WINAPI reader(void *arg)
     return 0;
 }
 
-/* The connection as a TCP socket. */
 static SOCKET open_tcp(void)
 {
     static BOOL started;
@@ -559,7 +534,7 @@ static SOCKET open_tcp(void)
 
         if ((s = socket(a->ai_family, a->ai_socktype, a->ai_protocol)) == INVALID_SOCKET)
             continue;
-        ioctlsocket(s, FIONBIO, &mode); /* so that a dead address costs three seconds, not twenty */
+        ioctlsocket(s, FIONBIO, &mode); /* a dead address costs 3 s, not 20 */
         connect(s, a->ai_addr, (int)a->ai_addrlen);
         FD_ZERO(&writable);
         FD_SET(s, &writable);
@@ -580,8 +555,7 @@ static SOCKET open_tcp(void)
     return s;
 }
 
-/* The connection as a WebSocket, made by WinHTTP: it does the TLS and follows the proxy settings of
- * Windows. Sets g_ws. */
+/* WinHTTP does the TLS and follows the Windows proxy settings. */
 static BOOL open_web(void)
 {
     WCHAR host[sizeof g_server], path[sizeof g_path];
@@ -594,7 +568,7 @@ static BOOL open_web(void)
         ;
     if (!g_http) {
         g_http = WinHttpOpen(L"HogsFix", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-        if (g_http) /* a quiet server makes a read return after ten seconds, as on the TCP socket */
+        if (g_http) /* a read returns after 10 s of silence, as on TCP */
             WinHttpSetTimeouts(g_http, 5000, 5000, 5000, 10000);
     }
     g_ws_host = g_http ? WinHttpConnect(g_http, host, (INTERNET_PORT)atoi(g_port), 0) : NULL;
@@ -614,8 +588,7 @@ static BOOL open_web(void)
     return g_ws != NULL;
 }
 
-/* Connects and says HELLO, unless connected already. Blocks for some seconds at most, and tries
- * again only every ten seconds: the game's menu calls this twice a second. The lock is held. */
+/* Blocks a few seconds; retries every 10 s (the menu calls twice a second). The lock is held. */
 static BOOL connect_server(void)
 {
     BYTE hello[13], answer[80];
@@ -646,7 +619,7 @@ static BOOL connect_server(void)
     memcpy(&g_id, answer + 3, 4);
     if (!g_name[0])
         sprintf(g_name, "PLAYER %u", (g_id - 0xFF) % 10000);
-    if (!g_web) /* a quiet server makes recv return, and the reader sends a PING */
+    if (!g_web) /* 10 s of silence ends a recv; the reader then sends a PING */
         setsockopt(g_sock, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof timeout);
     g_heard = g_pinged = GetTickCount();
     g_listing_count = g_room_count = 0;
@@ -683,7 +656,7 @@ static HRESULT __stdcall no9(void *self, A a, A b, A c, A d, A e, A f, A g, A h,
 }
 #undef A
 
-/* self[1] tells the two objects apart: 0 the DirectPlay object, 1 the lobby object */
+/* self[1] tells the objects apart: 0 DirectPlay, 1 lobby (also the index into g_refs) */
 static ULONG __stdcall add_ref(void **self)
 {
     return (ULONG)InterlockedIncrement(&g_refs[self[1] != NULL]);
@@ -702,7 +675,7 @@ static ULONG __stdcall release(void **self)
 {
     LONG *refs = &g_refs[self[1] != NULL], left = InterlockedDecrement(refs);
 
-    if (left < 0) { /* released more often than made */
+    if (left < 0) { /* over-released */
         InterlockedExchange(refs, 0);
         return 0;
     }
@@ -746,8 +719,7 @@ static HRESULT __stdcall dp_open(void *self, const SESSION *desc, DWORD flags)
     return DP_OK;
 }
 
-/* Open only noted what the game wants: the room is made or joined here, where the server gets the
- * player's name with it. The game's own name for the player is the Windows user name. */
+/* Open only noted the wish: the room is made or joined here, with the player's name. */
 static HRESULT __stdcall dp_create_player(void *self, DWORD *id, const NAME *name, HANDLE event, void *data, DWORD size, DWORD flags)
 {
     BYTE buf[200], *p = buf;
@@ -788,6 +760,7 @@ static HRESULT __stdcall dp_enum_connections(void *self, const GUID *application
     NAME name = { sizeof name, 0, "Lobby server", NULL };
 
     (void)self, (void)application, (void)flags;
+    /* IPX under another name: no IP asked, the list is read twice a second (TCP/IP: once) */
     callback(&kIpx, address, sizeof address, &name, 0, ctx);
     return DP_OK;
 }
@@ -801,7 +774,7 @@ static HRESULT __stdcall dp_initialize_connection(void *self, void *connection, 
     return DP_OK;
 }
 
-/* The rooms as the server listed them last, and a request for the list of the next call. */
+/* Rooms of the last list; asks the server for a fresh one for the next call. */
 static HRESULT __stdcall dp_enum_sessions(void *self, const SESSION *wanted, DWORD timeout, SESSION_CALLBACK callback, void *ctx, DWORD flags)
 {
     struct room rooms[MAX_ROOMS];
@@ -823,8 +796,7 @@ static HRESULT __stdcall dp_enum_sessions(void *self, const SESSION *wanted, DWO
     LeaveCriticalSection(&g_lock);
     desc.guidApplication = wanted->guidApplication;
     for (i = 0; i < count; i++) {
-        /* The menu shows the session's name only: the players ("2-4": two of four) and the ping
-         * go into it. */
+        /* the menu shows only the name: players ("2-4") and ping go into it */
         sprintf(label + sprintf(label, "%s %u-%u", rooms[i].name, rooms[i].players, rooms[i].limit),
                 ping ? " %uMS" : "", ping > 999 ? 999 : ping);
         desc.dwFlags = rooms[i].flags & ROOM_CLOSED ? DPSESSION_JOINDISABLED : 0;
@@ -879,7 +851,7 @@ static HRESULT __stdcall dp_get_player_data(void *self, DWORD id, void *data, DW
     return r;
 }
 
-/* The game sets its team as player data ten times a second: the server gets it when it changes. */
+/* the game sets the data every 100 ms; the server gets it only on a change */
 static HRESULT __stdcall dp_set_player_data(void *self, DWORD id, const void *data, DWORD size, DWORD flags)
 {
     BYTE buf[2 + MAX_DATA];
@@ -945,8 +917,7 @@ static HRESULT __stdcall dp_set_session_desc(void *self, const SESSION *desc, DW
     return DP_OK;
 }
 
-/* A failure here makes the game show a message box for every message: a lost connection is
- * told by the "session lost" message instead. */
+/* a failure makes the game show a message box per message; loss is "session lost" */
 static HRESULT __stdcall dp_send(void *self, DWORD from, DWORD to, DWORD flags, const void *data, DWORD size)
 {
     BYTE buf[4 + MAX_MESSAGE];
@@ -970,9 +941,7 @@ static HRESULT __stdcall dp_receive(void *self, DWORD *from, DWORD *to, DWORD fl
 
     (void)self, (void)flags;
     EnterCriticalSection(&g_lock);
-    /* The game calls this 30 times a second while it is in a room. A host who waits for players
-     * hears nothing from the server: a PING every ten seconds keeps answers coming, so that no
-     * read of the connection times out. */
+    /* a waiting host hears nothing: a PING every 10 s keeps reads from timing out */
     if (CONNECTED && GetTickCount() - g_heard > 10000 && GetTickCount() - g_pinged > 10000)
         send_ping();
     m = &g_queue[g_head];
@@ -1010,7 +979,7 @@ static void *const kDirectPlayMethods[53] = {
     no3 /* CancelPriority */,
 };
 
-/* ---- the lobby object: the game only asks it for an address to give to InitializeConnection ---- */
+/* ---- the lobby object: address only ---- */
 
 static HRESULT __stdcall lobby_compound_address(void *self, const void *elements, DWORD count, void *address, DWORD *size)
 {
@@ -1039,7 +1008,6 @@ static void *const kLobbyMethods[19] = {
     no4 /* ConnectEx */, no2 /* RegisterApplication */, no2 /* UnregisterApplication */, lobby_wait,
 };
 
-/* A COM object is a pointer to its method table; the second word tells the two apart. */
 static const void *g_dplay[2] = { kDirectPlayMethods, NULL };
 static const void *g_lobby[2] = { kLobbyMethods, (void *)1 };
 
@@ -1065,7 +1033,7 @@ void net_init(void)
     GetPrivateProfileStringA("Network", "Server", "", g_server, sizeof g_server, g_ini);
     if (!g_server[0])
         return;
-    /* name[:port] is a TCP address; ws://name[:port][/path] and wss://... are WebSocket addresses */
+    /* name[:port] is TCP; ws://name[:port][/path] and wss://... are WebSocket */
     g_web = !_strnicmp(g_server, "wss://", 6) ? 2 : !_strnicmp(g_server, "ws://", 5) ? 1 : 0;
     if (g_web)
         memmove(g_server, g_server + 4 + g_web, strlen(g_server + 4 + g_web) + 1);
@@ -1076,14 +1044,13 @@ void net_init(void)
     }
     sprintf(g_port, "%d", g_web == 2 ? 443 : g_web ? 80 : PORT);
     if ((colon = strrchr(g_server, ':')) != NULL && strchr(g_server, ':') == colon) {
-        *colon = 0; /* name:port; an IPv6 address has more colons and takes the default port */
+        *colon = 0; /* name:port; more colons = IPv6, default port */
         lstrcpynA(g_port, colon + 1, sizeof g_port);
     }
     GetPrivateProfileStringA("Network", "Name", "", name, sizeof name, g_ini);
     for (i = 0; name[i] && i < (int)sizeof g_name - 1; i++)
         g_name[i] = name_char(name[i]);
-    /* Games meet only if their battles run alike: the same network version of the fix and the same
-     * settings that change a battle. */
+    /* games meet only with the same NET_VERSION and battle settings */
     g_compat = NET_VERSION << 8 | (GetPrivateProfileIntA("Battle", "ComputerWalks", 1, g_ini) ? 1 : 0);
     /* A password is part of that number too: players with another one do not see the game.
      * ponytail: the server lists every room with its number, so a client written for it finds a

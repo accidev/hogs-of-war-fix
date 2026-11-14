@@ -1,6 +1,5 @@
-# Re-enables every disabled top-level window (the unpatched Hogs of War disables them all and
-# only restores them on a clean exit). Fallback only: it also enables windows that an app
-# disabled on purpose behind its own modal dialog.
+# Re-enables every disabled top-level window (the unpatched Hogs of War disables them all and restores them only on a
+# clean exit). Fallback: it also enables windows that an app disabled on purpose behind a modal dialog.
 param([string]$Log)
 Add-Type @"
 using System; using System.Runtime.InteropServices;

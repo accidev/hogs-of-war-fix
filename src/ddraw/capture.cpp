@@ -1,9 +1,6 @@
-/* Frame dump for renderer bugs, on with hogs.ini [Debug] FrameDump=1. F12 writes the next
- * frame to hogsdraw_dump\ next to the game:
- *   NNN.txt           every draw, blit and clear in order, with the calling code address,
- *                     the D3D states and the vertex ranges of each draw;
- *   NNN.bmp           the finished frame at game resolution;
- *   tex_XXXXXXXX.bmp  each texture the frame drew with (transparent texels in magenta). */
+/* Frame dump (hogs.ini [Debug] FrameDump=1, F12) into hogsdraw_dump\ next to the game:
+ * NNN.txt every draw, blit, clear with caller address, states, vertex ranges; NNN.bmp the frame at game
+ * resolution; tex_XXXXXXXX.bmp each texture drawn (transparent texels magenta) */
 #include "objects.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -28,7 +25,7 @@ void capture_note(const char *fmt, ...)
     fputc('\n', g_file);
 }
 
-/* "_d3d.dll+1234" for a code address, so it can be looked up in the disassembly */
+/* "_d3d.dll+1234": code address for the disassembly */
 static void where(const void *code, char *out, size_t size)
 {
     MEMORY_BASIC_INFORMATION m = {};

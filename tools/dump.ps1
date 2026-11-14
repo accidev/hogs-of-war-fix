@@ -1,6 +1,5 @@
-# Run under 32-bit Windows PowerShell.
-# Starts the game, waits for its launcher dialog (LaserLock is unpacked by then),
-# dumps every module image from the game folder page by page, kills the game.
+# Run under 32-bit Windows PowerShell. Starts the game, waits for its launcher dialog (LaserLock is unpacked by
+# then), dumps every module image from the game folder page by page, kills the game.
 param([string]$Exe, [string]$OutDir, [int]$TimeoutSec = 15)
 
 Add-Type @"

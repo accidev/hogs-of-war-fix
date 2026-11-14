@@ -70,9 +70,30 @@ Not in git (`.gitignore`): `build/`, `dist/`, `downloads/`, `backup/`, `work/` a
 - `peimp.py` lists the imports of PE files. `pesym.py` finds the nearest export of a DLL for an address.
 - `unlock-windows.cmd` with `enable-windows.ps1`: turns the desktop windows back on after the unpatched game disabled them.
 
+## Comments in the code
+
+A comment holds what the code cannot say. The reader has the code and [WORKLOG.md](WORKLOG.md) open, so a comment does not repeat either.
+
+Keep:
+
+- **Game facts.** What lives at an address or an offset, what a game function does and how it is called, units, value ranges.
+- **Reasons.** Why a line is not the obvious one: the bug it works around, the constraint that forbids the simpler way.
+- **Rules the code depends on.** Which thread calls a function, which lock is held, what must happen first.
+- **Known limits.** A simplification with its ceiling, marked `ponytail:`.
+- **A file header** of a few lines: what the file is for and the places of the game it hooks. License and origin lines stay as they are.
+
+Remove:
+
+- What the names and the code already say, and narration of steps.
+- History: what the code did before, in which version something changed. That is in `WORKLOG.md` and `CHANGELOG.md`.
+- Background that `WORKLOG.md` tells in full. One line with the fact is enough.
+- Code that is commented out.
+
+Form: one line where it fits, two at most; a file header up to six lines and its list of hooks. Facts as short fragments, not sentences: `/* +0x38 type, [+0x18] transform: pos 3 floats at +4 */`. ASCII English.
+
 ## Debugging
 
-- `hogs.log` and `hogsdraw.log` are written next to the game. `hogs.log` has one line per fix: `ok`, or `skip` when the bytes do not match. On the supported build (Steam v1.2) it has 38 `ok` lines and no `skip`, and two more `ok` lines when `[Network] Server` is set.
+- `hogs.log` and `hogsdraw.log` are written next to the game. `hogs.log` has one line per fix: `ok`, or `skip` when the bytes do not match. On the supported build (Steam v1.2) it has 40 `ok` lines and no `skip`; with `[Network] Server` empty it has 38.
 - The fixes start only in an exe that imports `CallDLL` from `ddraw.dll`, which is what the patcher makes. In the original exe and in any other program `ddraw.dll` is a renderer only and does not write `hogs.log`.
 - Frame rate: add `[Debug]` with `FrameStats=1` to `hogs.ini`. `hogs.log` then gets one `stats:` line every 5 seconds while frames are drawn, with the game ticks per second (25.00 when the game runs at its original speed) and the frames per second.
 - Network messages: add `[Debug]` with `NetStats=1`. In a network game through a lobby server, `hogs.log` then gets a line every second with the game's messages by type (0 to 7, then all others), sent and received, and the ping.

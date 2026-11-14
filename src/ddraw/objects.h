@@ -1,16 +1,13 @@
-/* The DirectX 7 objects hogsdraw hands to the game. Each derives from a generated stub class
- * (stubs.h) and overrides only the methods the game uses. */
+/* DirectX 7 objects for the game: generated stub classes (stubs.h), used methods overridden */
 #pragma once
 #include "stubs.h"
 #include "gpu.h"
 #include <stdint.h>
 #include <vector>
 
-/* Reference counting shared by all objects. Release deletes through the concrete type, so
- * no virtual destructor is needed. The game frees objects with `while (x->Release() != 0)`,
- * so objects do not hold references on each other: links between them are weak and are
- * cleared when the target goes away (see g_surfaces / g_devices). The one exception is a
- * primary surface made with a back buffer, which owns that back buffer (owns_attached). */
+/* Release deletes the concrete type, no virtual destructor. The game frees with `while (x->Release() != 0)`,
+ * so objects hold no references on each other: weak links, cleared on delete (g_surfaces, g_devices);
+ * exception: a primary made with a back buffer owns it (owns_attached) */
 #define HOGS_IUNKNOWN(Class)                                                                  \
     LONG refs = 1;                                                                            \
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **out) override;               \
@@ -34,8 +31,7 @@ struct Surface : IDirectDrawSurface7Stubs {
     DDSURFACEDESC2 desc = {};      /* as reported to the game */
     int w = 0, h = 0, bpp = 16;
 
-    /* CPU pixels: a DIB section, so GetDC works with GDI. For the back buffer this is a
-     * copy of the GPU target, valid only while cpu_valid. */
+    /* CPU pixels, a DIB section so GetDC works; back buffer: copy of the GPU target, valid while cpu_valid */
     HBITMAP dib = nullptr;
     HDC dc = nullptr;
     HGDIOBJ old_bitmap = nullptr;
@@ -48,7 +44,7 @@ struct Surface : IDirectDrawSurface7Stubs {
     bool has_src_key = false;
     Palette *palette = nullptr;    /* weak */
     Surface *attached = nullptr;   /* primary -> back buffer, back buffer -> z buffer */
-    bool owns_attached = false;    /* the flip chain's back buffer, created with the primary */
+    bool owns_attached = false;    /* flip chain back buffer made with the primary */
     bool locked = false;
 
     gpu::Texture *gpu_tex = nullptr; /* textures only */
@@ -57,10 +53,10 @@ struct Surface : IDirectDrawSurface7Stubs {
     Surface(const DDSURFACEDESC2 &d);
     ~Surface();
     void make_storage();
-    void sync_from_gpu();          /* back buffer: refresh the CPU copy */
+    void sync_from_gpu();
     void wrote_cpu();
     uint16_t key_value() const { return (uint16_t)src_key.dwColorSpaceLowValue; }
-    gpu::Texture *texture();       /* textures: GPU copy, uploaded when stale */
+    gpu::Texture *texture();       /* GPU copy, uploaded when stale */
 
     HRESULT STDMETHODCALLTYPE Blt(LPRECT, LPDIRECTDRAWSURFACE7, LPRECT, DWORD, LPDDBLTFX) override;
     HRESULT STDMETHODCALLTYPE BltFast(DWORD, DWORD, LPDIRECTDRAWSURFACE7, LPRECT, DWORD) override;
@@ -106,7 +102,7 @@ struct Clipper : IDirectDrawClipperStubs {
     HRESULT STDMETHODCALLTYPE GetHWnd(HWND FAR *h) override { *h = hwnd; return DD_OK; }
 };
 
-/* The DirectDraw object; IDirect3D7 is obtained from it with QueryInterface. */
+/* IDirect3D7 comes from QueryInterface on this */
 struct Direct3D;
 struct DirectDraw : IDirectDraw7Stubs {
     HOGS_IUNKNOWN(DirectDraw)
@@ -134,31 +130,30 @@ struct DirectDraw : IDirectDraw7Stubs {
     HRESULT STDMETHODCALLTYPE GetVerticalBlankStatus(LPBOOL b) override { *b = TRUE; return DD_OK; }
 };
 
-/* settings from hogs.ini [Render], [Display] and [Debug]; DllMain hands vsync and widescreen to
- * the game fixes too (hogs_init) */
+/* hogs.ini [Render], [Display], [Debug]; DllMain also hands vsync and widescreen to hogs_init */
 struct Config {
-    int scale = 0;      /* back buffer = game resolution x scale; 0 = enough to cover the monitor */
+    int scale = 0;      /* game resolution x scale; 0 = cover the monitor */
     int vsync = 1;
-    int widescreen = 1; /* [Display] Widescreen: offer modes in the monitor's shape (hogs.c widens the view) */
-    int fog_distance = 100; /* [Render] FogDistance: the game's fog start and end, in percent */
-    int frame_dump = 0; /* [Debug] FrameDump: F12 dumps a frame, see capture.cpp */
-    int frame_dump_at = 0; /* [Debug] FrameDumpAt: also dump this frame number by itself */
+    int widescreen = 1; /* modes in the monitor's shape; hogs.c widens the view */
+    int fog_distance = 100; /* fog start and end, percent */
+    int frame_dump = 0; /* F12 dumps a frame (capture.cpp) */
+    int frame_dump_at = 0; /* also dump this frame number */
 };
 extern Config g_config;
-extern DirectDraw *g_ddraw;  /* the one the game created last; null again once that one is released */
+extern DirectDraw *g_ddraw;  /* the last one created; null once released */
 struct Device;
 extern std::vector<Surface *> g_surfaces;  /* all live surfaces, to clear weak links */
 extern std::vector<Device *> g_devices;
 
-/* RGB565, the display format hogsdraw reports and gives every surface without its own pixel
- * format: the game's 2D code writes only 8- and 16-bit pixels. */
+/* RGB565: the reported display format and the default surface format
+ * (the game's 2D code writes only 8- and 16-bit pixels) */
 void rgb565_format(DDPIXELFORMAT &pf);
-/* present the back buffer (windowed Blt to the primary, or Flip) */
+/* windowed Blt to the primary, or Flip */
 void present_frame();
 
-/* frame dump (capture.cpp): while g_capturing, every draw, blit and clear is written out */
+/* capture.cpp: while g_capturing every draw, blit and clear is written out */
 extern bool g_capturing;
 void capture_note(const char *fmt, ...);
 void capture_draw(const void *caller, D3DPRIMITIVETYPE type, const D3DTLVERTEX *v, DWORD count,
                   const gpu::DrawState &s, Surface *tex);
-void capture_frame_end(); /* before each present: finish a running dump, start one on F12 */
+void capture_frame_end(); /* before each present: ends a dump, starts one on F12 */

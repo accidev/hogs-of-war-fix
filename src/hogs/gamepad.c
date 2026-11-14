@@ -1,19 +1,12 @@
 /* gamepad.c - XInput controllers (Xbox pads and compatibles) with the PlayStation layout.
  *
- * The game reads input in two places:
- * - Battle: the human player's input function (0x45D700) reads the DirectInput keyboard into
- *   256 key bytes (FUN_0044CBB0) and builds a 16-bit pad mask in PlayStation order from the
- *   player's key bindings (16 DIK codes at player+0x108, set in Options, Controls). Bits:
- *   0 up, 1 down, 2 left, 3 right, 4 triangle, 5 cross, 6 square, 7 circle, 8 L1, 9 L2, 10 R2,
- *   11 R1, 12 L3, 13 R3, 14 start, 15 select. The pause and weapon menus run on that mask too.
- *   The keyboard read (0x45D72D) is wrapped: a pad button sets the key byte of the key bound
- *   to it, so the game decides what a button does, as on the PlayStation.
- * - Menus: MainWndProc handles WM_KEYDOWN (Return, Backspace, arrows) while the frontend flag
- *   [0x51F120] is set, and Space and Escape on the results screens. Pad buttons are posted to
- *   the window as key presses.
- * The game's own joystick support (DirectInput, first joystick found) would see an XInput pad
- * as well, with another button order: its enumeration callback (pushed at 0x44C8DE) is wrapped
- * to skip XInput devices. Other joysticks stay with the game, [Gamepad] Deadzone included.
+ * Battle: the human player's input function (0x45D700) reads the keyboard into 256 key bytes
+ * (FUN_0044CBB0) and builds a 16-bit PlayStation-order pad mask from 16 DIK bindings at
+ * player+0x108; the pause and weapon menus use it too.
+ * Menus: MainWndProc takes WM_KEYDOWN while the frontend flag [0x51F120] is set, and Space and
+ * Escape on the results screens. Hooked:
+ *   0x45D72D  call, keyboard read: a pad button sets the key byte of its bound key  -> keyboard_state
+ *   0x44C8DE  push, joystick enumeration callback: XInput pads hidden from the game -> enum_joystick
  *
  * Ported from Torisutan/HogsFix (MIT license), src/gamepad.c.
  */
@@ -33,7 +26,7 @@ enum {
     PS_START = 0x4000, PS_SELECT = 0x8000
 };
 
-/* XINPUT_GAMEPAD.wButtons bit -> the PlayStation button at the same place on the pad */
+/* XINPUT_GAMEPAD.wButtons bit -> PlayStation button */
 static const WORD kButtons[16] = {
     PS_UP, PS_DOWN, PS_LEFT, PS_RIGHT, /* d-pad */
     PS_START, PS_SELECT, PS_L3, PS_R3, /* Start, Back, stick clicks */
@@ -44,12 +37,12 @@ static const WORD kButtons[16] = {
 static BOOL g_enabled; /* [Gamepad] XInput, and the hooks are in */
 static DWORD(WINAPI *g_get_state)(DWORD, XINPUT_STATE *);
 static int g_slot = -1;           /* the connected controller, -1 none */
-static int g_stick;               /* left stick: this far from the centre is a direction */
+static int g_stick;               /* left stick direction threshold, XInput units */
 static XINPUT_GAMEPAD *g_test;    /* [Debug] PadTest: a pad written by a test script */
 static BOOL g_test_wanted;
 static WORD g_held, g_was_held;   /* PlayStation bits now and at the poll before */
 static WORD g_pressed;            /* held at any time since the battle last read the pad */
-static WORD g_repeat;             /* the direction that repeats in a menu */
+static WORD g_repeat;
 static DWORD g_repeat_at, g_next_scan, g_polled;
 
 static WORD ps_buttons(const XINPUT_GAMEPAD *p)
@@ -79,8 +72,8 @@ static WORD ps_buttons(const XINPUT_GAMEPAD *p)
     return m;
 }
 
-/* A key press for MainWndProc. It takes a WM_KEYDOWN only after a WM_KEYUP (its guard against
- * auto-repeat), so the key-up goes first: the first press on the title screen counts too. */
+/* MainWndProc takes WM_KEYDOWN only after a WM_KEYUP (auto-repeat guard): the key-up goes first,
+ * so the first press on the title screen counts. */
 static void press_key(HWND hwnd, UINT vk)
 {
     DWORD lp = 1 | MapVirtualKeyA(vk, MAPVK_VK_TO_VSC) << 16 | (vk >= VK_PRIOR && vk <= VK_DOWN ? 1 << 24 : 0);
@@ -100,8 +93,7 @@ static WORD read_pad(DWORD now)
     if (g_slot < 0 && (int)(now - g_next_scan) >= 0) {
         HANDLE map;
 
-        /* A controller may be plugged in later: look once a second, at one slot each time,
-         * because asking an empty slot can take milliseconds. */
+        /* a pad may be plugged in later: one slot a second, an empty slot can take milliseconds */
         g_next_scan = now + 1000;
         if (g_test_wanted && (map = OpenFileMappingA(FILE_MAP_READ, FALSE, "HogsPadTest")) != NULL &&
             (g_test = (XINPUT_GAMEPAD *)MapViewOfFile(map, FILE_MAP_READ, 0, 0, sizeof *g_test)) != NULL) {
@@ -124,7 +116,7 @@ static WORD read_pad(DWORD now)
     return ps_buttons(&s.Gamepad);
 }
 
-/* XInput is loaded at the first poll, not in gamepad_init: that one runs inside DllMain. */
+/* Called at the first poll, not in gamepad_init: that runs inside DllMain. */
 static BOOL load_xinput(void)
 {
     static const char *const kDlls[] = { "xinput1_4.dll", "xinput1_3.dll", "xinput9_1_0.dll" };
@@ -151,7 +143,7 @@ void gamepad_poll(void)
     WORD down;
     int i;
 
-    if (!g_enabled || now - g_polled < 4) /* the message loops call this far more often than a pad changes */
+    if (!g_enabled || now - g_polled < 4) /* called far more often than a pad changes */
         return;
     g_polled = now;
     if (!g_get_state && !load_xinput()) {
@@ -170,7 +162,7 @@ void gamepad_poll(void)
         for (i = 0; i < (int)(sizeof kMenu / sizeof kMenu[0]); i++)
             if (down & kMenu[i].button) {
                 press_key(hwnd, kMenu[i].vk);
-                if (i < 4) { /* a held direction repeats, like a held key */
+                if (i < 4) {
                     g_repeat = kMenu[i].button;
                     g_repeat_at = now + 400;
                 }
@@ -195,7 +187,7 @@ void gamepad_poll(void)
     }
 }
 
-/* Replaces the keyboard read of the human player's input function; edi there is the player. */
+/* Replaces the keyboard read; edi there is the player. */
 static BYTE __cdecl keyboard_state(BYTE *keys, const BYTE *player)
 {
     static BYTE(__cdecl *const read_keyboard)(BYTE *) = (BYTE(__cdecl *)(BYTE *))0x44CBB0;
@@ -229,7 +221,7 @@ static __declspec(naked) void keyboard_state_stub(void)
     }
 }
 
-/* An XInput device has "IG_" in its device path (Microsoft's documented test). */
+/* XInput devices have "IG_" in their device path (Microsoft's test). */
 static BOOL CALLBACK enum_joystick(const DIDEVICEINSTANCEA *joystick, void *ref)
 {
     static BOOL(CALLBACK *const game_callback)(const DIDEVICEINSTANCEA *, void *) =
@@ -254,7 +246,7 @@ static BOOL CALLBACK enum_joystick(const DIDEVICEINSTANCEA *joystick, void *ref)
 
 void gamepad_init(void)
 {
-    BYTE push[5] = { 0x68 }; /* push imm32 */
+    BYTE push[5] = { 0x68 };
     void *callback = (void *)enum_joystick;
     int deadzone = GetPrivateProfileIntA("Gamepad", "XInputDeadzone", 30, g_ini);
 

@@ -85,7 +85,6 @@ assert known.get('0x4811bf') == 'KERNEL32.dll!LoadLibraryA', known.get('0x4811bf
 left = exe.count(b'\xff\x15' + struct.pack('<I', CALLDLL_SLOT)) + exe.count(b'\xff\x25' + struct.pack('<I', CALLDLL_SLOT))
 assert left == 0, f'{left} CallDLL references left'
 
-# load ddraw.dll in place of wh32lib.dll: rewrite the DLL name of the first descriptor
 assert descs[0].lower() == 'wh32lib.dll', descs
 name_off = off(struct.unpack_from('<I', exe, off(imp_rva) + 12)[0])
 exe[name_off:name_off + len('wh32lib.dll')] = b'ddraw.dll'.ljust(len('wh32lib.dll'), b'\0')

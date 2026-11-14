@@ -1,27 +1,23 @@
-# Regression test for the player patcher (patcher\patch.ps1 and patch.cmd), run against the package that
-# tools\make_release.ps1 builds. Developer tool, not shipped.
-#
+# Regression test for the player patcher (patcher\patch.ps1, patch.cmd) against the package tools\make_release.ps1
+# builds. Developer tool, not shipped.
 #   pwsh tools\test_patcher.ps1              all scenarios
 #   pwsh tools\test_patcher.ps1 -Which B     one scenario: A B C D E F G H I R X or Y
-#
-# Needs: PowerShell 7 (pwsh) to run it, Windows PowerShell 5.1 (the patcher under test runs in it), git
-# (scenarios B and I build older releases from history) and, in the repo:
+# Needs PowerShell 7 (pwsh), Windows PowerShell 5.1 (the patcher runs in it), git (scenarios B and I build older
+# releases from history) and in the repo (backup\ and downloads\ are not in git):
 #   dist\HogsFix                       run tools\make_release.ps1 first
-#   backup\warhogs_.exe.orig           the original Steam v1.2 warhogs_.exe    (backup\ and downloads\ are not in git)
+#   backup\warhogs_.exe.orig           the original Steam v1.2 warhogs_.exe
 #   backup\winmm.dll.ogg-winmm-2014    the winmm.dll that comes with the game
-#   downloads\dgVoodoo2_87_5.zip       where the scenarios take their dgVoodoo files from
+#   downloads\dgVoodoo2_87_5.zip       the dgVoodoo files of the scenarios
 # Close Hogs of War first: the patcher refuses to run while a warhogs_ process exists.
-#
-# Every scenario works on fresh copies in <temp>\hogsfix-patcher-tests, which this script creates and deletes;
-# no game folder is touched. It prints one line per check and ends with "--- N checks, M failed" (exit code 1 if M > 0).
-#
-#   A  patch.cmd, re-run, -Restore, uninstall.cmd   F  game folder with [ ] and spaces, relative -GameDir
-#   B  update from v1.1.1 and from the dgVoodoo2 era, G  game running (a dummy warhogs_ process)
-#      no .orig, -Restore old/new in both directions H  Steam "verify files", missing or damaged .orig
-#   C  hand-installed dgVoodoo kept as *.orig        I  interrupted update and -Restore (locked files)
-#   D  refuses when a *.orig is in the way           X  missing package file, unknown exe, old switches, patch.cmd
-#   E  hogs.ini variants: what the update adds    Y  foreign ddraw.dll later, leftovers, logs, locked file
-#   R  russian.ps1 with a stand-in zip (no download): install, second run, -Remove, refused zips, patch.ps1 -Restore
+# Every scenario works on fresh copies in <temp>\hogsfix-patcher-tests (created and deleted here); no game folder is
+# touched. One line per check, then "--- N checks, M failed" (exit code 1 if M > 0).
+#   A  patch.cmd, re-run, -Restore, uninstall.cmd     F  game folder with [ ] and spaces, relative -GameDir
+#   B  update from v1.1.1 and from the dgVoodoo2      G  game running (a dummy warhogs_ process)
+#      era, no .orig, -Restore old/new both ways      H  Steam "verify files", missing or damaged .orig
+#   C  hand-installed dgVoodoo kept as *.orig         I  interrupted update and -Restore (locked files)
+#   D  refuses when a *.orig is in the way            X  missing package file, unknown exe, old switches, patch.cmd
+#   E  hogs.ini variants: what the update adds        Y  foreign ddraw.dll later, leftovers, logs, locked file
+#   R  russian.ps1 with a stand-in zip: install, second run, -Remove, refused zips, patch.ps1 -Restore
 [CmdletBinding()]
 param([ValidateSet('All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'R', 'X', 'Y')][string]$Which = 'All')
 if ($PSVersionTable.PSVersion.Major -lt 7) { throw 'test_patcher: run it with PowerShell 7: pwsh tools\test_patcher.ps1' }
@@ -37,13 +33,13 @@ function InstalledChecks([string]$sc, [string]$g, [string]$tag) {
     Check $sc "$tag winmm.ini present" (Has (Join-Path $g 'winmm.ini'))
 }
 
-# the end state of an update from v1.1.1: new exe, hogs.dll gone, our ddraw.dll, no *.new left behind
+# the end state of an update: new exe, hogs.dll gone, our ddraw.dll, no *.new left
 function Updated([string]$g) {
     ((FileSha $g 'warhogs_.exe') -eq $HX.patched) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd) -and
         -not ((Has (Join-Path $g 'hogs.dll')) -or (Has (Join-Path $g 'warhogs_.exe.new')) -or (Has (Join-Path $g 'ddraw.dll.new')))
 }
 
-# A game folder as the previous release (v1.1.1, from git) leaves it: its exe imports hogs.dll, hogs.dll and its ddraw.dll.
+# A game folder as the previous release (v1.1.1, from git) leaves it: exe importing hogs.dll, hogs.dll, its ddraw.dll.
 function OldInstall([string]$name) {
     $g = NewGame $name
     $r = RunPatch (BuildPrev) @('-GameDir', $g)
@@ -197,9 +193,9 @@ function ScenD {
     Check 'D2' 'collision on dgVoodoo.conf.orig also refuses before any change' (($r.Code -ne 0) -and ($r.Out -match 'dgVoodoo\.conf\.orig is in the way') -and (SameSnap $s0 (Snap $g))) "exit $($r.Code)"
 }
 
-# The player's hogs.ini before the update, in the ways such files differ. What the patcher must do with each is worked out
-# from the template (IniVerdict in the lib), so these keep passing when the template gets new sections and keys. Display,
-# Windowed, Resizable and Render below are only the contents of the fixtures.
+# The player's hogs.ini before the update, in the ways such files differ. IniVerdict (in the lib) works out from the
+# template what the patcher must do, so these stay valid when the template changes. Display, Windowed, Resizable and
+# Render below are only fixture contents.
 function ScenE {
     $lat = [Text.Encoding]::Latin1
     $tplFile = Join-Path $dist 'files\hogs.ini'
@@ -329,8 +325,8 @@ function ScenH {
     Check 'H5' 'damaged .orig + original exe: install replaces .orig by a good copy' (($r.Code -eq 0) -and ((FileSha $g 'warhogs_.exe.orig') -eq $HX.orig) -and ((FileSha $g 'warhogs_.exe') -eq $HX.patched)) "exit $($r.Code)"
 }
 
-# A run that fails half-way must leave a game that starts. Each check locks the file that one step replaces or deletes,
-# so the run stops at that step; it looks at what is left, then runs again without the lock.
+# A run that fails half-way must leave a game that starts. Each check locks the file one step replaces or deletes, so
+# the run stops there; it looks at what is left, then runs again without the lock.
 function ScenI {
     $oldDd = Sha (Join-Path (BuildPrev) 'files\ddraw.dll')
     $g = OldInstall 'I1'; $pkg = AddPkg $g

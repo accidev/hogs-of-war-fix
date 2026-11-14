@@ -1,15 +1,14 @@
-# Helpers for tools\test_patcher.ps1 (dot-sourced by it, not meant to be run on its own). PowerShell 7.
-# $repo is the parent of this folder, $T the scratch folder described in test_patcher.ps1.
+# Helpers for tools\test_patcher.ps1 (dot-sourced by it, not run on its own). PowerShell 7.
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $T = Join-Path ([IO.Path]::GetTempPath()) 'hogsfix-patcher-tests'
-$dgvDir = Join-Path $T '_dgv'                 # dgVoodoo files, extracted from downloads\dgVoodoo2_87_5.zip
+$dgvDir = Join-Path $T '_dgv'
 $dist = Join-Path $repo 'dist\HogsFix'     # the package under test, built by tools\make_release.ps1
 $ps51 = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $prevRev = 'fdf30cb'                       # v1.1.1, the previous release: its exe imports hogs.dll
 $dgvRev = '6943c20'                        # the last commit before the patcher shipped ddraw.dll: it installed dgVoodoo2
 
-# Inputs that are not in git (listed in test_patcher.ps1): stop and name the missing one.
+# Inputs not in git (see test_patcher.ps1): stop and name the missing one.
 function Need([string]$rel, [string]$what) {
     if (-not [IO.File]::Exists((Join-Path $repo $rel))) { throw "test_patcher: $rel is missing ($what)" }
 }
@@ -28,9 +27,9 @@ $HX.bad = Sha (Join-Path $repo 'backup\winmm.dll.ogg-winmm-2014')
 $HX.dd = Sha (Join-Path $dist 'files\ddraw.dll')
 $HX.winmm = Sha (Join-Path $dist 'files\winmm.dll')
 
-# The Windows ini API the game reads hogs.ini with (GetPrivateProfileStringA): the value of a key, or, with an empty key,
-# the names of the section's keys, or, with an empty section too, the names of all sections (first occurrence of each).
-# (Empty stands for the null the API wants: PowerShell turns a $null argument into an empty string.)
+# The ini API the game reads hogs.ini with (GetPrivateProfileStringA): a key's value; with an empty key, the section's
+# key names; with an empty section too, all section names (first occurrence of each). Empty stands for the null the
+# API wants: PowerShell turns a $null argument into an empty string.
 if (-not ('Ini' -as [type])) {
     Add-Type -TypeDefinition @'
 using System; using System.Runtime.InteropServices; using System.Text;
@@ -51,12 +50,9 @@ $none = '<<none>>'   # what IniGet returns for a key the API does not find
 function IniGet([string]$f, $sec, $key) { [Ini]::Get($sec, $key, $none, $f)[0] }
 function IniList([string]$f, $sec = $null) { @([Ini]::Get($sec, $null, '', $f)) }   # section names, or the key names of one section
 
-# What patch.ps1 must have done to a player's hogs.ini, worked out from the template text and from what the API says about
-# the files, not with patch.ps1's own parsing, so it holds for whatever sections and keys the template has. Returns the
-# list of problems, empty when all is right.
-#   $beforeFile / $afterFile   the player's file before and after the run (the before copy lives outside the game folder)
-#   $out                       what the run printed
-#   -Append                    the file has no section of the template, so the old bytes must be an exact prefix
+# What patch.ps1 must have done to a player's hogs.ini, worked out from the template and the ini API, not with
+# patch.ps1's own parsing. Returns the problems (empty: all right). $out is what the run printed. -Append: the file has
+# no section of the template, so the old bytes must be an exact prefix.
 function IniVerdict([string]$beforeFile, [string]$afterFile, [string]$out, [switch]$Append) {
     $tplFile = Join-Path $dist 'files\hogs.ini'
     $lat = [Text.Encoding]::Latin1
@@ -66,7 +62,7 @@ function IniVerdict([string]$beforeFile, [string]$afterFile, [string]$out, [swit
     $bn = $bt -replace $eol, "`n"; $an = $at -replace $eol, "`n"; $tn = $lat.GetString([IO.File]::ReadAllBytes($tplFile)) -replace $eol, "`n"
     $o = Short $out
     $problems = New-Object Collections.Generic.List[string]
-    $isKey = '^[ \t]*[^;\s=\[][^=\n]*='     # a line that sets a key (not a comment, not a header)
+    $isKey = '^[ \t]*[^;\s=\[][^=\n]*='
     $isHdr = '^[ \t]*\[([^\]\n]*)'
     $hdrs = { param($n) @($n -split "`n" | ForEach-Object { if ($_ -match $isHdr) { $Matches[1].Trim(" `t").ToLowerInvariant() } }) }
     # each template key line with the comment lines right above it, by section
@@ -99,7 +95,6 @@ function IniVerdict([string]$beforeFile, [string]$afterFile, [string]$out, [swit
         $n1 = @(& $hdrs $an | Where-Object { $_ -eq $s.ToLowerInvariant() }).Count
         if ($n1 -ne [Math]::Max($n0, 1)) { $problems.Add("[$s] has $n1 headers, was $n0") }
     }
-    # a key line was added for every key the API did not find, and not one more
     $kb = [regex]::Matches($bn, $isKey, 'Multiline').Count; $ka = [regex]::Matches($an, $isKey, 'Multiline').Count
     if ($ka - $kb -ne $missing) { $problems.Add("$($ka - $kb) key lines added, $missing keys were missing") }
     # message: exactly one, only when something was added
@@ -115,19 +110,18 @@ function IniVerdict([string]$beforeFile, [string]$afterFile, [string]$out, [swit
         if ($j -ge $A.Count) { $problems.Add("old line lost or moved: '$($l.TrimEnd())'"); break }
         $j++
     }
-    # the blank line that separated a section from the next one is still there
     $blankHdr = '\n[ \t]*\n(?=[ \t]*\[)'
     if ([regex]::Matches($an, $blankHdr).Count -lt [regex]::Matches($bn, $blankHdr).Count) { $problems.Add('a blank line before a section header is gone') }
     if ($Append -and -not ($ab.Length -ge $bb.Length -and [Convert]::ToBase64String($ab, 0, $bb.Length) -ceq [Convert]::ToBase64String($bb))) { $problems.Add('old bytes are not an exact prefix') }
     , $problems.ToArray()
 }
 
-function CleanDir([string]$p) {   # only ever inside the test folder
+function CleanDir([string]$p) {
     if (-not $p.StartsWith($T, [StringComparison]::OrdinalIgnoreCase)) { throw "refusing to delete outside the test folder: $p" }
     if ([IO.Directory]::Exists($p)) { [IO.Directory]::Delete($p, $true) }
 }
 
-# The dgVoodoo files the "hand-installed" scenarios start from, taken from the release zip (once).
+# The dgVoodoo files the "hand-installed" scenarios start from, taken from the release zip.
 function PrepareFixtures {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $z = [IO.Compression.ZipFile]::OpenRead((Join-Path $repo 'downloads\dgVoodoo2_87_5.zip'))

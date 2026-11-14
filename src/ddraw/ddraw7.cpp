@@ -4,10 +4,8 @@
 
 DirectDraw *g_ddraw;
 
-/* Modes offered to the game's launcher, all 16-bit. Its filter stopped at 1024x768; hogs.c
- * raises it, and in a window the game renders at any of them. The game resolution sets the size
- * of the HUD, which is drawn in game pixels: 480 lines give the HUD of the original, 1440 a third
- * of it. Sharpness comes from [Render] Scale, so more lines are only for a smaller HUD. */
+/* modes for the game's launcher, all 16-bit: its filter stops at 1024x768 (hogs.c raises it), in a window any works;
+ * HUD is drawn in game pixels, 480 lines = original HUD, 1440 = a third of it; sharpness comes from [Render] Scale */
 static const struct { int w, h; } kModes[] = { { 640, 480 },   { 800, 600 },   { 1024, 768 },
                                                { 1280, 960 },  { 1600, 1200 }, { 1920, 1440 } };
 static const int kWideHeights[] = { 480, 600, 720, 900, 1080, 1440 };
@@ -41,8 +39,7 @@ HRESULT STDMETHODCALLTYPE DirectDraw::QueryInterface(REFIID riid, void **out)
         return S_OK;
     }
     if (riid == IID_IDirect3D7) {
-        /* The launcher never releases IDirect3D7 but still loops dd->Release() down to 0,
-         * so the two share one reference count (see d3d7.h). */
+        /* launcher never releases IDirect3D7 but loops dd->Release() to 0: one shared count (d3d7.h) */
         if (!d3d)
             d3d = new Direct3D(this);
         AddRef();
@@ -65,7 +62,7 @@ HRESULT STDMETHODCALLTYPE DirectDraw::SetCooperativeLevel(HWND h, DWORD flags)
 
 HRESULT STDMETHODCALLTYPE DirectDraw::SetDisplayMode(DWORD w, DWORD h, DWORD bpp, DWORD, DWORD)
 {
-    /* the real display mode is never changed: the game runs in a window */
+    /* display mode never changed: windowed */
     log_printf("SetDisplayMode(%lu, %lu, %lu)", w, h, bpp);
     mode_w = w;
     mode_h = h;
@@ -74,8 +71,7 @@ HRESULT STDMETHODCALLTYPE DirectDraw::SetDisplayMode(DWORD w, DWORD h, DWORD bpp
 
 HRESULT STDMETHODCALLTYPE DirectDraw::GetDisplayMode(LPDDSURFACEDESC2 d)
 {
-    /* report a 16-bit desktop: the game's windowed path draws its 2D only into 8/16-bit
-     * surfaces and needs the 3D device to render at the desktop depth */
+    /* 16-bit desktop: the windowed path draws 2D only into 8/16-bit surfaces, 3D device at desktop depth */
     memset(d, 0, sizeof *d);
     d->dwSize = sizeof *d;
     d->dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PITCH | DDSD_PIXELFORMAT | DDSD_REFRESHRATE;
@@ -93,11 +89,8 @@ HRESULT STDMETHODCALLTYPE DirectDraw::EnumDisplayModes(DWORD, LPDDSURFACEDESC2, 
     MONITORINFO mi = { sizeof mi };
     GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi);
     int mw = mi.rcMonitor.right - mi.rcMonitor.left, mh = mi.rcMonitor.bottom - mi.rcMonitor.top;
-    /* Largest first. The game's launcher takes the first mode it accepts (up to 4096x1536) when
-     * the saved one is not in the list, and hogs.c starts a new player in it.
-     * On a monitor wider than 4:3 only modes in its shape, whatever it is (16:9, 16:10, 21:9...):
-     * the monitor's own size, then the usual line counts below it. So a 4:3 mode saved earlier
-     * gives way to a wide one. Widths are even, so a 16-bit row has no padding. */
+    /* largest first: the launcher takes the first mode it accepts (up to 4096x1536) when the saved one
+     * is missing, hogs.c starts new players in it; wide monitor: only its shape; even widths, no row padding */
     if (g_config.widescreen && mw * 3 > mh * 4) {
         modes.push_back({ (mw + 1) & ~1, mh });
         for (int i = _countof(kWideHeights) - 1; i >= 0; i--)
@@ -218,9 +211,8 @@ extern "C" HRESULT WINAPI DirectDrawCreateEx(GUID FAR *, LPVOID *out, REFIID iid
     return DD_OK;
 }
 
-/* The renderer (_d3d.dll) looks this old entry point up when it loads DDRAW.DLL and quits if it
- * is missing, but never calls it: its objects come from DirectDrawCreateEx. Kept working all
- * the same; IDirectDraw's vtable is a prefix of IDirectDraw7's. */
+/* _d3d.dll looks this up at load and quits without it, but never calls it (objects come from
+ * DirectDrawCreateEx); IDirectDraw's vtable is a prefix of IDirectDraw7's */
 extern "C" HRESULT WINAPI DirectDrawCreate(GUID FAR *, LPDIRECTDRAW FAR *out, IUnknown FAR *)
 {
     g_ddraw = new DirectDraw();

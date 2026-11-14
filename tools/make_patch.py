@@ -11,7 +11,7 @@ import hashlib, json, struct, sys
 
 BASE = 0x400000
 IMPORT_NOTE = 'import wh32lib.dll (LaserLock) -> ddraw.dll (renderer and fixes)'
-# what the v1.0-v1.1 patcher wrote: rebuilding that file from this one must give exactly this
+# SHA-256 of the exe v1.0-v1.1 made: rebuilding it from the new exe must give exactly this
 V11_SHA256 = 'CF03028F3D5A023281667D77AF26DAC3A92D3C5F13A4831385F15F4D64C222D6'
 orig = open(sys.argv[1], 'rb').read()
 new = open(sys.argv[2], 'rb').read()

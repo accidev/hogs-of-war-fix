@@ -1,13 +1,11 @@
-/* Direct3D 11 backend: one back buffer (the game's render target, at an integer multiple of
- * the game resolution), the DirectX 7 fixed-function subset the game uses, 2D blits for the
- * exe's DirectDraw sprites, and present to the game window. */
+/* Direct3D 11 backend: one back buffer (integer multiple of the game resolution), the D3D7
+ * fixed-function subset the game uses, 2D blits, present */
 #pragma once
 #include "common.h"
 #include <stdint.h>
 
 namespace gpu {
 
-/* Fixed-function state for one draw, taken from the D3D7 render / texture-stage states. */
 struct DrawState {
     uint8_t blend, src_blend, dst_blend;            /* ALPHABLENDENABLE, D3DBLEND */
     uint8_t ztest, zwrite, zfunc;                   /* ZENABLE, ZWRITEENABLE, D3DCMPFUNC */
@@ -23,7 +21,7 @@ struct DrawState {
     uint8_t wrap;                                   /* ADDRESS WRAP (else clamp) */
 };
 
-struct Texture;  /* GPU copy of a DirectDraw texture surface */
+struct Texture;
 
 bool init(HWND hwnd, int scale);
 bool ready();
@@ -31,11 +29,11 @@ void set_mode(int width, int height);            /* game resolution = back buffe
 int width();
 int height();
 
-void set_clip(int x, int y, int w, int h);       /* D3D7 viewport: 3D primitives are clipped to it */
+void set_clip(int x, int y, int w, int h);       /* D3D7 viewport, clips 3D primitives */
 void clear_depth(float z);
 void clear_target(uint32_t color);               /* D3DCOLOR */
 void draw(D3DPRIMITIVETYPE type, const void *tlvertices, uint32_t count, const DrawState &s,
-          Texture *tex);                         /* merged with the previous draw when the state matches */
+          Texture *tex);                         /* merged with the previous draw if the state matches */
 int frame_draws();                               /* Direct3D 11 draws issued since the last present */
 
 /* DirectDraw on the back buffer; rectangles in game pixels, pixels RGB565 */

@@ -18,8 +18,7 @@ struct Texture {
     int w, h;
 };
 
-/* All shaders: D3D7 transformed-and-lit vertices, the stage-0 texture combiner, 2D blits of
- * RGB565 surfaces with an exact colour key, and the final present. */
+/* D3D7 TL vertices, stage-0 combiner, RGB565 colour-key blits, present */
 static const char kShaders[] = R"HLSL(
 cbuffer Frame : register(b0) { float4 g_size; };   /* game resolution in xy */
 
@@ -201,7 +200,7 @@ static HWND g_hwnd;
 static int g_scale_cfg, g_scale = 1, g_w, g_h, g_swap_w, g_swap_h;
 
 static RECT g_clip = { 0, 0, 16384, 16384 }; /* D3D7 viewport, game pixels */
-static ID3D11Texture2D *g_back;            /* the game's back buffer, g_w*g_scale x g_h*g_scale */
+static ID3D11Texture2D *g_back;            /* g_w*g_scale x g_h*g_scale */
 static ID3D11RenderTargetView *g_back_rtv;
 static ID3D11ShaderResourceView *g_back_srv;
 static ID3D11Texture2D *g_depth;
@@ -222,9 +221,9 @@ static std::map<uint32_t, ID3D11DepthStencilState *> g_depth_states;
 static std::map<const void *, BlitSource> g_sources;
 
 static const UINT kVbBytes = 4 << 20;
-static UINT g_vb_pos = kVbBytes; /* full: the first push maps with DISCARD */
+static UINT g_vb_pos = kVbBytes; /* full: first push uses DISCARD */
 
-static void flush(); /* draws merged so far, see draw() */
+static void flush();
 
 static bool check(HRESULT hr, const char *what)
 {
@@ -279,7 +278,7 @@ static bool create_pipeline()
         g_dev->CreateVertexShader(vs->GetBufferPointer(), vs->GetBufferSize(), nullptr, &g_vs_tl[flat]);
         g_dev->CreatePixelShader(ps->GetBufferPointer(), ps->GetBufferSize(), nullptr, &g_ps_tl[flat]);
         if (!flat) {
-            /* D3DTLVERTEX: sx sy sz rhw, color, specular, tu tv (FVF 0x1C4) */
+            /* D3DTLVERTEX, FVF 0x1C4 */
             D3D11_INPUT_ELEMENT_DESC il[] = {
                 { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
                 { "COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -321,7 +320,7 @@ static bool create_pipeline()
         r.FillMode = D3D11_FILL_SOLID;
         r.CullMode = i == 0 ? D3D11_CULL_NONE : i == 1 ? D3D11_CULL_FRONT : D3D11_CULL_BACK;
         r.DepthClipEnable = FALSE; /* D3D7 did not clip transformed vertices against z */
-        r.ScissorEnable = TRUE;    /* the D3D7 viewport, or the whole target for 2D */
+        r.ScissorEnable = TRUE;    /* D3D7 viewport; whole target for 2D */
         g_dev->CreateRasterizerState(&r, &g_raster[i]);
     }
     D3D11_DEPTH_STENCIL_DESC nd = {};
@@ -337,7 +336,7 @@ bool init(HWND hwnd, int scale)
     static bool failed;
     if (g_dev || failed)
         return g_dev != nullptr;
-    failed = true; /* cleared below on success: one attempt only */
+    failed = true; /* cleared on success: one attempt only */
     g_hwnd = hwnd;
     g_scale_cfg = scale;
     D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0 };
@@ -351,10 +350,8 @@ bool init(HWND hwnd, int scale)
     IDXGIFactory2 *fac = nullptr;
     g_dev->QueryInterface(__uuidof(IDXGIDevice1), (void **)&xd);
     if (xd) {
-        /* A vsynced Present returns at once until this many frames wait for the monitor. With
-         * the default of 3 the game ran up to three frames ahead of the screen (50 ms at 60 Hz).
-         * With 1, Present waits one refresh per frame: that paces the battle frames of
-         * src/hogs/frames.c. */
+        /* latency 1: vsynced Present waits one refresh, pacing the battle frames of src/hogs/frames.c
+         * (default 3 let the game run 50 ms ahead) */
         xd->SetMaximumFrameLatency(1);
         xd->GetAdapter(&ad);
     }
@@ -371,14 +368,14 @@ bool init(HWND hwnd, int scale)
     sd.BufferCount = 2;
     sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     bool ok = fac && check(fac->CreateSwapChainForHwnd(g_dev, hwnd, &sd, nullptr, nullptr, &g_swap),
-                           "CreateSwapChainForHwnd"); /* a flip-discard swap chain needs Windows 10 */
+                           "CreateSwapChainForHwnd"); /* flip-discard needs Windows 10 */
     if (ok)
         fac->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER | DXGI_MWA_NO_WINDOW_CHANGES);
     release(fac);
     release(ad);
     release(xd);
     if (!ok || !create_pipeline()) {
-        /* without g_dev every entry point is a no-op */
+        /* no g_dev: every entry point is a no-op */
         release(g_swap);
         release(g_ctx);
         release(g_dev);
@@ -414,7 +411,7 @@ void set_mode(int w, int h)
     g_w = w;
     g_h = h;
     g_scale = g_scale_cfg;
-    if (g_scale <= 0) { /* auto: enough whole multiples to cover the monitor, so the frame is only scaled down */
+    if (g_scale <= 0) { /* auto: whole multiples that cover the monitor */
         MONITORINFO mi = { sizeof mi };
         GetMonitorInfo(MonitorFromWindow(g_hwnd, MONITOR_DEFAULTTONEAREST), &mi);
         int mw = mi.rcMonitor.right - mi.rcMonitor.left, mh = mi.rcMonitor.bottom - mi.rcMonitor.top;
@@ -553,13 +550,12 @@ static UINT push_vertices(const void *data, UINT bytes)
     return at;
 }
 
-/* Consecutive draws with the same state, texture and clip reach the GPU as one draw: the game
- * sends its water as 1024 four-vertex fans per frame and its snow as 128, all alike. Anything
- * else that renders or changes a resource calls flush() first, so the order is kept. */
+/* same state, texture and clip = one GPU draw (game draws water as 1024 four-vertex fans, snow as 128);
+ * anything else that renders or changes a resource calls flush() first */
 static_assert(sizeof(DrawState) == 36, "DrawState is compared with memcmp: keep it free of padding");
 static const size_t kBatchMax = kVbBytes / sizeof(D3DTLVERTEX);
-static std::vector<D3DTLVERTEX> g_batch; /* as a triangle or line list */
-static int g_gpu_draws;                  /* Direct3D 11 draws this frame, for the frame dump */
+static std::vector<D3DTLVERTEX> g_batch; /* triangle or line list */
+static int g_gpu_draws;                  /* D3D11 draws this frame, for the dump */
 static DrawState g_batch_state;
 static Texture *g_batch_tex;
 static D3D11_PRIMITIVE_TOPOLOGY g_batch_topo;
@@ -570,7 +566,7 @@ static void flush()
     if (g_batch.empty())
         return;
     const DrawState &s = g_batch_state;
-    static DrawConstants last;           /* g_cb_draw holds this; most batches share it */
+    static DrawConstants last;
     static bool have_last;
     DrawConstants dc = {};
     dc.color[0] = s.color_op;
@@ -627,25 +623,16 @@ int frame_draws()
     return g_gpu_draws;
 }
 
-/* The game's 2D pieces (HUD, digits, text, billboards) are rectangles on whole pixels with UVs
- * half a texel further on. D3D7's pixel centres sit on whole coordinates, so every pixel of
- * [x0, x1) reads the middle of its own texel there. At Scale > 1 the same rectangle covers the
- * half pixel after x1 instead of the one before x0, and that half reads the next texel of the
- * page: a line along the right and bottom edge, see-through as a rule, which showed the scene
- * between the pieces of the timer and of the weapon window. So such a triangle moves half a
- * pixel up and left, onto the pixels D3D7 filled, and its UVs move with it: every point of the
- * screen reads the texel it read before (pixel_triangle).
- *
- * pixel_rect: is t one triangle of such a rectangle (whole pixels, one rhw, two sides along the
- * axes)? g gets what one pixel adds to u along x and along y, then to v along x and along y. */
+/* t is a triangle of a 2D piece: whole pixels, one rhw, sides along the axes;
+ * g = du/dx, du/dy, dv/dx, dv/dy per pixel */
 static bool pixel_rect(const D3DTLVERTEX *t, float g[4])
 {
-    if (t[1].rhw != t[0].rhw || t[2].rhw != t[0].rhw) /* in perspective: world geometry */
+    if (t[1].rhw != t[0].rhw || t[2].rhw != t[0].rhw) /* perspective: world geometry */
         return false;
     for (int i = 0; i < 3; i++)
         if (t[i].sx != floorf(t[i].sx) || t[i].sy != floorf(t[i].sy))
             return false;
-    for (int i = 0; i < 3; i++) { /* the right-angled corner c, with a beside it and b above or below */
+    for (int i = 0; i < 3; i++) {
         const D3DTLVERTEX &c = t[i], *a = &t[(i + 1) % 3], *b = &t[(i + 2) % 3];
         if (a->sx == c.sx && b->sy == c.sy)
             std::swap(a, b);
@@ -661,6 +648,8 @@ static bool pixel_rect(const D3DTLVERTEX *t, float g[4])
     return false;
 }
 
+/* 2D pieces (HUD, digits, text, billboards): whole-pixel rects, UVs half a texel on. At Scale > 1 they
+ * read the next texel past x1/y1 (see-through edge line): shift half a pixel up-left, UVs too */
 static void pixel_triangle(D3DTLVERTEX *t)
 {
     float g[4];
@@ -680,12 +669,12 @@ void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawSt
         return;
     const D3DTLVERTEX *v = (const D3DTLVERTEX *)verts;
     D3D11_PRIMITIVE_TOPOLOGY topo = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    size_t need; /* vertices once converted to a list; D3D7 ignores an incomplete last primitive */
+    size_t need; /* vertices as a list; D3D7 ignores an incomplete last primitive */
     switch (type) {
     case D3DPT_TRIANGLELIST: need = count / 3 * 3; break;
     case D3DPT_TRIANGLEFAN: need = count > 2 ? (count - 2) * 3 : 0; break;
     case D3DPT_LINELIST: topo = D3D11_PRIMITIVE_TOPOLOGY_LINELIST; need = count / 2 * 2; break;
-    default: /* points and strips: the game never draws them */
+    default: /* points, strips: the game never draws them */
         need = 0;
         static bool once;
         if (!once)
@@ -694,9 +683,8 @@ void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawSt
     }
     if (!need || need > kBatchMax)
         return;
-    /* A 2D rectangle with one texel per pixel (the pieces of the HUD): D3D7 read every texel at
-     * its middle, where the linear filter the game asks for gives the texel itself. At Scale > 1
-     * the filter would mix in the texels around the piece, see-through ones as a rule. */
+    /* 2D rect, one texel per pixel (HUD): D3D7 sampled texel middles, so linear gave the texel itself;
+     * at Scale > 1 it would mix in see-through neighbours */
     DrawState s = state;
     float g[4];
     if (tex && s.linear && topo == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST && pixel_rect(v, g) && g[1] == 0 && g[2] == 0 &&
@@ -712,7 +700,7 @@ void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawSt
         g_batch_clip = g_clip;
     }
     size_t first = g_batch.size();
-    if (type == D3DPT_TRIANGLEFAN) /* first vertex first, as D3D7 flat shading expects */
+    if (type == D3DPT_TRIANGLEFAN) /* first vertex first: D3D7 flat shading */
         for (uint32_t i = 1; i + 1 < count; i++)
             g_batch.insert(g_batch.end(), { v[0], v[i], v[i + 1] });
     else
@@ -722,8 +710,7 @@ void draw(D3DPRIMITIVETYPE type, const void *verts, uint32_t count, const DrawSt
             pixel_triangle(&g_batch[i]);
 }
 
-/* A 4-vertex strip over dst (game pixels) with the blit pixel shader or present shader.
- * Callers flush() before they bind their target and shader. */
+/* strip over dst (game pixels); callers flush() and bind target and pixel shader first */
 static void quad(const RECT &dst, float tw, float th, const float src[4], const uint32_t key[4])
 {
     BlitConstants bc;
@@ -823,7 +810,6 @@ void forget(const void *owner)
     g_sources.erase(it);
 }
 
-/* The whole back buffer, filtered by ps_present, into dst of a w x h target. */
 static void draw_back_buffer(ID3D11RenderTargetView *rtv, int w, int h, const RECT &dst)
 {
     D3D11_VIEWPORT vp = { 0, 0, (float)w, (float)h, 0, 1 };
@@ -836,7 +822,7 @@ static void draw_back_buffer(ID3D11RenderTargetView *rtv, int w, int h, const RE
     uint32_t k[4] = {};
     quad(dst, (float)w, (float)h, uv, k);
     ID3D11ShaderResourceView *none = nullptr;
-    g_ctx->PSSetShaderResources(0, 1, &none); /* the back buffer is a render target again next */
+    g_ctx->PSSetShaderResources(0, 1, &none); /* unbind: it is a render target next */
 }
 
 bool read_back(uint16_t *bits, int pitch)
@@ -844,7 +830,6 @@ bool read_back(uint16_t *bits, int pitch)
     if (!ready() || !g_small_rtv || !g_staging)
         return false;
     flush();
-    /* scale down into g_small, then copy to the CPU */
     draw_back_buffer(g_small_rtv, g_w, g_h, RECT{ 0, 0, g_w, g_h });
     g_ctx->CopyResource(g_staging, g_small);
     D3D11_MAPPED_SUBRESOURCE m;
@@ -873,7 +858,7 @@ static void resize_swap_chain()
     RECT rc;
     GetClientRect(g_hwnd, &rc);
     int w = rc.right, h = rc.bottom;
-    /* without a view the last resize failed half way: try again, or the window stays black */
+    /* no view: last resize failed half way, retry or the window stays black */
     if (w <= 0 || h <= 0 || (g_swap_rtv && w == g_swap_w && h == g_swap_h))
         return;
     release(g_swap_rtv);
@@ -895,33 +880,31 @@ void present(bool vsync)
     if (!ready())
         return;
     if (IsIconic(g_hwnd)) {
-        Sleep(16); /* nothing to show; without a vsynced Present the game loop would spin */
+        Sleep(16); /* else the game loop spins without a vsynced Present */
         return;
     }
     resize_swap_chain();
     if (!g_swap_rtv)
         return;
-    /* keep the game's aspect ratio inside the window: black bars on the sides or top */
     int w = g_swap_w, h = g_swap_w * g_h / g_w;
     if (h > g_swap_h) {
         h = g_swap_h;
         w = g_swap_h * g_w / g_h;
     }
-    /* 854x480 is not exactly 16:9, and a window is a whole number of pixels: fill it rather
-     * than leave bars thinner than 1 % */
+    /* 854x480 is not exactly 16:9, a window is whole pixels: no bars under 1 % */
     if (g_swap_w - w <= g_swap_w / 100)
         w = g_swap_w;
     if (g_swap_h - h <= g_swap_h / 100)
         h = g_swap_h;
     RECT dst = { (g_swap_w - w) / 2, (g_swap_h - h) / 2, (g_swap_w - w) / 2 + w, (g_swap_h - h) / 2 + h };
-    if (w < g_swap_w || h < g_swap_h) { /* the bars; a flip-discard buffer does not keep them */
+    if (w < g_swap_w || h < g_swap_h) { /* flip-discard does not keep the bars */
         float black[4] = { 0, 0, 0, 1 };
         g_ctx->ClearRenderTargetView(g_swap_rtv, black);
     }
     draw_back_buffer(g_swap_rtv, g_swap_w, g_swap_h, dst);
     HRESULT hr = g_swap->Present(vsync ? 1 : 0, 0);
     static bool said;
-    if (FAILED(hr) && !said) { /* a removed or reset device: every later frame fails the same way */
+    if (FAILED(hr) && !said) { /* device removed or reset: every later frame fails */
         said = true;
         log_printf("gpu: Present failed (%08lX), the picture stops", (unsigned long)hr);
     }
@@ -952,7 +935,7 @@ Texture *texture_create(int w, int h)
 void texture_upload(Texture *t, const uint16_t *bits, int pitch)
 {
     if (t == g_batch_tex)
-        flush(); /* draws already merged must still sample the old pixels */
+        flush(); /* merged draws must sample the old pixels */
     static std::vector<uint32_t> px;
     px.resize((size_t)t->w * t->h);
     for (int y = 0; y < t->h; y++) {

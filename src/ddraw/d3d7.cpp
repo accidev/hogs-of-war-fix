@@ -21,7 +21,7 @@ HRESULT STDMETHODCALLTYPE Direct3D::QueryInterface(REFIID riid, void **out)
     return E_NOINTERFACE;
 }
 
-/* What the game needs to see to pick the HAL device with A1R5G5B5 textures and alpha blending. */
+/* what the game needs to pick the HAL device with A1R5G5B5 textures and alpha blending */
 static void hal_caps(D3DDEVICEDESC7 &d)
 {
     memset(&d, 0, sizeof d);
@@ -73,7 +73,7 @@ HRESULT STDMETHODCALLTYPE Direct3D::EnumDevices(LPD3DENUMDEVICESCALLBACK7 cb, LP
 
 HRESULT STDMETHODCALLTYPE Direct3D::EnumZBufferFormats(REFCLSID, LPD3DENUMPIXELFORMATSCALLBACK cb, LPVOID ctx)
 {
-    /* one format only: the game appends every reported format to a list that is never reset */
+    /* one format only: the game appends every reported format to a list it never resets */
     DDPIXELFORMAT pf = {};
     pf.dwSize = sizeof pf;
     pf.dwFlags = DDPF_ZBUFFER;
@@ -87,9 +87,8 @@ HRESULT STDMETHODCALLTYPE Direct3D::CreateDevice(REFCLSID, LPDIRECTDRAWSURFACE7 
 {
     if (!rt)
         return DDERR_INVALIDPARAMS;
-    /* DirectX 7 switched the x87 FPU to single precision when a device was created unless
-     * DDSCL_FPUPRESERVE was set. The game never sets it, and its own float maths (aiming,
-     * ballistics) has always run in single precision, so keep that behaviour. */
+    /* DX7 set the x87 FPU to single precision at device creation unless DDSCL_FPUPRESERVE;
+     * the game never sets it, its float maths (aiming, ballistics) relies on that */
     if (!(dd->coop & DDSCL_FPUPRESERVE))
         _controlfp(_PC_24, _MCW_PC);
     *out = new Device(this, (Surface *)rt);
@@ -100,7 +99,7 @@ HRESULT STDMETHODCALLTYPE Direct3D::CreateDevice(REFCLSID, LPDIRECTDRAWSURFACE7 
 Device::Device(Direct3D *d, Surface *rt) : d3d(d), target(rt)
 {
     g_devices.push_back(this);
-    /* Direct3D 7 defaults for the states the game relies on */
+    /* D3D7 defaults the game relies on */
     rs[D3DRENDERSTATE_ZENABLE] = target->attached ? D3DZB_TRUE : D3DZB_FALSE;
     rs[D3DRENDERSTATE_ZWRITEENABLE] = TRUE;
     rs[D3DRENDERSTATE_ZFUNC] = D3DCMP_LESSEQUAL;
@@ -274,7 +273,7 @@ HRESULT STDMETHODCALLTYPE Device::DrawPrimitive(D3DPRIMITIVETYPE type, DWORD fvf
         once = true;
         return D3D_OK;
     }
-    /* States that cannot change the picture stay 0, so that more draws match and merge (gpu::draw). */
+    /* states that cannot change the picture stay 0, so more draws merge (gpu::draw) */
     gpu::DrawState s = {};
     s.blend = rs[D3DRENDERSTATE_ALPHABLENDENABLE] != 0;
     if (s.blend) {
@@ -301,7 +300,7 @@ HRESULT STDMETHODCALLTYPE Device::DrawPrimitive(D3DPRIMITIVETYPE type, DWORD fvf
             once = true;
         }
         s.fog = 1;
-        float far_fog = g_config.fog_distance / 100.f; /* exactly 1 by default */
+        float far_fog = g_config.fog_distance / 100.f;
         s.fog_start = as_float(rs[D3DRENDERSTATE_FOGSTART]) * far_fog;
         s.fog_end = as_float(rs[D3DRENDERSTATE_FOGEND]) * far_fog;
         s.fog_color = rs[D3DRENDERSTATE_FOGCOLOR];

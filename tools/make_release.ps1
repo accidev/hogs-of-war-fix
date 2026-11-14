@@ -1,8 +1,7 @@
-# Build the player package: dist\HogsFix and dist\HogsFix.zip. Run it with PowerShell 7 (pwsh):
-# Windows PowerShell 5.1 writes backslashes into the zip entry names.
-# Needs Visual Studio with C++ and CMake. Configures the build folder if it is not there (cmake -A Win32),
-# builds the Release ddraw.dll (target hogsdraw: the fixes and the renderer), and downloads ogg-winmm
-# (ayuanx/ogg-winmm v2025.01.16) into downloads\ once. The GitHub workflow .github\workflows\build.yml runs this same script.
+# Build the player package: dist\HogsFix and dist\HogsFix.zip. Run it with PowerShell 7 (pwsh): Windows PowerShell 5.1
+# writes backslashes into the zip entry names. Needs Visual Studio with C++ and CMake. Builds the Release ddraw.dll
+# (target hogsdraw) and downloads ogg-winmm (ayuanx/ogg-winmm v2025.01.16) into downloads\ once.
+# The GitHub workflow .github\workflows\build.yml runs this same script.
 $ErrorActionPreference = 'Stop'
 if ($PSVersionTable.PSVersion.Major -lt 7) { throw 'Run this with PowerShell 7 (pwsh): Windows PowerShell 5.1 writes backslashes into the zip entry names.' }
 $root = Split-Path $PSScriptRoot -Parent
@@ -29,15 +28,15 @@ Remove-Item -LiteralPath (Join-Path $root 'dist') -Recurse -Force -ErrorAction S
 New-Item -ItemType Directory -Force $files | Out-Null
 
 foreach ($f in 'patch.cmd', 'uninstall.cmd', 'patch.ps1', 'warhogs_v12.json', 'russian.cmd', 'russian-remove.cmd', 'russian.ps1') { Copy-Item (Join-Path $root "patcher\$f") $out }
-# the player scripts run in Windows PowerShell 5.1, which reads a file without a BOM in the ANSI code page of the PC
+# Windows PowerShell 5.1 reads a file without a BOM in the ANSI code page of the PC
 foreach ($f in 'patch.ps1', 'russian.ps1') {
     if ([IO.File]::ReadAllBytes((Join-Path $out $f)) -gt 127) { throw "$f is not ASCII" }
 }
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $out 'LICENSE.txt')
 Copy-Item (Join-Path $build 'src\ddraw\Release\ddraw.dll'), (Join-Path $root 'src\hogs\hogs.ini') $files
 
-# patch.ps1 recognises its own ddraw.dll by this text ($ddrawSig there), and hogs.ini is the players' file:
-# patch.ps1 adds its sections and settings to older ones, so it must hold nothing developer-only
+# patch.ps1 recognises its ddraw.dll by this text ($ddrawSig there); it adds the sections and settings of hogs.ini to
+# the players' files, so it must hold nothing developer-only
 $ddText = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes((Join-Path $files 'ddraw.dll')))
 if (-not $ddText.Contains('hogsdraw.log')) { throw 'ddraw.dll does not contain "hogsdraw.log": patch.ps1 could not recognise it' }
 # the patched exe imports CallDLL from ddraw.dll and does not start without it (the name stands between NULs in the export table)

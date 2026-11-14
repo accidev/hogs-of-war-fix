@@ -39,7 +39,7 @@ void unimplemented(const char *what)
         log_printf("UNIMPLEMENTED %s", what);
 }
 
-/* the game fixes, src/hogs/hogs.c: only in the patched game, which imports CallDLL from here */
+/* src/hogs/hogs.c: runs only in the patched game, which imports CallDLL from here */
 extern "C" void hogs_init(int vsync, int widescreen);
 
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
