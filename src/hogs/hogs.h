@@ -5,6 +5,8 @@
 #define GAME_WINDOW (*(HWND *)0x520860)
 #define GAME_CONFIG (*(BYTE **)0x520668) /* the game's settings block, allocated at start-up */
 #define FRONTEND (*(DWORD *)0x51F120)    /* not 0: a menu is on screen */
+#define MENU (*(const int **)0x51AAD8)   /* the menu the keys go to, a 0x48-byte record */
+#define KEY_WANTED (*(DWORD *)0x51AC50)  /* Options, Controls waits for the key to bind */
 
 extern char g_ini[MAX_PATH];
 
@@ -20,6 +22,10 @@ void __cdecl water_slide(void); /* called from _d3d.dll in place of its loop */
 
 /* net.c: network games through a lobby server, [Network] Server */
 void net_init(void);
+
+/* menu.c: the mouse in the menus; TRUE = the message is done */
+extern WNDPROC g_game_proc; /* MainWndProc, once hogs.c has taken the window's procedure over */
+BOOL menu_mouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 
 /* gamepad.c: XInput controllers */
 void gamepad_init(void);

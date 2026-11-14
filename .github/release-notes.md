@@ -1,11 +1,20 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v1.4.0**
+**New in v1.5.0**
+
+- The mouse works in the menus: point at a line to select it, click to enter, the right button goes back, the wheel moves up and down. In Options → Controls, click a line and press the key for it.
+- Network games are steadier. The menu no longer freezes while the game connects. A lost connection is noticed within 15 seconds, and a battle goes on for the players who stay; before, the player who lost the connection got a frozen game. A new game shows in the list within a second or two, not ten.
+- **All players of a network game need v1.5.0**: this version and v1.4.0 do not see each other's games.
+- The games online are also a web page: open the address from `[Network] Server` of `hogs.ini` in a browser, with `https://` in place of `wss://`.
+- The fix also installs on a copy of the game that is not from Steam: version 1.2 with a `warhogs.exe` without copy protection.
+- The game starts with the software renderer of Windows when the graphics card cannot be used.
+
+**v1.4.0**
 
 - Network games over the internet. In the game choose Multi-player, Network, then "- INTERNET -": you see the games of other players of the fix, and the last line makes your own. Nobody needs an open port, and players do not see each other's IP addresses. Two to four players, as in the game's own network play.
-- The list of games shows the players of each game and your ping: `BRAVO'S GAME 2-4 125MS`. Your name and a password for games with friends are in the new `[Network]` section of `hogs.ini`.
-- Watching another player's turn in a network battle is smooth now. It was shown at about 8 frames a second.
-- All players need v1.4.0. This is new and was tested with two copies of the game on one PC only: please report how it works between real PCs. To get the game's own network play back (local network, IP address), empty `Server=` in `[Network]`.
+- The list of games shows the players of each game and your ping: `BRAVO'S GAME 2-4 125MS`. Your name and a password for games with friends are in the `[Network]` section of `hogs.ini`.
+- Watching another player's turn in a network battle is smooth. It was shown at about 8 frames a second.
+- Tested with two copies of the game on one PC only: please report how it works between real PCs. To get the game's own network play back (local network, IP address), empty `Server=` in `[Network]`.
 
 **v1.3.2**
 
@@ -51,7 +60,9 @@ Video of the whole install: https://youtu.be/oBo27HB4x_4
 
 Update: extract the new zip over the old `HogsFix` folder and run `patch.cmd` again; your `hogs.ini` settings are kept. Uninstall: `HogsFix\uninstall.cmd`. Settings, controls and help: [README](https://github.com/accidev/hogs-of-war-fix#readme).
 
-**Что нового в v1.4.0**: сетевая игра через интернет. В игре выберите «Много игроков», «Сеть», затем «- INTERNET -»: откроется список игр других игроков с исправлением, последняя строка создаёт свою. Открывать порты не нужно, игроки не видят IP-адреса друг друга. В списке видно число игроков каждой игры и ваш пинг: `BRAVO'S GAME 2-4 125MS`. Имя и пароль для игры с друзьями задаются в новом разделе `[Network]` файла `hogs.ini`. Чужой ход в сетевом бою теперь идёт плавно, раньше он показывался примерно с 8 кадрами в секунду. У всех игроков должна быть версия 1.4.0. Возможность новая и проверена только на двух копиях игры на одном компьютере: напишите, как она работает у вас. Чтобы вернуть обычную сетевую игру (локальная сеть, IP-адрес), сотрите адрес в `Server=` раздела `[Network]`.
+**Что нового в v1.5.0**: в меню работает мышь. Наведение выбирает строку, щелчок входит, правая кнопка возвращает назад, колесо двигает выбор; в «Настройки → Управление» щёлкните строку и нажмите клавишу для неё. Сетевая игра стала устойчивее: меню не замирает при подключении, обрыв связи замечается за 15 секунд, и бой продолжается для оставшихся (раньше у игрока с оборванной связью игра зависала); новая игра появляется в списке за секунду-две, а не за десять. **У всех игроков сетевой игры должна быть версия 1.5.0**: она и 1.4.0 не видят игры друг друга. Игры онлайн видны и на веб-странице: откройте в браузере адрес из `[Network] Server` файла `hogs.ini`, заменив `wss://` на `https://`. Исправление ставится и на копию игры не из Steam: версию 1.2 с `warhogs.exe` без защиты от копирования. Если видеокарту использовать нельзя, игра запускается на программном рендере Windows.
+
+**v1.4.0**: сетевая игра через интернет. В игре выберите «Много игроков», «Сеть», затем «- INTERNET -»: откроется список игр других игроков с исправлением, последняя строка создаёт свою. Открывать порты не нужно, игроки не видят IP-адреса друг друга. В списке видно число игроков каждой игры и ваш пинг: `BRAVO'S GAME 2-4 125MS`. Имя и пароль для игры с друзьями задаются в разделе `[Network]` файла `hogs.ini`. Чужой ход в сетевом бою идёт плавно, раньше он показывался примерно с 8 кадрами в секунду. Проверено только на двух копиях игры на одном компьютере: напишите, как она работает у вас. Чтобы вернуть обычную сетевую игру (локальная сеть, IP-адрес), сотрите адрес в `Server=` раздела `[Network]`.
 
 **v1.3.2**: исправлен вылет с русским переводом. Игра закрывалась на экране, где называют команду или свинью, при нажатии D, S и ещё 13 клавиш с буквами. Если перевод уже стоит, после `patch.cmd` запустите `russian.cmd` ещё раз: он поставит версию 1.1.1 перевода. На этом экране клавиатура теперь печатает буквы включённой раскладки: русские при русской, латинские при английской.
 

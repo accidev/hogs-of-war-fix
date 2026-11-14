@@ -49,7 +49,8 @@ static LONGLONG now_us(void)
     LARGE_INTEGER c;
 
     QueryPerformanceCounter(&c);
-    return (c.QuadPart - g_qpc_start.QuadPart) * 1000000 / g_qpc_freq.QuadPart;
+    c.QuadPart -= g_qpc_start.QuadPart; /* in two parts: counts x 1000000 overflows within an hour at 3 GHz */
+    return c.QuadPart / g_qpc_freq.QuadPart * 1000000 + c.QuadPart % g_qpc_freq.QuadPart * 1000000 / g_qpc_freq.QuadPart;
 }
 
 /* timeGetTime on the now_us clock (1 ms steps are too coarse at 144 Hz); g_ms_lead: smallest
@@ -490,6 +491,7 @@ static void __fastcall mid_tick_frame(BYTE *renderer)
 enum { REMOTE_BUFFER = 6 };
 
 static BOOL g_remote_buffering;
+static BOOL g_remote_held;     /* the step was held back: the elapsed time is not a debt of ticks */
 static int g_remote_seen;      /* the queue's length at the last look, -1: no queue is played */
 static DWORD g_remote_since;   /* timeGetTime when it last grew or ran empty */
 
@@ -507,20 +509,19 @@ static int remote_backlog(BYTE *turn_manager)
     if (state == 2 || state == 0x12 || !player)
         return -1;
     n = *(int *)(player + 0x6118) - *(int *)(player + 0x611C); /* written, taken: a ring of 0x800 */
-    return n < 0 ? n + 0x800 : n;
+    return n & 0x7FF;
 }
 
 /* TRUE: do not call the step now. Else TICK_TIME lets the step run no more ticks than queued. */
 static BOOL hold_remote_tick(BYTE *turn_manager)
 {
-    static BOOL held; /* held back: the elapsed time is not a debt of ticks */
     int backlog = remote_backlog(turn_manager), period, late, most = 1;
     DWORD ms = timeGetTime();
 
     if (backlog < 0) {
         g_remote_seen = -1;
         g_remote_buffering = TRUE;
-        if (!held || !turn_manager)
+        if (!g_remote_held || !turn_manager)
             return FALSE;
     } else {
         if (backlog > g_remote_seen || (!backlog && g_remote_seen))
@@ -531,10 +532,10 @@ static BOOL hold_remote_tick(BYTE *turn_manager)
         else if (backlog >= REMOTE_BUFFER || ms - g_remote_since > 250) /* enough, or no more is coming */
             g_remote_buffering = FALSE;
         if (g_remote_buffering && (backlog || ms - g_remote_since < 1000))
-            return held = TRUE;
+            return g_remote_held = TRUE;
         if (!backlog) /* empty for a second: the step has its own ways with a silent player */
-            return held = FALSE;
-        if (!held)
+            return g_remote_held = FALSE;
+        if (!g_remote_held)
             most = backlog; /* never more ticks than the queue has: the step would spin for the rest */
     }
     period = *(int *)(turn_manager + 0x314);
@@ -545,7 +546,7 @@ static BOOL hold_remote_tick(BYTE *turn_manager)
     else if (backlog > 2 * REMOTE_BUFFER && late >= period && late < 2 * period)
         TICK_TIME = ms - 2 * period;
     if (late >= period)
-        held = FALSE;
+        g_remote_held = FALSE;
     return FALSE;
 }
 
@@ -577,6 +578,7 @@ static DWORD __cdecl battle_step(void)
     turn_manager = TURN_MANAGER;
     if ((result >= 2 && result <= 5) || !turn_manager) {
         g_battle = NULL; /* the battle is over */
+        g_remote_held = FALSE;
         return result;
     }
     period = *(int *)(turn_manager + 0x314);

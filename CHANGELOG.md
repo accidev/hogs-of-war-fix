@@ -2,14 +2,35 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
-## Unreleased
+## v1.5.0 — 2026-11-15
 
 ### Added
 
+- The mouse works in the menus. Point at a line to select it, click to enter, the right button goes back, the wheel moves up and down. This holds for the menus that are a list of lines, the Yes and No questions, the level list and the lists of network games. On the other screens (the team screen, the name screen) a click is Enter and the wheel moves the selection. In Options, Controls: click a line, then press the key for it. The cursor shows in the menus and hides in a battle.
+- The public lobby server shows the games online as a web page. Open the address from `[Network] Server` of `hogs.ini` in a browser, with `https://` in place of `wss://`.
 - The fix also installs on a copy of the game that is not from Steam: version 1.2 with a `warhogs.exe` that has no LaserLock copy protection, as disc-based copies have it. It is the same build of the game. `patch.cmd` turns that exe into the same patched exe it makes from the Steam one, so every fix works the same. `uninstall.cmd` puts the original `warhogs.exe` back, and `russian.cmd` works in such a folder too.
+
+### Changed
+
+- Network games of this version and of v1.4.0 do not see each other: all players of a game need the same version. The reason is the fix for player numbers below.
+- The list of network games is read from the server twice a second. The game read it every 5 seconds, so a new game took up to 10 seconds to appear.
+
+### Fixed
+
+- Network games: the game no longer stands still while it connects to the lobby server. With a server that did not answer, the menu froze for up to 25 seconds, again and again.
+- A lost connection is noticed within 15 seconds. Before, the game could wait for a dead connection without end, and the server kept a vanished player in the game for 90 seconds.
+- A player who lost the connection in a battle got a frozen game: it waited for the other players' turns for ever. Now the others count as having left, and the battle goes on to its end. The players who stay see the lost player leave, as before.
+- In a game of three or four, a player who joined after somebody had left could get the players in another order than the rest, and with it other player numbers.
+- Messages from other players are checked before the game reads them. The game took a player number from a message as it came and used it to find a place in its tables: a broken or hostile program on the other side could crash the game.
+- The game starts with the software renderer of Windows when the graphics card cannot be used, where it showed nothing before.
+- With the game window fully covered or the screen locked, the game no longer runs its loop at full speed.
+- A menu picture that the game copies from the screen came back slightly darker for a moment.
 
 ### Good to know
 
+- The public lobby server already runs the version that the 15 seconds above need. With an older server of your own a vanished player still stays for 90 seconds; everything else works with either.
+- Tested with two copies of the game on one PC: a battle through the public server and through a local one, a player whose process was frozen, and a server stopped in the middle of a battle. Not tested: more than two players, two PCs, a graphics card without a driver.
+- The mouse was tried with a real mouse in the main menus. The Yes and No questions, the level list and the lists of network games were added after that and tested with mouse messages sent to the game window.
 - Such a copy has no `MUSIC\TrackNN.ogg` files: the music plays from the game CD in the drive, as before the fix.
 - Checked: the patcher on such an exe, and that the result is the patched Steam exe byte for byte. Not tested: a game session on such a copy.
 

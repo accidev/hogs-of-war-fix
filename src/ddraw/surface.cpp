@@ -121,7 +121,7 @@ void Surface::wrote_cpu()
     version++;
     if (g_capturing && kind == Kind::Back)
         capture_note("CPU write to the back buffer (Lock, GetDC or blit): whole frame uploaded");
-    if (kind == Kind::Back && bits && gpu::ready()) {
+    if (kind == Kind::Back && bits && gpu::ready() && gpu::width() == w && gpu::height() == h) {
         gpu::write_back((const uint16_t *)bits, pitch);
         cpu_valid = true;
     }
@@ -185,15 +185,15 @@ static void cpu_blit(Surface *dst, const RECT &d, Surface *src, const RECT &s, i
         log_printf("blit %dbpp -> %dbpp not supported", src->bpp, dst->bpp);
         return;
     }
-    /* DirectDraw refuses a source rect outside the source */
-    if (s.left < 0 || s.top < 0 || s.right > src->w || s.bottom > src->h)
-        return;
     int dw = d.right - d.left, dh = d.bottom - d.top, sw = s.right - s.left, sh = s.bottom - s.top;
     if (sw == dw && sh == dh && key < 0 && !mx && !my) { /* plain copy, e.g. a texture page upload */
         int bytes = dw * dst->bpp / 8;
-        for (int y = 0; y < dh; y++)
+        bool up = dst == src && d.top > s.top; /* overlap on one surface: rows bottom up, as DirectDraw does */
+        for (int i = 0; i < dh; i++) {
+            int y = up ? dh - 1 - i : i;
             memmove(dst->bits + (d.top + y) * dst->pitch + d.left * dst->bpp / 8,
                     src->bits + (s.top + y) * src->pitch + s.left * src->bpp / 8, bytes);
+        }
         return;
     }
     for (int y = 0; y < dh; y++) {
@@ -237,6 +237,9 @@ static HRESULT do_blit(Surface *dst, RECT d, Surface *src, RECT s, int key, bool
         return DD_OK;
     }
     if (!clip(d, s, dst->w, dst->h, mx, my))
+        return DD_OK;
+    /* DirectDraw refuses a source rect outside the source */
+    if (s.left < 0 || s.top < 0 || s.right > src->w || s.bottom > src->h)
         return DD_OK;
     if (dst->kind == Kind::Back) {
         if (src->kind == Kind::Back) { /* back -> back: on the CPU copy */

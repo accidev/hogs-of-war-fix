@@ -227,8 +227,9 @@ static void flush();
 
 static bool check(HRESULT hr, const char *what)
 {
-    if (FAILED(hr))
-        log_printf("gpu: %s failed (0x%08lX)", what, hr);
+    static int logged; /* after a device failure every call fails, each line is flushed */
+    if (FAILED(hr) && logged < 20)
+        log_printf("gpu: %s failed (0x%08lX)%s", what, hr, ++logged == 20 ? ", further failures are not logged" : "");
     return SUCCEEDED(hr);
 }
 
@@ -340,9 +341,16 @@ bool init(HWND hwnd, int scale)
     g_hwnd = hwnd;
     g_scale_cfg = scale;
     D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0 };
-    if (!check(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, levels, 3, D3D11_SDK_VERSION,
-                                 &g_dev, nullptr, &g_ctx),
-               "D3D11CreateDevice"))
+    HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, levels, 3, D3D11_SDK_VERSION,
+                                   &g_dev, nullptr, &g_ctx);
+    if (FAILED(hr)) { /* no usable GPU or driver: WARP is slow but draws */
+        HRESULT hw = hr;
+        hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, levels, 3, D3D11_SDK_VERSION, &g_dev,
+                               nullptr, &g_ctx);
+        if (SUCCEEDED(hr))
+            log_printf("gpu: no hardware device (0x%08lX), the software renderer is in use", hw);
+    }
+    if (!check(hr, "D3D11CreateDevice"))
         return false;
 
     IDXGIDevice1 *xd = nullptr;
@@ -839,7 +847,8 @@ bool read_back(uint16_t *bits, int pitch)
         const uint8_t *s = (const uint8_t *)m.pData + y * m.RowPitch;
         uint16_t *d = (uint16_t *)((uint8_t *)bits + y * pitch);
         for (int x = 0; x < g_w; x++, s += 4)
-            d[x] = (uint16_t)((s[2] >> 3) << 11 | (s[1] >> 2) << 5 | s[0] >> 3);
+            /* rounded: shifts would darken the picture */
+            d[x] = (uint16_t)(((s[2] * 31 + 127) / 255) << 11 | ((s[1] * 63 + 127) / 255) << 5 | (s[0] * 31 + 127) / 255);
     }
     g_ctx->Unmap(g_staging, 0);
     return true;
@@ -873,6 +882,35 @@ static void resize_swap_chain()
     release(bb);
 }
 
+/* Where the game picture stands in the window: whole, or with bars at its own shape. */
+static RECT picture()
+{
+    int w = g_swap_w, h = g_swap_w * g_h / g_w;
+    if (h > g_swap_h) {
+        h = g_swap_h;
+        w = g_swap_h * g_w / g_h;
+    }
+    /* 854x480 is not exactly 16:9, a window is whole pixels: no bars under 1 % */
+    if (g_swap_w - w <= g_swap_w / 100)
+        w = g_swap_w;
+    if (g_swap_h - h <= g_swap_h / 100)
+        h = g_swap_h;
+    return RECT{ (g_swap_w - w) / 2, (g_swap_h - h) / 2, (g_swap_w - w) / 2 + w, (g_swap_h - h) / 2 + h };
+}
+
+/* For the mouse in the menus (hogs/menu.c): a point of the window in game pixels; false outside the picture. */
+extern "C" int hogsdraw_game_point(int *x, int *y)
+{
+    if (!ready() || !g_swap_w || !g_swap_h)
+        return 0;
+    RECT r = picture();
+    if (*x < r.left || *x >= r.right || *y < r.top || *y >= r.bottom)
+        return 0;
+    *x = (*x - r.left) * g_w / (r.right - r.left);
+    *y = (*y - r.top) * g_h / (r.bottom - r.top);
+    return 1;
+}
+
 void present(bool vsync)
 {
     flush();
@@ -884,25 +922,19 @@ void present(bool vsync)
         return;
     }
     resize_swap_chain();
-    if (!g_swap_rtv)
+    if (!g_swap_rtv) {
+        Sleep(16); /* failed resize: nothing to present, same spin */
         return;
-    int w = g_swap_w, h = g_swap_w * g_h / g_w;
-    if (h > g_swap_h) {
-        h = g_swap_h;
-        w = g_swap_h * g_w / g_h;
     }
-    /* 854x480 is not exactly 16:9, a window is whole pixels: no bars under 1 % */
-    if (g_swap_w - w <= g_swap_w / 100)
-        w = g_swap_w;
-    if (g_swap_h - h <= g_swap_h / 100)
-        h = g_swap_h;
-    RECT dst = { (g_swap_w - w) / 2, (g_swap_h - h) / 2, (g_swap_w - w) / 2 + w, (g_swap_h - h) / 2 + h };
-    if (w < g_swap_w || h < g_swap_h) { /* flip-discard does not keep the bars */
+    RECT dst = picture();
+    if (dst.left || dst.top) { /* flip-discard does not keep the bars */
         float black[4] = { 0, 0, 0, 1 };
         g_ctx->ClearRenderTargetView(g_swap_rtv, black);
     }
     draw_back_buffer(g_swap_rtv, g_swap_w, g_swap_h, dst);
     HRESULT hr = g_swap->Present(vsync ? 1 : 0, 0);
+    if (hr != S_OK)
+        Sleep(16); /* DXGI_STATUS_OCCLUDED (window covered, session locked) or a lost device: Present does not wait */
     static bool said;
     if (FAILED(hr) && !said) { /* device removed or reset: every later frame fails */
         said = true;

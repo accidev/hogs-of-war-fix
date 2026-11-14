@@ -151,7 +151,7 @@ void gamepad_poll(void)
         return;
     }
     g_held = read_pad(now);
-    if (!hwnd || (!g_test && GetForegroundWindow() != hwnd)) /* XInput also reports while another window has the focus */
+    if (g_held && (!hwnd || (!g_test && GetForegroundWindow() != hwnd))) /* XInput also reports while another window has the focus */
         g_held = 0;
     down = g_held & ~g_was_held;
     g_was_held = g_held;

@@ -30,6 +30,7 @@
 - **Wide-screen battles.** If your monitor is wider than 4:3, battles run in a resolution of its shape (16:9, 16:10, 21:9): the picture fills the screen and shows more to the sides instead of stretching. Menus and videos stay 4:3, with black bars. The game starts in the largest such resolution. Hold Shift while it starts to choose a smaller one: fewer lines give a larger HUD, and the picture stays as sharp. Wide screen was tested on 16:9 and on a simulated 21:9, so please report problems on other monitors.
 - **Computer pigs walk.** In the original PC game they stayed where they were on their turn, because their path finder never ran. Now they walk, at the same speed as your pigs (`[Battle] ComputerWalks`). This was checked in three computer turns; a whole campaign mission with walking computer pigs has not been played through yet.
 - **Network games over the internet.** The game's Network menu lists the games of other players of the fix, wherever they are. The player who watches another player's turn sees it as smoothly as their own. This is new, see below.
+- **The mouse in the menus.** Point at a line and click it; the right button goes back. The game's menus knew keys only.
 - **Camera zoom** with the mouse wheel or Numpad + and −.
 - **A usable gamepad.** Xbox controllers (XInput) work without setup, with the button layout of the PlayStation version (see Controls). The stick dead zone of other joysticks is 15 % instead of 50 %. The Xbox support is new and has been tested only with a simulated controller, not a real one, so please tell us how it works for you.
 - **Straight to the title screen.** There is no resolution dialog and no intro videos. You can turn both back on.
@@ -76,6 +77,8 @@ The game has network play for two to four players: **Multi-player**, then **Netw
 
 A line of the list reads like `BRAVO'S GAME 2-4 125MS`: two players of four are in that game, and your connection to the server and back takes 125 milliseconds.
 
+The games online are also a web page: open the address from `Server=` (see below) in a browser, with `https://` in place of `wss://`.
+
 The settings are in the `[Network]` section of `hogs.ini` in the game folder:
 
 - `Name=` is your name in network games. Without it you are PLAYER and a number.
@@ -93,7 +96,8 @@ Good to know:
 
 | Key | Action |
 |---|---|
-| Mouse wheel, Numpad + and − | Camera closer or farther, 50 to 200 % |
+| Mouse, in the menus | Pointing selects a line, the left button enters, the right button goes back, the wheel moves up and down. In Options → Controls: click a line, then press its key |
+| Mouse wheel, Numpad + and −, in a battle | Camera closer or farther, 50 to 200 % |
 | Shift, held while the game starts | Resolution and detail dialog. Fewer lines give a larger HUD |
 | F11 | 10 promotion points, if the cheat is on (see below) |
 

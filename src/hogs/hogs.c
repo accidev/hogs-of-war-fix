@@ -196,9 +196,9 @@ static void fix_renderer(HMODULE renderer)
 
         memcpy(loop + 1, &grid, 4);
         memcpy(call + 1, &rel, 4);
-        g_water_y = (float *)(ULONG_PTR)grid;
-        if (!patch(base + 0xB4C2, loop, call, 7, "renderer: water moves by the clock"))
-            g_water_y = NULL;
+        /* a second load of the patched module must leave the pointer alone */
+        if (patch(base + 0xB4C2, loop, call, 7, "renderer: water moves by the clock"))
+            g_water_y = (float *)(ULONG_PTR)grid;
     }
 
     if (g_widescreen) {
@@ -249,9 +249,7 @@ static void zoom_camera(int step)
 
 /* Name screen (menu+0x24 == 0): MainWndProc gives A-Z and Space to FUN_0042E440, which presses the cell of
  * the Latin letter in the grid (strchr). A key now means the character the layout types, if the grid has it. */
-#define MENU (*(const int **)0x51AAD8)       /* the menu the keys go to */
 #define NAME_GRID (*(const char **)0x51AAF4) /* the letter grid, as the name screen last drew it */
-#define KEY_WANTED (*(DWORD *)0x51AC50)      /* Options, Controls waits for the key to bind */
 
 static BOOL g_name_cell; /* name_cell() hooked */
 static char g_cell;      /* text byte of the current key, 0: its Latin letter */
@@ -292,12 +290,14 @@ static const char *__cdecl name_cell(const char *grid, int letter)
     return at ? at : grid + strlen(grid) + 3;
 }
 
-static WNDPROC g_game_proc;
+WNDPROC g_game_proc;
 
 static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
     LRESULT r;
 
+    if (menu_mouse(hwnd, msg, wp, lp))
+        return msg == WM_SETCURSOR;
     if (msg == WM_MOUSEWHEEL) {
         for (g_wheel += GET_WHEEL_DELTA_WPARAM(wp); g_wheel >= WHEEL_DELTA; g_wheel -= WHEEL_DELTA)
             zoom_camera(-10); /* wheel forward: closer */
@@ -526,10 +526,15 @@ static BOOL(WINAPI *g_peek_message)(LPMSG, HWND, UINT, UINT, UINT);
 
 static BOOL WINAPI peek_message(LPMSG msg, HWND hwnd, UINT first, UINT last, UINT remove)
 {
+    static DWORD menus;
     HWND game = GAME_WINDOW;
 
     if (game && IsIconic(game))
         MsgWaitForMultipleObjectsEx(0, NULL, 50, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+    /* WM_SETCURSOR comes with a mouse move only: the arrow of the menus would stay over the battle */
+    if (menus && !FRONTEND)
+        SetCursor(NULL);
+    menus = FRONTEND;
     gamepad_poll();
     return g_peek_message(msg, hwnd, first, last, remove);
 }
