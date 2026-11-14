@@ -187,12 +187,29 @@ void gamepad_poll(void)
     }
 }
 
+BYTE __cdecl read_keys(BYTE *keys)
+{
+    static BYTE(__cdecl *const read_keyboard)(BYTE *) = (BYTE(__cdecl *)(BYTE *))0x44CBB0;
+    static const BYTE kMouse[5] = { VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2 };
+    BYTE ok = read_keyboard(keys);
+    int i;
+
+    if (!ok)
+        memset(keys, 0, 256);
+    if (GAME_WINDOW && GetForegroundWindow() == GAME_WINDOW)
+        for (i = 0; i < 5; i++)
+            if (GetAsyncKeyState(kMouse[i]) < 0) {
+                keys[MOUSE_KEY + i] = 0x80;
+                ok = 1;
+            }
+    return ok;
+}
+
 /* Replaces the keyboard read; edi there is the player. */
 static BYTE __cdecl keyboard_state(BYTE *keys, const BYTE *player)
 {
-    static BYTE(__cdecl *const read_keyboard)(BYTE *) = (BYTE(__cdecl *)(BYTE *))0x44CBB0;
     const WORD *bound = (const WORD *)(player + 0x108);
-    BYTE ok = read_keyboard(keys);
+    BYTE ok = read_keys(keys);
     WORD buttons;
     int i;
 
@@ -249,6 +266,7 @@ void gamepad_init(void)
     BYTE push[5] = { 0x68 };
     void *callback = (void *)enum_joystick;
     int deadzone = GetPrivateProfileIntA("Gamepad", "XInputDeadzone", 30, g_ini);
+    BOOL keys = hook(0x45D72D, 0xE8, "\xE8\x7E\xF4\xFE\xFF", keyboard_state_stub, "input: mouse and XInput buttons as bound keys");
 
     if (!GetPrivateProfileIntA("Gamepad", "XInput", 1, g_ini))
         return;
@@ -257,6 +275,5 @@ void gamepad_init(void)
     g_next_scan = timeGetTime();
 
     memcpy(push + 1, &callback, 4);
-    g_enabled = hook(0x45D72D, 0xE8, "\xE8\x7E\xF4\xFE\xFF", keyboard_state_stub, "gamepad: XInput buttons as bound keys") &&
-                patch(0x44C8DE, "\x68\x00\xC7\x44\x00", push, 5, "gamepad: XInput pads not as joysticks");
+    g_enabled = keys && patch(0x44C8DE, "\x68\x00\xC7\x44\x00", push, 5, "gamepad: XInput pads not as joysticks");
 }

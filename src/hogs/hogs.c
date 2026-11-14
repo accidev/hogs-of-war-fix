@@ -296,7 +296,7 @@ static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
 {
     LRESULT r;
 
-    if (menu_mouse(hwnd, msg, wp, lp))
+    if (menu_input(hwnd, msg, wp, lp))
         return msg == WM_SETCURSOR;
     if (msg == WM_MOUSEWHEEL) {
         for (g_wheel += GET_WHEEL_DELTA_WPARAM(wp); g_wheel >= WHEEL_DELTA; g_wheel -= WHEEL_DELTA)
@@ -635,6 +635,7 @@ static void apply_fixes(int vsync, int widescreen)
 
     frames_init(vsync);
     gamepad_init();
+    menu_init();
     net_init();
 
     if (GetPrivateProfileIntA("Cheats", "PromotionPoints", 0, g_ini)) {

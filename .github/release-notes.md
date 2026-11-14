@@ -1,8 +1,15 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v1.5.0**
+**New in v1.5.1**
 
-- The mouse works in the menus: point at a line to select it, click to enter, the right button goes back, the wheel moves up and down. In Options → Controls, click a line and press the key for it.
+- Options → Controls shows every action on one screen: each of the twelve slots holds one action, the name over the key. The game showed six lines and scrolled.
+- Mouse buttons can be keys: choose an action and press a mouse button. The screen shows it as MOUSE 1 to MOUSE 5, and in a battle the button does that action.
+- Delete on that screen puts the default keys back.
+- This screen was tested with keys and mouse messages sent to the game window, not yet by hand with a real key or mouse button: please report what does not work.
+
+**v1.5.0**
+
+- The mouse works in the menus: point at a line to select it, click to enter, the right button goes back, the wheel moves up and down.
 - Network games are steadier. The menu no longer freezes while the game connects. A lost connection is noticed within 15 seconds, and a battle goes on for the players who stay; before, the player who lost the connection got a frozen game. A new game shows in the list within a second or two, not ten.
 - **All players of a network game need v1.5.0**: this version and v1.4.0 do not see each other's games.
 - The games online are also a web page: open the address from `[Network] Server` of `hogs.ini` in a browser, with `https://` in place of `wss://`.
@@ -60,7 +67,9 @@ Video of the whole install: https://youtu.be/oBo27HB4x_4
 
 Update: extract the new zip over the old `HogsFix` folder and run `patch.cmd` again; your `hogs.ini` settings are kept. Uninstall: `HogsFix\uninstall.cmd`. Settings, controls and help: [README](https://github.com/accidev/hogs-of-war-fix#readme).
 
-**Что нового в v1.5.0**: в меню работает мышь. Наведение выбирает строку, щелчок входит, правая кнопка возвращает назад, колесо двигает выбор; в «Настройки → Управление» щёлкните строку и нажмите клавишу для неё. Сетевая игра стала устойчивее: меню не замирает при подключении, обрыв связи замечается за 15 секунд, и бой продолжается для оставшихся (раньше у игрока с оборванной связью игра зависала); новая игра появляется в списке за секунду-две, а не за десять. **У всех игроков сетевой игры должна быть версия 1.5.0**: она и 1.4.0 не видят игры друг друга. Игры онлайн видны и на веб-странице: откройте в браузере адрес из `[Network] Server` файла `hogs.ini`, заменив `wss://` на `https://`. Исправление ставится и на копию игры не из Steam: версию 1.2 с `warhogs.exe` без защиты от копирования. Если видеокарту использовать нельзя, игра запускается на программном рендере Windows.
+**Что нового в v1.5.1**: экран «Настройки → Управление» показывает все действия сразу. В каждом из двенадцати гнёзд доски одно действие: название и под ним клавиша; раньше игра показывала шесть строк и прокручивала их. Кнопки мыши назначаются как клавиши: выберите действие и нажмите кнопку мыши, на экране она называется MOUSE 1 – MOUSE 5 (с русским переводом — МЫШЬ), в бою кнопка делает это действие. Delete на этом экране возвращает исходные клавиши. Экран проверен клавишами и сообщениями мыши, посланными в окно игры, но ещё не руками с настоящей клавишей и кнопкой мыши: напишите, если что-то не работает.
+
+**v1.5.0**: в меню работает мышь. Наведение выбирает строку, щелчок входит, правая кнопка возвращает назад, колесо двигает выбор. Сетевая игра стала устойчивее: меню не замирает при подключении, обрыв связи замечается за 15 секунд, и бой продолжается для оставшихся (раньше у игрока с оборванной связью игра зависала); новая игра появляется в списке за секунду-две, а не за десять. **У всех игроков сетевой игры должна быть версия 1.5.0**: она и 1.4.0 не видят игры друг друга. Игры онлайн видны и на веб-странице: откройте в браузере адрес из `[Network] Server` файла `hogs.ini`, заменив `wss://` на `https://`. Исправление ставится и на копию игры не из Steam: версию 1.2 с `warhogs.exe` без защиты от копирования. Если видеокарту использовать нельзя, игра запускается на программном рендере Windows.
 
 **v1.4.0**: сетевая игра через интернет. В игре выберите «Много игроков», «Сеть», затем «- INTERNET -»: откроется список игр других игроков с исправлением, последняя строка создаёт свою. Открывать порты не нужно, игроки не видят IP-адреса друг друга. В списке видно число игроков каждой игры и ваш пинг: `BRAVO'S GAME 2-4 125MS`. Имя и пароль для игры с друзьями задаются в разделе `[Network]` файла `hogs.ini`. Чужой ход в сетевом бою идёт плавно, раньше он показывался примерно с 8 кадрами в секунду. Проверено только на двух копиях игры на одном компьютере: напишите, как она работает у вас. Чтобы вернуть обычную сетевую игру (локальная сеть, IP-адрес), сотрите адрес в `Server=` раздела `[Network]`.
 

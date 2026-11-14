@@ -23,10 +23,13 @@ void __cdecl water_slide(void); /* called from _d3d.dll in place of its loop */
 /* net.c: network games through a lobby server, [Network] Server */
 void net_init(void);
 
-/* menu.c: the mouse in the menus; TRUE = the message is done */
+/* menu.c: the mouse in the menus and the Controls screen; menu_input: TRUE = the message is done */
 extern WNDPROC g_game_proc; /* MainWndProc, once hogs.c has taken the window's procedure over */
-BOOL menu_mouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+void menu_init(void);
+BOOL menu_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 
-/* gamepad.c: XInput controllers */
+/* gamepad.c: XInput controllers, and mouse buttons as keys */
+#define MOUSE_KEY 0xF0 /* the five mouse buttons in the game's 256 key bytes: codes no keyboard has */
 void gamepad_init(void);
-void gamepad_poll(void); /* from the game's message loops, peek_message() */
+void gamepad_poll(void);            /* from the game's message loops, peek_message() */
+BYTE __cdecl read_keys(BYTE *keys); /* the game's keyboard read (FUN_0044CBB0) and the mouse buttons */

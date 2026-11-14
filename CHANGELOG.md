@@ -2,6 +2,20 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v1.5.1 — 2026-11-15
+
+### Added
+
+- Options, Controls shows every action on one screen. The game showed six of twelve lines and scrolled; now each of the twelve slots of its board holds one action, the name over the key. The four arrow keys move between them, and the mouse points at a slot.
+- Mouse buttons can be keys. In Options, Controls choose an action and press a mouse button: the screen shows it as MOUSE 1 to MOUSE 5 (left, right, middle and the two side buttons), and in a battle the button does that action.
+- Delete on that screen puts the game's default keys back; a click on the line over the title does the same.
+
+### Good to know
+
+- Tested with keys and mouse messages sent to the game window, in the English game and with the Russian translation: the screen, the arrows, pointing, the default keys, the names of mouse buttons. Not tested: binding a key or a mouse button by a real press, and a mouse button in a battle.
+- A key that is already used goes to the other action, as before: the two actions swap keys.
+- The mouse-button keys work with `[Gamepad] XInput=0` too.
+
 ## v1.5.0 — 2026-11-15
 
 ### Added
