@@ -13,7 +13,7 @@ $dgvRev = '6943c20'                        # the last commit before the patcher 
 function Need([string]$rel, [string]$what) {
     if (-not [IO.File]::Exists((Join-Path $repo $rel))) { throw "test_patcher: $rel is missing ($what)" }
 }
-foreach ($f in 'patch.cmd', 'patch.ps1', 'warhogs_v12.json', 'files\ddraw.dll', 'files\hogs.ini', 'files\winmm.dll', 'files\winmm.ini') {
+foreach ($f in 'patch.cmd', 'patch.ps1', 'russian.cmd', 'russian.ps1', 'warhogs_v12.json', 'files\ddraw.dll', 'files\hogs.ini', 'files\winmm.dll', 'files\winmm.ini') {
     Need "dist\HogsFix\$f" 'build the package first: tools\make_release.ps1'
 }
 Need 'backup\warhogs_.exe.orig' 'a copy of the original Steam v1.2 warhogs_.exe; the folder is not in git'
@@ -203,13 +203,14 @@ function Snap([string]$game) {   # every file under the game folder except the H
 }
 function SameSnap($a, $b) { (($a -join "`n") -ceq ($b -join "`n")) }
 function DiffSnap($a, $b) { (Compare-Object $a $b | ForEach-Object { '{0} {1}' -f $_.SideIndicator, $_.InputObject }) -join '; ' }
-function RunPatch([string]$pkg, [string[]]$extra = @(), [string]$cwd = '') {
+function RunPatch([string]$pkg, [string[]]$extra = @(), [string]$cwd = '', [string]$script = 'patch.ps1') {
     $here = Get-Location
     if ($cwd) { Set-Location -LiteralPath $cwd }
     $ErrorActionPreference = 'Continue'
     try {
         $sw = [Diagnostics.Stopwatch]::StartNew()
-        $out = & $ps51 -NoProfile -ExecutionPolicy Bypass -File (Join-Path $pkg 'patch.ps1') @extra 2>&1 | Out-String
+        # the empty input stands for "no keyboard": patch.ps1 asks its question (the Russian translation) only of a person
+        $out = '' | & $ps51 -NoProfile -ExecutionPolicy Bypass -File (Join-Path $pkg $script) @extra 2>&1 | Out-String
         $code = $LASTEXITCODE
     } finally { Set-Location -LiteralPath $here; $ErrorActionPreference = 'Stop' }
     [pscustomobject]@{ Code = $code; Out = $out; Ms = $sw.ElapsedMilliseconds }

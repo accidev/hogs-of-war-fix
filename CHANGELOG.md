@@ -2,6 +2,23 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`; the technical details of every change are in [docs/WORKLOG.md](docs/WORKLOG.md) (in Russian).
 
+## v1.3.0 — 2026-11-14
+
+### Added
+
+- The Russian translation of the game can be installed from the fix: `russian.cmd` downloads it (about 330 MB: text, fonts, videos and voices), checks it and puts it into the game folder. `russian-remove.cmd` puts the English files back. The translation is not part of the fix: it comes from [hogs-of-war-ru](https://github.com/accidev/hogs-of-war-ru).
+- On a PC whose display language is Russian, `patch.cmd` asks whether to install the translation.
+
+### Changed
+
+- `uninstall.cmd` also removes the translation, if `russian.cmd` installed it.
+
+### Good to know
+
+- Nothing in the game itself changed: the fixes and the renderer are those of v1.2.2.
+- `russian.cmd` is the only script of the fix that uses the internet. It accepts only the release of the translation whose checksum is written in it, and only game data: text, fonts, pictures, videos and sound in the folders `FEText`, `Language` and `Speech`.
+- The English files that the translation replaces are kept in the `english.orig` folder of the game.
+
 ## v1.2.2 — 2026-11-14
 
 ### Fixed

@@ -2,7 +2,7 @@
 # tools\make_release.ps1 builds. Developer tool, not shipped.
 #
 #   pwsh tools\test_patcher.ps1              all scenarios
-#   pwsh tools\test_patcher.ps1 -Which B     one scenario: A B C D E F G H I X or Y
+#   pwsh tools\test_patcher.ps1 -Which B     one scenario: A B C D E F G H I R X or Y
 #
 # Needs: PowerShell 7 (pwsh) to run it, Windows PowerShell 5.1 (the patcher under test runs in it), git
 # (scenarios B and I build older releases from history) and, in the repo:
@@ -21,8 +21,9 @@
 #   C  hand-installed dgVoodoo kept as *.orig        I  interrupted update and -Restore (locked files)
 #   D  refuses when a *.orig is in the way           X  missing package file, unknown exe, old switches, patch.cmd
 #   E  hogs.ini variants: what the update adds    Y  foreign ddraw.dll later, leftovers, logs, locked file
+#   R  russian.ps1 with a stand-in zip (no download): install, second run, -Remove, refused zips, patch.ps1 -Restore
 [CmdletBinding()]
-param([ValidateSet('All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'X', 'Y')][string]$Which = 'All')
+param([ValidateSet('All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'R', 'X', 'Y')][string]$Which = 'All')
 if ($PSVersionTable.PSVersion.Major -lt 7) { throw 'test_patcher: run it with PowerShell 7: pwsh tools\test_patcher.ps1' }
 . (Join-Path $PSScriptRoot 'test_patcher_lib.ps1')
 
@@ -445,8 +446,83 @@ function ScenY {
     Check 'X12' 're-run after the lock is gone: finishes the update (ddraw.dll = new one)' (($r.Code -eq 0) -and ((FileSha $g 'ddraw.dll') -eq $newDd)) "exit $($r.Code)"
 }
 
+# A stand-in for the translation zip: entry name -> text of the file.
+function RuZip([string]$path, [hashtable]$entries) {
+    if (Has $path) { [IO.File]::Delete($path) }
+    $z = [IO.Compression.ZipFile]::Open($path, 'Create')
+    try {
+        foreach ($k in $entries.Keys) {
+            $s = $z.CreateEntry($k).Open()
+            $b = [Text.Encoding]::ASCII.GetBytes($entries[$k])
+            $s.Write($b, 0, $b.Length); $s.Dispose()
+        }
+    } finally { $z.Dispose() }
+}
+
+function ScenR {
+    $g = NewGame 'R'; $pkg = AddPkg $g
+    $text = { param($rel) $p = Join-Path $g $rel; if (Has $p) { [IO.File]::ReadAllText($p) } else { '(absent)' } }
+    foreach ($f in 'FEText\BIG.tab', 'Language\Text\fetext.bin', 'Speech\Sku1\Pig01\01AM0101.wav', 'Speech\Sku1\Pig01\untouched.wav') {
+        $p = Join-Path $g $f; [void][IO.Directory]::CreateDirectory((Split-Path $p -Parent)); [IO.File]::WriteAllText($p, "english $f")
+    }
+    $s0 = Snap $g
+    $zip = Join-Path $T 'R\ru.zip'
+    $good = @{ 'FEText/BIG.tab' = 'russian tab'; 'FEText/macfont.tab' = 'new file'; 'Language/Text/fetext.bin' = 'russian text'; 'Speech/Sku1/Pig01/01AM0101.wav' = 'russian wav' }
+    $ru = { param([string[]]$extra) RunPatch $pkg ($extra + @('-GameDir', $g)) '' 'russian.ps1' }
+
+    RuZip $zip $good
+    $r = & $ru @('-Zip', $zip)
+    Check 'R1' 'russian.ps1 -Zip installs' (($r.Code -eq 0) -and ($r.Out -match 'Russian translation installed')) "exit $($r.Code): $((Short $r.Out).Substring(0, [Math]::Min(100, (Short $r.Out).Length)))"
+    Check 'R1' 'the game files are the Russian ones, the new file is there' (((& $text 'FEText\BIG.tab') -eq 'russian tab') -and ((& $text 'Language\Text\fetext.bin') -eq 'russian text') -and
+        ((& $text 'Speech\Sku1\Pig01\01AM0101.wav') -eq 'russian wav') -and ((& $text 'FEText\macfont.tab') -eq 'new file'))
+    Check 'R1' 'a file the zip does not hold is untouched' ((& $text 'Speech\Sku1\Pig01\untouched.wav') -eq 'english Speech\Sku1\Pig01\untouched.wav')
+    Check 'R1' 'english.orig holds the English files' (((& $text 'english.orig\FEText\BIG.tab') -eq 'english FEText\BIG.tab') -and ((& $text 'english.orig\Speech\Sku1\Pig01\01AM0101.wav') -eq 'english Speech\Sku1\Pig01\01AM0101.wav'))
+    Check 'R1' 'added.txt names the new file, version.txt is written' (((& $text 'english.orig\added.txt').Trim() -eq 'FEText\macfont.tab') -and ((& $text 'english.orig\version.txt') -match '^\d+\.\d+\.\d+\s*$')) (Short (& $text 'english.orig\added.txt'))
+
+    $good2 = $good.Clone(); $good2['FEText/BIG.tab'] = 'russian tab, newer'
+    RuZip $zip $good2
+    $r = & $ru @('-Zip', $zip)
+    Check 'R2' 'second run with a newer zip: the game file is the newer one' (($r.Code -eq 0) -and ((& $text 'FEText\BIG.tab') -eq 'russian tab, newer')) "exit $($r.Code)"
+    Check 'R2' 'second run: english.orig still holds the English file, added.txt has one line' (((& $text 'english.orig\FEText\BIG.tab') -eq 'english FEText\BIG.tab') -and
+        (@((& $text 'english.orig\added.txt').Trim() -split '\r?\n').Count -eq 1) -and -not (Has (Join-Path $g 'english.orig\FEText\macfont.tab')))
+
+    $r = & $ru @('-Remove')
+    Check 'R3' '-Remove: tree identical to the one before the translation' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) (DiffSnap $s0 (Snap $g))
+    $r = & $ru @('-Remove')
+    Check 'R3' '-Remove with nothing installed: exit 0 and says so' (($r.Code -eq 0) -and ($r.Out -match 'not installed') -and (SameSnap $s0 (Snap $g))) "exit $($r.Code)"
+
+    foreach ($bad in @('a program', 'FEText/run.exe'), @('a file outside the three folders', 'Data/x.bmp'), @('a path that climbs out', 'FEText/../../x.bmp'),
+                      @('a file in the game folder itself', 'x.bmp'), @('an absolute path', '/FEText/x.bmp')) {
+        $e = $good.Clone(); $e[$bad[1]] = 'x'
+        RuZip $zip $e
+        $r = & $ru @('-Zip', $zip)
+        Check 'R4' "zip with $($bad[0]) ($($bad[1])): refused, nothing changed" (($r.Code -ne 0) -and ($r.Out -match 'not game data') -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
+    }
+    $r = & $ru @('-Zip', (Join-Path $T 'R\none.zip'))
+    Check 'R4' 'a zip that does not exist: fails, nothing changed' (($r.Code -ne 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code)"
+
+    RuZip $zip $good
+    $r = RunPatch $pkg
+    Check 'R5' 'patch.ps1 with no keyboard: installs the fix and does not offer the translation' (($r.Code -eq 0) -and ($r.Out -match 'Done\. Start the game') -and -not (Has (Join-Path $g 'english.orig\version.txt'))) "exit $($r.Code)"
+    $r = & $ru @('-Zip', $zip)
+    $r2 = RunPatch $pkg
+    Check 'R5' 'patch.ps1 again over the translation: finishes, translation stays' (($r.Code -eq 0) -and ($r2.Code -eq 0) -and ((& $text 'FEText\BIG.tab') -eq 'russian tab')) "exit $($r.Code), $($r2.Code)"
+    $r = RunPatch $pkg @('-Restore')
+    Check 'R5' 'patch.ps1 -Restore removes the translation too: tree identical to the original' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
+
+    $dummyDir = Join-Path $T 'R\dummy'; [void][IO.Directory]::CreateDirectory($dummyDir)
+    $dummy = Join-Path $dummyDir 'warhogs_.exe'
+    Copy-Item -LiteralPath (Join-Path $env:SystemRoot 'System32\ping.exe') -Destination $dummy
+    $p = Start-Process -FilePath $dummy -ArgumentList '-n', '300', '127.0.0.1' -WindowStyle Hidden -PassThru
+    try {
+        Start-Sleep -Milliseconds 800
+        $r = & $ru @('-Zip', $zip)
+        Check 'R6' 'refused while the game runs, nothing changed' (($r.Code -ne 0) -and ($r.Out -match 'Hogs of War is running') -and (SameSnap $s0 (Snap $g))) "exit $($r.Code)"
+    } finally { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500 }
+}
+
 if (Get-Process -Name warhogs_ -ErrorAction SilentlyContinue) { throw 'test_patcher: close Hogs of War first (the patcher refuses to run while it is running)' }
-$list = if ($Which -eq 'All') { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'X', 'Y' } else { $Which }
+$list = if ($Which -eq 'All') { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'R', 'X', 'Y' } else { $Which }
 CleanDir $T   # left over from an aborted run
 [void][IO.Directory]::CreateDirectory($T)
 try {

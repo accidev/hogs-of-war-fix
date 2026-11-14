@@ -1,6 +1,12 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v1.2.2**
+**New in v1.3.0**
+
+- The Russian translation of the game (text, fonts, videos and voices) can be installed from the fix. Double-click `HogsFix\russian.cmd`: it downloads the translation (about 330 MB) from [hogs-of-war-ru](https://github.com/accidev/hogs-of-war-ru), checks it and puts it into the game folder. On a PC whose display language is Russian, `patch.cmd` asks whether to do this.
+- `HogsFix\russian-remove.cmd` puts the English files back; `uninstall.cmd` does it too.
+- Nothing in the game itself changed since v1.2.2.
+
+**v1.2.2**
 
 - Fixed: water ran too fast on monitors above 25 Hz, up to 14 times the original speed on 360 Hz. It moves at the original speed now.
 - Fixed: thin see-through lines between the pieces of the HUD (the timer, the weapon window).
@@ -29,7 +35,9 @@ Video of the whole install: https://youtu.be/oBo27HB4x_4
 
 Update: extract the new zip over the old `HogsFix` folder and run `patch.cmd` again; your `hogs.ini` settings are kept. Uninstall: `HogsFix\uninstall.cmd`. Settings, controls and help: [README](https://github.com/accidev/hogs-of-war-fix#readme).
 
-**Что нового в v1.2.2**: вода больше не течёт слишком быстро на мониторах с высокой частотой (на 360 Гц она шла в 14 раз быстрее оригинала). Убраны тонкие просвечивающие полоски между частями интерфейса (часы, окно оружия). Имена над свиньями больше не съезжают на головы в больших разрешениях. С `[Display] Widescreen=1` на широком мониторе бои теперь широкие и тогда, когда раньше было сохранено разрешение 4:3. Игра запускается в самом большом разрешении для вашего монитора. Интерфейс рисуется в пикселях игры: чтобы он был крупнее, зажмите Shift при запуске и выберите меньше строк, чёткость картинки та же.
+**Что нового в v1.3.0**: русский перевод игры (текст, шрифты, ролики и озвучка) теперь ставится из исправления. Дважды щёлкните `HogsFix\russian.cmd`: он скачает перевод (около 330 МБ) из репозитория [hogs-of-war-ru](https://github.com/accidev/hogs-of-war-ru), проверит его и положит в папку игры. На компьютере с русским языком Windows `patch.cmd` сам спросит, ставить ли перевод. Английский возвращает `HogsFix\russian-remove.cmd`, а также `uninstall.cmd`. В самой игре с v1.2.2 ничего не изменилось.
+
+**v1.2.2**: вода больше не течёт слишком быстро на мониторах с высокой частотой (на 360 Гц она шла в 14 раз быстрее оригинала). Убраны тонкие просвечивающие полоски между частями интерфейса (часы, окно оружия). Имена над свиньями больше не съезжают на головы в больших разрешениях. С `[Display] Widescreen=1` на широком мониторе бои теперь широкие и тогда, когда раньше было сохранено разрешение 4:3. Игра запускается в самом большом разрешении для вашего монитора. Интерфейс рисуется в пикселях игры: чтобы он был крупнее, зажмите Shift при запуске и выберите меньше строк, чёткость картинки та же.
 
 **v1.2.1**: настройка `[Display] Windowed` убрана, с `Windowed=0` игра работала невидимо. Полный экран включает `[Display] Borderless=1`.
 

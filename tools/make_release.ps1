@@ -28,7 +28,11 @@ if ($LASTEXITCODE) { throw 'build failed' }
 Remove-Item -LiteralPath (Join-Path $root 'dist') -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $files | Out-Null
 
-Copy-Item (Join-Path $root 'patcher\patch.cmd'), (Join-Path $root 'patcher\uninstall.cmd'), (Join-Path $root 'patcher\patch.ps1'), (Join-Path $root 'patcher\warhogs_v12.json') $out
+foreach ($f in 'patch.cmd', 'uninstall.cmd', 'patch.ps1', 'warhogs_v12.json', 'russian.cmd', 'russian-remove.cmd', 'russian.ps1') { Copy-Item (Join-Path $root "patcher\$f") $out }
+# the player scripts run in Windows PowerShell 5.1, which reads a file without a BOM in the ANSI code page of the PC
+foreach ($f in 'patch.ps1', 'russian.ps1') {
+    if ([IO.File]::ReadAllBytes((Join-Path $out $f)) -gt 127) { throw "$f is not ASCII" }
+}
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $out 'LICENSE.txt')
 Copy-Item (Join-Path $build 'src\ddraw\Release\ddraw.dll'), (Join-Path $root 'src\hogs\hogs.ini') $files
 

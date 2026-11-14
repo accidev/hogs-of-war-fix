@@ -2,6 +2,7 @@
 #
 #   patch.cmd             install or update the fix
 #   patch.cmd -Restore    put the original files back
+#   russian.cmd           the Russian translation of the game (russian.ps1: a separate download, offered below)
 #   patch.cmd -GameDir "D:\Games\Hogs of War"   game folder (default: the folder above this one)
 #
 # Windows PowerShell 5.1 compatible (ships with Windows 10/11). Keep this file ASCII.
@@ -107,6 +108,7 @@ $winmm = Join-Path $GameDir 'winmm.dll'
 $dd = Join-Path $GameDir 'ddraw.dll'
 $hogsDll = Join-Path $GameDir 'hogs.dll'
 $marker = Join-Path $GameDir $dgvMarker
+$russian = Join-Path $here 'russian.ps1'
 $hash = Sha $exe
 # an exe patched by an older version, with the changes that make it the current one
 $older = $patch.older_outputs | Where-Object { $_.sha256 -eq $hash } | Select-Object -First 1
@@ -123,6 +125,10 @@ if ($Restore) {
         Drop $exeOrig
     } else {
         Say 'warhogs_.exe is not a version this fix knows: left as it is' 'Yellow'
+    }
+    # the Russian translation that russian.ps1 installed: the English files go back
+    if ((Has (Join-Path $GameDir 'english.orig')) -and (Has $russian)) {
+        try { & $russian -Remove -GameDir $GameDir } catch { Say "The Russian translation was not removed: $($_.Exception.Message)" 'Yellow' }
     }
     if (Has "$winmm.orig") {
         Move-Item -LiteralPath "$winmm.orig" -Destination $winmm -Force
@@ -271,6 +277,23 @@ if ((Has $winmm) -and (Sha $winmm) -eq $badWinmm) {
     Move-Item -LiteralPath "$winmm.new" -Destination $winmm
     Copy-Item -LiteralPath (Join-Path $files 'winmm.ini') -Destination $GameDir -Force
     Say 'winmm.dll replaced with a working ogg-winmm build (old one kept as winmm.dll.orig)' 'Green'
+}
+
+# 7. The Russian translation is a separate download, made by russian.ps1. It is offered on a PC whose display language
+#    is Russian, to a person who can answer: with the input taken from a file or from nul, a script runs this.
+if ((Has $russian) -and -not (Has (Join-Path $GameDir 'english.orig\version.txt')) -and
+    (Get-UICulture).TwoLetterISOLanguageName -eq 'ru' -and -not [Console]::IsInputRedirected) {
+    # The texts are Russian, written as escapes because this file is ASCII: "The language of Windows is Russian.
+    # Download and install the Russian translation of the game (text and voices, 330 MB)?", "1 = yes, 2 = no",
+    # "The translation was not installed. To install it later: russian.cmd"
+    Say ''
+    Say ([regex]::Unescape('\u042f\u0437\u044b\u043a Windows \u0440\u0443\u0441\u0441\u043a\u0438\u0439. \u0421\u043a\u0430\u0447\u0430\u0442\u044c \u0438 \u043f\u043e\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u0440\u0443\u0441\u0441\u043a\u0438\u0439 \u043f\u0435\u0440\u0435\u0432\u043e\u0434 \u0438\u0433\u0440\u044b (\u0442\u0435\u043a\u0441\u0442 \u0438 \u043e\u0437\u0432\u0443\u0447\u043a\u0430, 330 \u041c\u0411)?')) 'Cyan'
+    $answer = Read-Host ([regex]::Unescape('1 = \u0434\u0430, 2 = \u043d\u0435\u0442'))
+    if ("$answer".Trim() -eq '1') {
+        try { & $russian -GameDir $GameDir } catch { Say "The Russian translation was not installed: $($_.Exception.Message)" 'Yellow' }
+    } else {
+        Say ([regex]::Unescape('\u041f\u0435\u0440\u0435\u0432\u043e\u0434 \u043d\u0435 \u043f\u043e\u0441\u0442\u0430\u0432\u043b\u0435\u043d. \u041f\u043e\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u0435\u0433\u043e \u043f\u043e\u0437\u0436\u0435: russian.cmd'))
+    }
 }
 
 Say 'Done. Start the game as usual.' 'Green'
