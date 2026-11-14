@@ -1,14 +1,15 @@
 # Regression test for the player patcher (patcher\patch.ps1, patch.cmd) against the package tools\make_release.ps1
 # builds. Developer tool, not shipped.
 #   pwsh tools\test_patcher.ps1              all scenarios
-#   pwsh tools\test_patcher.ps1 -Which B     one scenario: A B C D E F G H I R X or Y
+#   pwsh tools\test_patcher.ps1 -Which B     one scenario: A B C D E F G H I N R X or Y
 # Needs PowerShell 7 (pwsh), Windows PowerShell 5.1 (the patcher runs in it), git (scenarios B and I build older
 # releases from history) and in the repo (backup\ and downloads\ are not in git):
 #   dist\HogsFix                       run tools\make_release.ps1 first
 #   backup\warhogs_.exe.orig           the original Steam v1.2 warhogs_.exe
+#   backup\warhogs.exe.orig            a v1.2 warhogs.exe that came without LaserLock (a disc version)
 #   backup\winmm.dll.ogg-winmm-2014    the winmm.dll that comes with the game
 #   downloads\dgVoodoo2_87_5.zip       the dgVoodoo files of the scenarios
-# Close Hogs of War first: the patcher refuses to run while a warhogs_ process exists.
+# Close Hogs of War first: the patcher refuses to run while a warhogs_ or warhogs process exists.
 # Every scenario works on fresh copies in <temp>\hogsfix-patcher-tests (created and deleted here); no game folder is
 # touched. One line per check, then "--- N checks, M failed" (exit code 1 if M > 0).
 #   A  patch.cmd, re-run, -Restore, uninstall.cmd     F  game folder with [ ] and spaces, relative -GameDir
@@ -18,8 +19,9 @@
 #   D  refuses when a *.orig is in the way            X  missing package file, unknown exe, old switches, patch.cmd
 #   E  hogs.ini variants: what the update adds        Y  foreign ddraw.dll later, leftovers, logs, locked file
 #   R  russian.ps1 with a stand-in zip: install, second run, -Remove, refused zips, patch.ps1 -Restore
+#   N  a disc version (warhogs.exe, no LaserLock): install, re-run, russian.ps1, -Restore, game running
 [CmdletBinding()]
-param([ValidateSet('All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'R', 'X', 'Y')][string]$Which = 'All')
+param([ValidateSet('All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'N', 'R', 'X', 'Y')][string]$Which = 'All')
 if ($PSVersionTable.PSVersion.Major -lt 7) { throw 'test_patcher: run it with PowerShell 7: pwsh tools\test_patcher.ps1' }
 . (Join-Path $PSScriptRoot 'test_patcher_lib.ps1')
 
@@ -266,7 +268,7 @@ function ScenF {
     Check 'F' '-Restore identical to original' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
     $g = NewGame 'F2' -Leaf $leaf; $pkg = AddPkg $g $dist (Join-Path $T 'F2\pkg\HogsFix'); $s0 = Snap $g
     $r = RunPatch $pkg @() (Join-Path $T 'F2')
-    Check 'F2' 'package outside the game folder, no -GameDir: clear error' (($r.Code -ne 0) -and ($r.Out -match 'warhogs_\.exe not found') -and ($r.Out -match 'pass -GameDir')) ((Short $r.Out).Substring(0, [Math]::Min(110, (Short $r.Out).Length)))
+    Check 'F2' 'package outside the game folder, no -GameDir: clear error' (($r.Code -ne 0) -and ($r.Out -match 'warhogs_\.exe or warhogs\.exe not found') -and ($r.Out -match 'pass -GameDir')) ((Short $r.Out).Substring(0, [Math]::Min(110, (Short $r.Out).Length)))
     $r = RunPatch $pkg @('-GameDir', ".\$leaf") (Join-Path $T 'F2')
     Check 'F2' 'relative -GameDir ".\Hogs [GOG] x" from the sandbox folder: install exit 0' (($r.Code -eq 0) -and ((FileSha $g 'warhogs_.exe') -eq $HX.patched) -and ((FileSha $g 'ddraw.dll') -eq $HX.dd)) "exit $($r.Code)"
     $r = RunPatch $pkg @('-GameDir', ".\$leaf", '-Restore') (Join-Path $T 'F2')
@@ -523,8 +525,43 @@ function ScenR {
     } finally { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500 }
 }
 
-if (Get-Process -Name warhogs_ -ErrorAction SilentlyContinue) { throw 'test_patcher: close Hogs of War first (the patcher refuses to run while it is running)' }
-$list = if ($Which -eq 'All') { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'R', 'X', 'Y' } else { $Which }
+function ScenN {
+    $g = NewGame 'N' -Disc -NoWinmm; $pkg = AddPkg $g; $s0 = Snap $g
+    $r = RunPatch $pkg
+    Check 'N' 'disc version: install exit 0, says warhogs.exe patched' (($r.Code -eq 0) -and ($r.Out -match 'warhogs\.exe patched: \d+ changes')) ("exit $($r.Code) " + (Short $r.Out).Substring(0, [Math]::Min(100, (Short $r.Out).Length)))
+    Check 'N' 'warhogs.exe is the same patched exe as from Steam, warhogs.exe.orig is the original' (((FileSha $g 'warhogs.exe') -eq $HX.patched) -and ((FileSha $g 'warhogs.exe.orig') -eq $HX.disc)) (P8 (FileSha $g 'warhogs.exe'))
+    Check 'N' 'ddraw.dll = package, hogs.ini there, no warhogs_.exe and no winmm.dll made' (((FileSha $g 'ddraw.dll') -eq $HX.dd) -and (Has (Join-Path $g 'hogs.ini')) -and -not ((Has (Join-Path $g 'warhogs_.exe')) -or (Has (Join-Path $g 'winmm.dll')))) ''
+    $s1 = Snap $g
+    $r = RunPatch $pkg
+    Check 'N' 're-run: already patched, tree identical' (($r.Code -eq 0) -and ($r.Out -match 'warhogs\.exe is already patched') -and (SameSnap $s1 (Snap $g))) "exit $($r.Code)"
+    $zip = Join-Path $T 'N\ru.zip'
+    RuZip $zip @{ 'FEText/BIG.tab' = 'russian tab' }
+    $r = RunPatch $pkg @('-Zip', $zip, '-GameDir', $g) '' 'russian.ps1'
+    Check 'N' 'russian.ps1 takes the folder with warhogs.exe' (($r.Code -eq 0) -and (Has (Join-Path $g 'english.orig\version.txt'))) "exit $($r.Code)"
+    $r = RunPatch $pkg @('-Restore')
+    Check 'N' '-Restore: tree identical to the original' (($r.Code -eq 0) -and ($r.Out -match 'warhogs\.exe restored') -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
+    $r = RunPatch $pkg
+    [IO.File]::Delete((Join-Path $g 'warhogs.exe.orig'))
+    $r = RunPatch $pkg @('-Restore')
+    Check 'N' 'patched exe + missing .orig: -Restore refuses and names warhogs.exe' (($r.Code -ne 0) -and ($r.Out -match 'warhogs\.exe\.orig is missing') -and ((FileSha $g 'ddraw.dll') -eq $HX.dd)) "exit $($r.Code)"
+    $b = [IO.File]::ReadAllBytes((Join-Path $g 'warhogs.exe')); $b[1000] = $b[1000] -bxor 1; [IO.File]::WriteAllBytes((Join-Path $g 'warhogs.exe'), $b); $s2 = Snap $g
+    $r = RunPatch $pkg
+    Check 'N' 'unknown warhogs.exe: refuses, names both supported versions, nothing changed' (($r.Code -ne 0) -and ($r.Out -match 'Unknown warhogs\.exe') -and ($r.Out -match $HX.orig) -and ($r.Out -match $HX.disc) -and (SameSnap $s2 (Snap $g))) "exit $($r.Code)"
+
+    $g = NewGame 'N2' -Disc -NoWinmm; $pkg = AddPkg $g; $s0 = Snap $g
+    $dummyDir = Join-Path $T 'N2\dummy'; [void][IO.Directory]::CreateDirectory($dummyDir)
+    $dummy = Join-Path $dummyDir 'warhogs.exe'
+    Copy-Item -LiteralPath (Join-Path $env:SystemRoot 'System32\ping.exe') -Destination $dummy
+    $p = Start-Process -FilePath $dummy -ArgumentList '-n', '300', '127.0.0.1' -WindowStyle Hidden -PassThru
+    try {
+        Start-Sleep -Milliseconds 800
+        $r = RunPatch $pkg
+        Check 'N2' 'install refused while a warhogs process runs, nothing changed' (($r.Code -ne 0) -and ($r.Out -match 'Hogs of War is running') -and (SameSnap $s0 (Snap $g))) "exit $($r.Code)"
+    } finally { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500 }
+}
+
+if (Get-Process -Name warhogs_, warhogs -ErrorAction SilentlyContinue) { throw 'test_patcher: close Hogs of War first (the patcher refuses to run while it is running)' }
+$list = if ($Which -eq 'All') { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'N', 'R', 'X', 'Y' } else { $Which }
 CleanDir $T   # left over from an aborted run
 [void][IO.Directory]::CreateDirectory($T)
 try {

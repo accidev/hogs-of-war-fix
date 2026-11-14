@@ -55,13 +55,16 @@ function Download($from, $to) {
     }
 }
 
+# warhogs_.exe: Steam; warhogs.exe: disc versions
+$exeNames = 'warhogs_.exe', 'warhogs.exe'
+function HasGame($dir) { [bool]($exeNames | Where-Object { Has (Join-Path $dir $_) }) }
 if (-not $GameDir) {
     $GameDir = Split-Path $here -Parent
-    if (-not (Has (Join-Path $GameDir 'warhogs_.exe'))) { $GameDir = $here }
+    if (-not (HasGame $GameDir)) { $GameDir = $here }
 }
 $GameDir = (Resolve-Path -LiteralPath $GameDir).ProviderPath
-if (-not (Has (Join-Path $GameDir 'warhogs_.exe'))) { throw "warhogs_.exe not found in '$GameDir'. Put this folder inside the game folder or pass -GameDir." }
-if (Get-Process -Name warhogs_ -ErrorAction SilentlyContinue) { throw 'Hogs of War is running. Close it and run this again.' }
+if (-not (HasGame $GameDir)) { throw "$($exeNames -join ' or ') not found in '$GameDir'. Put this folder inside the game folder or pass -GameDir." }
+if (Get-Process -Name ($exeNames -replace '[.]exe$') -ErrorAction SilentlyContinue) { throw 'Hogs of War is running. Close it and run this again.' }
 
 $bak = Join-Path $GameDir 'english.orig'
 $added = Join-Path $bak 'added.txt'       # files the translation added: the game had none to keep

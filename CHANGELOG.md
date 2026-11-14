@@ -2,6 +2,17 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## Unreleased
+
+### Added
+
+- The fix also installs on a copy of the game that is not from Steam: version 1.2 with a `warhogs.exe` that has no LaserLock copy protection, as disc-based copies have it. It is the same build of the game. `patch.cmd` turns that exe into the same patched exe it makes from the Steam one, so every fix works the same. `uninstall.cmd` puts the original `warhogs.exe` back, and `russian.cmd` works in such a folder too.
+
+### Good to know
+
+- Such a copy has no `MUSIC\TrackNN.ogg` files: the music plays from the game CD in the drive, as before the fix.
+- Checked: the patcher on such an exe, and that the result is the patched Steam exe byte for byte. Not tested: a game session on such a copy.
+
 ## v1.4.0 — 2026-11-14
 
 ### Added

@@ -54,6 +54,7 @@ Good to know:
 - The patcher checks everything before it changes anything. It keeps the original files as `warhogs_.exe.orig` and `winmm.dll.orig`.
 - **Update:** extract the new zip over the old `HogsFix` folder and run `patch.cmd` again. Your settings in `hogs.ini` are kept, and the settings that are new in the version are added to it with their descriptions.
 - **Uninstall:** double-click `HogsFix\uninstall.cmd`. It puts the original files back and removes the fix with its settings. It also removes the Russian translation, if `russian.cmd` installed it.
+- **A copy of the game that is not from Steam.** The fix also takes version 1.2 with a `warhogs.exe` that has no copy protection, as disc-based copies have it. Put `HogsFix` next to `warhogs.exe` and run `patch.cmd`; the original is kept as `warhogs.exe.orig`. Such a copy has no music files: the music plays from the game CD in the drive, as before.
 
 ## Russian translation
 
@@ -149,7 +150,7 @@ PromotionPoints=1
 - **Black bars at the sides.** Menus and videos are always 4:3. Battles are wide only if your monitor is wider than 4:3 and `[Display] Widescreen` is 1. A resolution can be at most 4096 pixels wide and 1536 lines high.
 - **The HUD and the names over the pigs are too small.** They are drawn in game pixels: fewer lines make them larger, and the picture stays as sharp. Hold Shift while the game starts and choose a smaller resolution, for example 1280×720.
 - **The controller does not react.** Xbox controllers need no setup (`[Gamepad] XInput` is 1). Other joysticks are set up in Options → Controls. The Xbox support is new, so if yours does not work, open an [issue](https://github.com/accidev/hogs-of-war-fix/issues) and say which controller it is.
-- **"Unknown warhogs_.exe".** Only the Steam version 1.2 is supported. If another tool changed the exe, verify the game files in Steam (Properties → Installed Files → Verify integrity of game files) and run `patch.cmd` again.
+- **"Unknown warhogs_.exe" or "Unknown warhogs.exe".** Supported are the Steam version 1.2 and the same version with a `warhogs.exe` without copy protection. If another tool changed the exe, verify the game files in Steam (Properties → Installed Files → Verify integrity of game files) and run `patch.cmd` again.
 - **"Hogs of War is running".** Close the game, then run `patch.cmd` again.
 - **The game does not start after you added dgVoodoo2 or another `ddraw.dll`.** The fixed game needs the `ddraw.dll` of this fix: it holds the fixes and the renderer. Run `patch.cmd` again; it keeps the other files as `*.orig`.
 - **The game does not start or crashes.** Open an [issue](https://github.com/accidev/hogs-of-war-fix/issues) and attach `hogs.log` and `hogsdraw.log` from the game folder.
@@ -158,7 +159,7 @@ PromotionPoints=1
 
 | File in the game folder | Role |
 |---|---|
-| `warhogs_.exe` | Patched by `patch.cmd`. 325 calls that went through the LaserLock copy protection (`wh32lib.dll`) now call Windows directly, and the game loads the fixes from `ddraw.dll` in its place |
+| `warhogs_.exe` | Patched by `patch.cmd`. 325 calls that went through the LaserLock copy protection (`wh32lib.dll`) now call Windows directly, and the game loads the fixes from `ddraw.dll` in its place. A `warhogs.exe` without LaserLock becomes the same file with 48 changes |
 | `ddraw.dll` | The fixes and the renderer. The fixes are applied in memory when the game starts: windows, start-up, the battle loop with its frames, computer pigs, wide screen, menu speed, gamepad, camera, music volume, the lookup of the game's registry entry and the game's renderer `_d3d.dll`. Each fix checks the original bytes first. Log: `hogs.log`. The renderer, hogsdraw, is the game's DirectDraw 7 and Direct3D 7 on Direct3D 11. Log: `hogsdraw.log` |
 | `winmm.dll`, `winmm.ini` | [ogg-winmm](https://github.com/ayuanx/ogg-winmm) by ayuanx (GPL-2.0): CD music from OGG files |
 | `hogs.ini` | Settings |

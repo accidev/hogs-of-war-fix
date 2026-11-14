@@ -16,6 +16,7 @@ foreach ($f in 'patch.cmd', 'patch.ps1', 'russian.cmd', 'russian.ps1', 'warhogs_
     Need "dist\HogsFix\$f" 'build the package first: tools\make_release.ps1'
 }
 Need 'backup\warhogs_.exe.orig' 'a copy of the original Steam v1.2 warhogs_.exe; the folder is not in git'
+Need 'backup\warhogs.exe.orig' 'a copy of a v1.2 warhogs.exe that came without LaserLock (a disc version); the folder is not in git'
 Need 'backup\winmm.dll.ogg-winmm-2014' 'a copy of the winmm.dll (ogg-winmm 2014) that comes with the game; the folder is not in git'
 Need 'downloads\dgVoodoo2_87_5.zip' 'the dgVoodoo2 2.87.5 release zip; the folder is not in git'
 
@@ -23,6 +24,7 @@ function Sha([string]$p) { (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash
 $json = Get-Content -LiteralPath (Join-Path $dist 'warhogs_v12.json') -Raw | ConvertFrom-Json
 # expected hashes: the package as it is now; older = the exe v1.0-v1.1 made (it imports hogs.dll)
 $HX = @{ orig = $json.input_sha256; patched = $json.output_sha256; older = $json.older_outputs[0].sha256 }
+$HX.disc = Sha (Join-Path $repo 'backup\warhogs.exe.orig')
 $HX.bad = Sha (Join-Path $repo 'backup\winmm.dll.ogg-winmm-2014')
 $HX.dd = Sha (Join-Path $dist 'files\ddraw.dll')
 $HX.winmm = Sha (Join-Path $dist 'files\winmm.dll')
@@ -167,11 +169,13 @@ function BuildPrev([string]$rev = $prevRev) {
     $d
 }
 
-function NewGame([string]$name, [string]$leaf = 'game', [switch]$NoWinmm, [switch]$Dgv) {
+# -Disc: a disc version, whose exe is warhogs.exe and has no LaserLock
+function NewGame([string]$name, [string]$leaf = 'game', [switch]$NoWinmm, [switch]$Dgv, [switch]$Disc) {
     CleanDir (Join-Path $T $name)
     $g = Join-Path (Join-Path $T $name) $leaf
     [void][IO.Directory]::CreateDirectory($g)
-    Copy-Item -LiteralPath (Join-Path $repo 'backup\warhogs_.exe.orig') -Destination (Join-Path $g 'warhogs_.exe')
+    if ($Disc) { Copy-Item -LiteralPath (Join-Path $repo 'backup\warhogs.exe.orig') -Destination (Join-Path $g 'warhogs.exe') }
+    else { Copy-Item -LiteralPath (Join-Path $repo 'backup\warhogs_.exe.orig') -Destination (Join-Path $g 'warhogs_.exe') }
     if (-not $NoWinmm) { Copy-Item -LiteralPath (Join-Path $repo 'backup\winmm.dll.ogg-winmm-2014') -Destination (Join-Path $g 'winmm.dll') }
     if ($Dgv) {
         Copy-Item -LiteralPath (Join-Path $dgvDir 'MS\x86\DDraw.dll') -Destination (Join-Path $g 'DDraw.dll')

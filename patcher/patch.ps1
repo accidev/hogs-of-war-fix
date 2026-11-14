@@ -4,6 +4,8 @@
 #   patch.cmd -GameDir "D:\Games\Hogs of War"   game folder (default: the folder above this one)
 #   russian.cmd                                 the Russian translation (russian.ps1, a separate download; see step 7)
 # Windows PowerShell 5.1; keep this file ASCII. CmdletBinding: an unknown switch (the old -NoDgVoodoo) is an error.
+# The exe is warhogs_.exe (Steam) or warhogs.exe (disc versions, already without LaserLock): the same build, and
+# both become the same patched exe. The lines below say warhogs_.exe for either.
 # The patched exe imports CallDLL from ddraw.dll and starts only with our ddraw.dll (Windows' own has none); the exe of
 # v1.0-v1.1 imports it from hogs.dll and needs that file. So that an interrupted run leaves a game that starts: our
 # ddraw.dll goes in before such an exe, hogs.dll goes only once no exe imports it, -Restore puts the original exe back
@@ -24,12 +26,14 @@ $dgvFiles = @('DDraw.dll') + $dgvSiblings
 $dgvMarker = 'dgVoodoo.installed-by-hogsfix'
 # text inside every build of our ddraw.dll (its log file name)
 $ddrawSig = 'hogsdraw.log'
+$exeNames = 'warhogs_.exe', 'warhogs.exe'
 
 function Say($msg, $color = 'Gray') { Write-Host $msg -ForegroundColor $color }
 function Sha($path) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash }
 function HexBytes($s) { [byte[]]($s -split '(..)' -ne '' | ForEach-Object { [Convert]::ToByte($_, 16) }) }
 function Has($path) { Test-Path -LiteralPath $path }
 function Drop($path) { if (Has $path) { Remove-Item -LiteralPath $path -Force } }
+function GameExe($dir) { $exeNames | Where-Object { Has (Join-Path $dir $_) } | Select-Object -First 1 }
 function OwnDdraw($path) { (Has $path) -and [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($path)).Contains($ddrawSig) }
 function Crlf($s) { ($s.TrimEnd() -replace '\r\n|\r|\n', "`r`n") + "`r`n" }
 # the text before $pos may end without a line end
@@ -83,15 +87,16 @@ function IniSections($text) {
 
 if (-not $GameDir) {
     $GameDir = Split-Path $here -Parent
-    if (-not (Has (Join-Path $GameDir $patch.file))) { $GameDir = $here }
+    if (-not (GameExe $GameDir)) { $GameDir = $here }
 }
 # absolute: cmdlets and [IO.File] resolve a relative path against different folders
 $GameDir = (Resolve-Path -LiteralPath $GameDir).ProviderPath
-$exe = Join-Path $GameDir $patch.file
-if (-not (Has $exe)) { throw "$($patch.file) not found in '$GameDir'. Put this folder inside the game folder or pass -GameDir." }
+$exeName = GameExe $GameDir
+if (-not $exeName) { throw "$($exeNames -join ' or ') not found in '$GameDir'. Put this folder inside the game folder or pass -GameDir." }
+$exe = Join-Path $GameDir $exeName
 Say "Game folder: $GameDir"
 # a running game holds warhogs_.exe and our DLLs open
-if (Get-Process -Name warhogs_ -ErrorAction SilentlyContinue) { throw 'Hogs of War is running. Close it and run this again.' }
+if (Get-Process -Name ($exeNames -replace '[.]exe$') -ErrorAction SilentlyContinue) { throw 'Hogs of War is running. Close it and run this again.' }
 
 $exeOrig = "$exe.orig"
 $winmm = Join-Path $GameDir 'winmm.dll'
@@ -100,20 +105,23 @@ $hogsDll = Join-Path $GameDir 'hogs.dll'
 $marker = Join-Path $GameDir $dgvMarker
 $russian = Join-Path $here 'russian.ps1'
 $hash = Sha $exe
+# The exe as the game came: Steam's, or one of other_inputs. Each has its own changes to the same patched exe.
+$inputs = @([pscustomobject]@{ game = $patch.game; sha256 = $patch.input_sha256; changes = $patch.changes }) + @($patch.other_inputs | Where-Object { $_ })
+$orig = $inputs | Where-Object { $_.sha256 -eq $hash } | Select-Object -First 1
 $older = $patch.older_outputs | Where-Object { $_.sha256 -eq $hash } | Select-Object -First 1
 
 if ($Restore) {
-    $origOk = (Has $exeOrig) -and (Sha $exeOrig) -eq $patch.input_sha256
+    $origOk = (Has $exeOrig) -and $inputs.sha256 -contains (Sha $exeOrig)
     if ($origOk) {
         Move-Item -LiteralPath $exeOrig -Destination $exe -Force
-        Say 'warhogs_.exe restored' 'Green'
+        Say "$exeName restored" 'Green'
     } elseif ($hash -eq $patch.output_sha256 -or $older) {
         # the patched exe needs ddraw.dll (or hogs.dll): remove nothing while there is no original to go back to
-        throw 'warhogs_.exe.orig is missing or is not the original. In Steam: game > Properties > Installed Files > Verify integrity of game files, then run -Restore again.'
-    } elseif ($hash -eq $patch.input_sha256) {
+        throw "$exeName.orig is missing or is not the original. Put the original $exeName back (in Steam: game > Properties > Installed Files > Verify integrity of game files), then run -Restore again."
+    } elseif ($orig) {
         Drop $exeOrig
     } else {
-        Say 'warhogs_.exe is not a version this fix knows: left as it is' 'Yellow'
+        Say "$exeName is not a version this fix knows: left as it is" 'Yellow'
     }
     # english.orig: the English files, put away by russian.ps1
     if ((Has (Join-Path $GameDir 'english.orig')) -and (Has $russian)) {
@@ -125,7 +133,7 @@ if ($Restore) {
         Say 'winmm.dll restored' 'Green'
     }
     # hogs.dll is from v1.0-v1.1; *.new is left by a run that failed before moving it into place
-    foreach ($f in 'hogs.dll', 'hogs.ini', 'hogs.log', 'hogsdraw.log', 'warhogs_.exe.new', 'ddraw.dll.new', 'winmm.dll.new') { Drop (Join-Path $GameDir $f) }
+    foreach ($f in 'hogs.dll', 'hogs.ini', 'hogs.log', 'hogsdraw.log', "$exeName.new", 'ddraw.dll.new', 'winmm.dll.new') { Drop (Join-Path $GameDir $f) }
     if (Has $marker) {
         # dgVoodoo2 of an older patcher (its DDraw.dll may already be ours)
         foreach ($f in $dgvFiles + $dgvMarker) { Drop (Join-Path $GameDir $f) }
@@ -162,19 +170,19 @@ if ((Has $dd) -and -not (OwnDdraw $dd) -and -not (Has $marker)) {
 #    it takes its place in step 3, once our ddraw.dll is there.
 $tmp = $null
 if ($hash -eq $patch.output_sha256) {
-    Say 'warhogs_.exe is already patched'
+    Say "$exeName is already patched"
 } elseif ($older) {
     # made by an older version: its own changes turn it into the current exe, without warhogs_.exe.orig
     $tmp = PatchedExe $older.changes
-} elseif ($hash -ne $patch.input_sha256) {
-    throw "Unknown warhogs_.exe (SHA-256 $hash). Supported: $($patch.game), SHA-256 $($patch.input_sha256)."
+} elseif (-not $orig) {
+    throw "Unknown $exeName (SHA-256 $hash). Supported: $(($inputs | ForEach-Object { "$($_.game), SHA-256 $($_.sha256)" }) -join '; ')."
 } else {
     # keep the original; replace a missing or damaged copy (an interrupted earlier run)
-    if (-not ((Has $exeOrig) -and (Sha $exeOrig) -eq $patch.input_sha256)) {
+    if (-not ((Has $exeOrig) -and (Sha $exeOrig) -eq $hash)) {
         Copy-Item -LiteralPath $exe -Destination $exeOrig -Force
-        if ((Sha $exeOrig) -ne $patch.input_sha256) { throw 'Could not copy the original warhogs_.exe; nothing was changed.' }
+        if ((Sha $exeOrig) -ne $hash) { throw "Could not copy the original $exeName; nothing was changed." }
     }
-    $tmp = PatchedExe $patch.changes
+    $tmp = PatchedExe $orig.changes
 }
 
 # 2. ddraw.dll: the fixes and the Direct3D 11 renderer. Every exe this step can meet starts with it: the original, the
@@ -197,8 +205,8 @@ Say 'ddraw.dll installed (the fixes and the Direct3D 11 renderer, settings: hogs
 # 3. the new exe: it imports ddraw.dll, which is ours now
 if ($tmp) {
     Move-Item -LiteralPath $tmp -Destination $exe -Force
-    if ($older) { Say 'warhogs_.exe updated: it loads the fixes from ddraw.dll now' 'Green' }
-    else { Say "warhogs_.exe patched: $($patch.changes.Count) changes (original kept as warhogs_.exe.orig)" 'Green' }
+    if ($older) { Say "$exeName updated: it loads the fixes from ddraw.dll now" 'Green' }
+    else { Say "$exeName patched: $($orig.changes.Count) changes (original kept as $exeName.orig)" 'Green' }
 }
 
 # 4. hogs.dll (v1.0-v1.1): no exe imports it any more

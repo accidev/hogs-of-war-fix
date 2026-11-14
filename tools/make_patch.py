@@ -1,4 +1,5 @@
-"""Build the distributable patch description: make_patch.py <original.exe> <patched.exe> <ll_sites.json> <out.json>
+"""Build the distributable patch description:
+make_patch.py <original.exe> <patched.exe> <ll_sites.json> <out.json> [<exe without LaserLock> ...]
 
 The JSON holds only offsets and the few bytes around each change (old and new), plus the
 SHA-256 of the input and output files, so the patcher can verify both ends. No game code.
@@ -6,6 +7,10 @@ SHA-256 of the input and output files, so the patcher can verify both ends. No g
 older_outputs: the exe that v1.0-v1.1 of the fix made, with the changes that turn it into the
 new output, so the patcher updates such an exe in place (also when warhogs_.exe.orig is gone).
 Those versions named the descriptor hogs.dll, which then held the fixes; nothing else differs.
+
+other_inputs: exes of the same build that came without LaserLock (disc versions, named warhogs.exe),
+each with the changes that turn it into the same output. Their calls are direct already; they differ
+in where the imports are stored and in how the disc check is switched off.
 """
 import hashlib, json, struct, sys
 
@@ -42,19 +47,29 @@ def sha(b):
     return hashlib.sha256(b).hexdigest().upper()
 
 
-runs, i = [], 0
-while i < len(orig):
-    if orig[i] != new[i]:
-        j = i
-        while j < len(orig) and orig[j] != new[j]:
-            j += 1
-        runs.append([i, j])
-        i = j
-    else:
-        i += 1
+def section(fo):
+    for name, vsz, va, rsz, raw in secs:
+        if raw <= fo < raw + rsz:
+            return name.rstrip(bytes(1)).decode()
+    return None
+
+
+def diff_runs(a, b):
+    runs, i = [], 0
+    while i < len(a):
+        if a[i] != b[i]:
+            j = i
+            while j < len(a) and a[j] != b[j]:
+                j += 1
+            runs.append([i, j])
+            i = j
+        else:
+            i += 1
+    return runs
+
 
 changes = []
-for start, end in runs:
+for start, end in diff_runs(orig, new):
     va = to_va(start)
     site = next((s for s in sites if va is not None and s <= va < s + 6), None)
     if site is not None:  # widen to the whole 6-byte call/jmp instruction for readability
@@ -80,6 +95,21 @@ older = bytearray(new)
 older[imp['offset']:imp['offset'] + len(was)] = was
 assert sha(older) == V11_SHA256, sha(older)
 
+# a run anywhere else (game data, resources) is a KeyError: that exe is another build
+OTHER_NOTES = {None: 'PE header: imports and sections as in the patched exe',
+               '.text': 'disc check and start-up as in the patched exe',
+               '.idata': 'import CallDLL from ddraw.dll (renderer and fixes)'}
+others = []
+for path in sys.argv[5:]:
+    src = open(path, 'rb').read()
+    assert len(src) == len(new), path
+    others.append({
+        'game': 'Hogs of War v1.2 without LaserLock (warhogs.exe)',
+        'sha256': sha(src),
+        'changes': [{'offset': s, 'va': f'{to_va(s):#x}' if to_va(s) else None, 'old': src[s:e].hex(),
+                     'new': new[s:e].hex(), 'note': OTHER_NOTES[section(s)]} for s, e in diff_runs(src, new)],
+    })
+
 out = {
     'game': 'Hogs of War v1.2 (Steam)',
     'file': 'warhogs_.exe',
@@ -92,7 +122,9 @@ out = {
                      'note': 'import hogs.dll (fixes of v1.0-v1.1) -> ddraw.dll (renderer and fixes)'}],
     }],
     'changes': changes,
+    'other_inputs': others,
 }
 json.dump(out, open(sys.argv[4], 'w'), indent=1)
 print(f"{len(changes)} changes, input {out['input_sha256'][:16]}, output {out['output_sha256'][:16]}, "
-      f"older outputs {', '.join(o['sha256'][:16] for o in out['older_outputs'])}")
+      f"older outputs {', '.join(o['sha256'][:16] for o in out['older_outputs'])}, "
+      f"other inputs {', '.join('%s (%d changes)' % (o['sha256'][:16], len(o['changes'])) for o in others) or 'none'}")

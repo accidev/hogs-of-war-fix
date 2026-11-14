@@ -2301,5 +2301,349 @@
    "new": "64647261772e646c6c0000",
    "note": "import wh32lib.dll (LaserLock) -> ddraw.dll (renderer and fixes)"
   }
+ ],
+ "other_inputs": [
+  {
+   "game": "Hogs of War v1.2 without LaserLock (warhogs.exe)",
+   "sha256": "78B8686122FCF046EEFE94DD677367D2F288685183E8F60C19E9C086C54D610B",
+   "changes": [
+    {
+     "offset": 256,
+     "va": null,
+     "old": "00f014",
+     "new": "900215",
+     "note": "PE header: imports and sections as in the patched exe"
+    },
+    {
+     "offset": 260,
+     "va": null,
+     "old": "f000",
+     "new": "0401",
+     "note": "PE header: imports and sections as in the patched exe"
+    },
+    {
+     "offset": 415,
+     "va": null,
+     "old": "60",
+     "new": "e0",
+     "note": "PE header: imports and sections as in the patched exe"
+    },
+    {
+     "offset": 504,
+     "va": null,
+     "old": "2e12",
+     "new": "9413",
+     "note": "PE header: imports and sections as in the patched exe"
+    },
+    {
+     "offset": 517868,
+     "va": "0x47f2ec",
+     "old": "75",
+     "new": "eb",
+     "note": "disc check and start-up as in the patched exe"
+    },
+    {
+     "offset": 519206,
+     "va": "0x47f826",
+     "old": "05eb",
+     "new": "0374",
+     "note": "disc check and start-up as in the patched exe"
+    },
+    {
+     "offset": 519291,
+     "va": "0x47f87b",
+     "old": "eb",
+     "new": "75",
+     "note": "disc check and start-up as in the patched exe"
+    },
+    {
+     "offset": 715868,
+     "va": "0x4af85c",
+     "old": "74",
+     "new": "eb",
+     "note": "disc check and start-up as in the patched exe"
+    },
+    {
+     "offset": 911928,
+     "va": "0x550238",
+     "old": "000000",
+     "new": "4c0215",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 911940,
+     "va": "0x550244",
+     "old": "000000",
+     "new": "4c0215",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 911950,
+     "va": "0x55024e",
+     "old": "00000000000000",
+     "new": "43616c6c444c4c",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 911990,
+     "va": "0x550276",
+     "old": "000000000000000000",
+     "new": "64647261772e646c6c",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912016,
+     "va": "0x550290",
+     "old": "000000",
+     "new": "440215",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912028,
+     "va": "0x55029c",
+     "old": "000000",
+     "new": "760215",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912032,
+     "va": "0x5502a0",
+     "old": "000000",
+     "new": "380215",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912036,
+     "va": "0x5502a4",
+     "old": "000000",
+     "new": "50f114",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912048,
+     "va": "0x5502b0",
+     "old": "000000",
+     "new": "52f814",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912052,
+     "va": "0x5502b4",
+     "old": "000000",
+     "new": "28f414",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912056,
+     "va": "0x5502b8",
+     "old": "000000",
+     "new": "84f214",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912068,
+     "va": "0x5502c4",
+     "old": "000000",
+     "new": "e0fa14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912072,
+     "va": "0x5502c8",
+     "old": "000000",
+     "new": "5cf514",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912076,
+     "va": "0x5502cc",
+     "old": "000000",
+     "new": "24f114",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912088,
+     "va": "0x5502d8",
+     "old": "000000",
+     "new": "84fb14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912092,
+     "va": "0x5502dc",
+     "old": "000000",
+     "new": "fcf314",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912096,
+     "va": "0x5502e0",
+     "old": "000000",
+     "new": "f0f014",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912108,
+     "va": "0x5502ec",
+     "old": "000000",
+     "new": "d0fb14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912112,
+     "va": "0x5502f0",
+     "old": "000000",
+     "new": "c8f314",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912116,
+     "va": "0x5502f4",
+     "old": "000000",
+     "new": "b8f314",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912128,
+     "va": "0x550300",
+     "old": "000000",
+     "new": "14fc14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912132,
+     "va": "0x550304",
+     "old": "000000",
+     "new": "90f614",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912136,
+     "va": "0x550308",
+     "old": "000000",
+     "new": "04f114",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912148,
+     "va": "0x550314",
+     "old": "000000",
+     "new": "1efc14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912152,
+     "va": "0x550318",
+     "old": "000000",
+     "new": "dcf314",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912156,
+     "va": "0x55031c",
+     "old": "000000",
+     "new": "08f114",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912168,
+     "va": "0x550328",
+     "old": "000000",
+     "new": "5cfc14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912172,
+     "va": "0x55032c",
+     "old": "000000",
+     "new": "e0f314",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912176,
+     "va": "0x550330",
+     "old": "000000",
+     "new": "1cf114",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912188,
+     "va": "0x55033c",
+     "old": "000000",
+     "new": "66fc14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912192,
+     "va": "0x550340",
+     "old": "000000",
+     "new": "f4f314",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912196,
+     "va": "0x550344",
+     "old": "000000",
+     "new": "14f114",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912208,
+     "va": "0x550350",
+     "old": "000000",
+     "new": "88fc14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912212,
+     "va": "0x550354",
+     "old": "000000",
+     "new": "ecf314",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912216,
+     "va": "0x550358",
+     "old": "000000",
+     "new": "2cf314",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912228,
+     "va": "0x550364",
+     "old": "000000",
+     "new": "0cfe14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912232,
+     "va": "0x550368",
+     "old": "000000",
+     "new": "04f614",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912236,
+     "va": "0x55036c",
+     "old": "000000",
+     "new": "8cf314",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912248,
+     "va": "0x550378",
+     "old": "000000",
+     "new": "dcfe14",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    },
+    {
+     "offset": 912252,
+     "va": "0x55037c",
+     "old": "000000",
+     "new": "64f614",
+     "note": "import CallDLL from ddraw.dll (renderer and fixes)"
+    }
+   ]
+  }
  ]
 }
