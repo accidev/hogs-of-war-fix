@@ -515,7 +515,6 @@ static void apply_fixes(int vsync, int widescreen)
     /* call [SystemParametersInfoA] -> add esp,16 (the stdcall's 4 arguments) */
     static const BYTE spi_call[] = { 0xFF, 0x15, 0xE8, 0xF5, 0x54, 0x00 };
     static const BYTE spi_skip[] = { 0x83, 0xC4, 0x10, 0x90, 0x90, 0x90 };
-    int windowed = GetPrivateProfileIntA("Display", "Windowed", 1, g_ini);
     int resizable = GetPrivateProfileIntA("Display", "Resizable", 1, g_ini);
     int deadzone = GetPrivateProfileIntA("Gamepad", "Deadzone", 15, g_ini);
     BYTE deadzone_mov[8] = { 0xC7, 0x44, 0x24, 0x10 }; /* mov dword [esp+0x10], deadzone */
@@ -529,44 +528,44 @@ static void apply_fixes(int vsync, int widescreen)
     patch(0x44CFC1, spi_call, spi_skip, 6, "no SPI_SCREENSAVERRUNNING on start");
     patch(0x47EA97, spi_call, spi_skip, 6, "no SPI_SCREENSAVERRUNNING on exit");
 
-    if (windowed) {
-        /* Init (0x47F0B0) hardcodes cfg+0x314 ("fullscreen") = 1 with `mov [edx+0x314],ebx`.
-         * The config block was zeroed just before, so dropping the store selects the
-         * developers' windowed mode: DDSCL_NORMAL, mode index -1, a framed window. The
-         * launcher still forces fullscreen for a non-primary adapter. */
-        patch(0x47F174, "\x89\x9A\x14\x03\x00\x00", "\x90\x90\x90\x90\x90\x90", 6, "windowed mode");
+    /* Init (0x47F0B0) hardcodes cfg+0x314 ("fullscreen") = 1 with `mov [edx+0x314],ebx`.
+     * The config block was zeroed just before, so dropping the store selects the developers'
+     * windowed mode: DDSCL_NORMAL, mode index -1, a framed window. There is no setting for the
+     * other mode: the renderer has no exclusive fullscreen, and the game window stayed hidden
+     * in it. Full screen is [Display] Borderless. The launcher forces fullscreen for a
+     * non-primary adapter only, and ddraw.dll lists one adapter. */
+    patch(0x47F174, "\x89\x9A\x14\x03\x00\x00", "\x90\x90\x90\x90\x90\x90", 6, "windowed mode");
 
-        /* Main window style WS_CAPTION|WS_SYSMENU -> WS_OVERLAPPEDWINDOW: resizable, with
-         * minimize/maximize. WM_SIZE already re-reads the client rect the frame is blitted to. */
-        if (resizable)
-            patch(0x44CF58, "\x68\x00\x00\xC8\x00", "\x68\x00\x00\xCF\x00", 5, "resizable window");
+    /* Main window style WS_CAPTION|WS_SYSMENU -> WS_OVERLAPPEDWINDOW: resizable, with
+     * minimize/maximize. WM_SIZE already re-reads the client rect the frame is blitted to. */
+    if (resizable)
+        patch(0x44CF58, "\x68\x00\x00\xC8\x00", "\x68\x00\x00\xCF\x00", 5, "resizable window");
 
-        g_borderless = GetPrivateProfileIntA("Display", "Borderless", 0, g_ini);
-        hook(0x44D040, 0xE9, "\xA1\x60\x08\x52\x00", size_game_window, "big game window, keeps its size");
+    g_borderless = GetPrivateProfileIntA("Display", "Borderless", 0, g_ini);
+    hook(0x44D040, 0xE9, "\xA1\x60\x08\x52\x00", size_game_window, "big game window, keeps its size");
 
-        g_widescreen = widescreen;
-        if (g_widescreen) {
-            hook(0x45C6B7, 0xE8, "\xE8\x34\x0F\xFF\xFF", blit_4x3, "wide battle: loading picture 4:3");
-            hook(0x45C6DE, 0xE8, "\xE8\x0D\x0F\xFF\xFF", blit_4x3, "wide battle: loading bar 4:3");
-            hook(0x45CE24, 0xE8, "\xE8\xC7\x07\xFF\xFF", blit_4x3, "wide battle: loading picture 4:3");
-            hook(0x45CE56, 0xE8, "\xE8\x95\x07\xFF\xFF", blit_4x3, "wide battle: loading bar 4:3");
-            hook(0x45D488, 0xE8, "\xE8\x63\x01\xFF\xFF", blit_4x3, "wide battle: briefing picture 4:3");
-        }
-        /* The launcher lists modes up to 1024x768 only (FUN_004815D0); a window takes any size. */
-        patch(0x481726, "\x3D\x00\x04\x00\x00", "\x3D\x00\x10\x00\x00", 5, "launcher: modes up to 4096 wide");
-        patch(0x481740, "\x81\xF9\x00\x03\x00\x00", "\x81\xF9\x00\x06\x00\x00", 6, "launcher: modes up to 1536 high");
-
-        /* g_camera switches the zoom on: fill it only if table entries 0 and 1 are the known ones */
-        if (memcmp((void *)0x4D9528, "\x00\x0C\x00\x03\x00\x00\x00\x0C\x00\x04\x00\x00", 12) == 0) {
-            memcpy(g_camera, (void *)0x4D9528, sizeof g_camera);
-            say("ok   %-40s %08X", "camera zoom: mouse wheel, numpad +/-", 0x4D9528);
-        } else {
-            say("skip %-40s %08X: unexpected bytes, unknown game build?", "camera zoom: mouse wheel, numpad +/-", 0x4D9528);
-        }
-
-        /* without this, Windows stretches the window at 125 % or 150 % display scaling: blurry */
-        SetProcessDPIAware();
+    g_widescreen = widescreen;
+    if (g_widescreen) {
+        hook(0x45C6B7, 0xE8, "\xE8\x34\x0F\xFF\xFF", blit_4x3, "wide battle: loading picture 4:3");
+        hook(0x45C6DE, 0xE8, "\xE8\x0D\x0F\xFF\xFF", blit_4x3, "wide battle: loading bar 4:3");
+        hook(0x45CE24, 0xE8, "\xE8\xC7\x07\xFF\xFF", blit_4x3, "wide battle: loading picture 4:3");
+        hook(0x45CE56, 0xE8, "\xE8\x95\x07\xFF\xFF", blit_4x3, "wide battle: loading bar 4:3");
+        hook(0x45D488, 0xE8, "\xE8\x63\x01\xFF\xFF", blit_4x3, "wide battle: briefing picture 4:3");
     }
+    /* The launcher lists modes up to 1024x768 only (FUN_004815D0); a window takes any size. */
+    patch(0x481726, "\x3D\x00\x04\x00\x00", "\x3D\x00\x10\x00\x00", 5, "launcher: modes up to 4096 wide");
+    patch(0x481740, "\x81\xF9\x00\x03\x00\x00", "\x81\xF9\x00\x06\x00\x00", 6, "launcher: modes up to 1536 high");
+
+    /* g_camera switches the zoom on: fill it only if table entries 0 and 1 are the known ones */
+    if (memcmp((void *)0x4D9528, "\x00\x0C\x00\x03\x00\x00\x00\x0C\x00\x04\x00\x00", 12) == 0) {
+        memcpy(g_camera, (void *)0x4D9528, sizeof g_camera);
+        say("ok   %-40s %08X", "camera zoom: mouse wheel, numpad +/-", 0x4D9528);
+    } else {
+        say("skip %-40s %08X: unexpected bytes, unknown game build?", "camera zoom: mouse wheel, numpad +/-", 0x4D9528);
+    }
+
+    /* without this, Windows stretches the window at 125 % or 150 % display scaling: blurry */
+    SetProcessDPIAware();
 
     g_skip_launcher = GetPrivateProfileIntA("Startup", "SkipLauncher", 1, g_ini);
     hook_import(0x54F55C, "user32.dll", "DialogBoxParamA", launcher_box, NULL,

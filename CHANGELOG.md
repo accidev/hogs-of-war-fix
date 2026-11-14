@@ -2,6 +2,16 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`; the technical details of every change are in [docs/WORKLOG.md](docs/WORKLOG.md) (in Russian).
 
+## v1.2.1 — 2026-11-14
+
+### Fixed
+
+- With `[Display] Windowed=0` in `hogs.ini` the game ran unseen: the music played, but there was no window and nothing on the taskbar. The setting is removed: the game always runs in a window. For full screen set `[Display] Borderless=1`.
+
+### Good to know
+
+- A `Windowed` line left in your `hogs.ini` does nothing now. You can delete it.
+
 ## v1.2.0 — 2026-11-14
 
 One DLL less in the game folder. Nothing new to set up and nothing changes in the game: update as usual.

@@ -85,9 +85,8 @@ The settings are in `hogs.ini` in the game folder. Restart the game after you ch
 
 | Setting | Default | What it does |
 |---|---|---|
-| `[Display] Windowed` | `1` | 1 = window. 0 = the original fullscreen mode, which the new renderer does not support |
-| `[Display] Resizable` | `1` | The window can be resized and maximized |
-| `[Display] Borderless` | `0` | 1 = a borderless window over the whole monitor, like fullscreen |
+| `[Display] Borderless` | `0` | 1 = full screen: a borderless window over the whole monitor. 0 = a framed window |
+| `[Display] Resizable` | `1` | The framed window can be resized and maximized |
 | `[Display] Widescreen` | `1` | 1 = the launcher also offers resolutions in the shape of your monitor (16:9, 21:9...). A battle in one fills the screen and shows more to the sides. Menus and videos stay 4:3, with black bars. 0 = 4:3 resolutions only |
 | `[Startup] SkipLauncher` | `1` | Start with the resolution chosen last time. The first start takes the smallest one for your monitor, which has the largest interface. Hold Shift at start to choose again |
 | `[Startup] SkipIntro` | `1` | No logos and intro videos at start |
