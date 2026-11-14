@@ -2,7 +2,7 @@
 #
 #   russian.cmd                 download the translation and install it
 #   russian.cmd -Remove         put the English files back (russian-remove.cmd does this)
-#   russian.cmd -Zip "D:\Downloads\hogs-of-war-ru-1.0.0.zip"    install from a zip you downloaded yourself
+#   russian.cmd -Zip "D:\Downloads\hogs-of-war-ru-1.1.0.zip"    install from a zip you downloaded yourself
 #   russian.cmd -GameDir "D:\Games\Hogs of War"                 game folder (default: the folder above this one)
 #
 # The translation is not part of this fix. It comes from github.com/accidev/hogs-of-war-ru: the release named below,
@@ -16,10 +16,10 @@
 
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
-$version = '1.0.0'
+$version = '1.1.0'
 $name = "hogs-of-war-ru-$version.zip"
 $url = "https://github.com/accidev/hogs-of-war-ru/releases/download/v$version/$name"
-$sha = '60715E22A118FBAB969494B97AEEE75EECDF491FB97378D1B1E1F818DA5E2A2E'
+$sha = '102B41E53BF84D37F14DE187A94E7F1F65FD6952B0C29E6B5D050EC2A8338BB0'
 # all a translation may hold: these folders, these file types (what the game reads from them)
 $folders = 'FEText', 'Language', 'Speech'
 $types = '.wav', '.bmp', '.bik', '.tab', '.tim', '.bin', '.mad', '.ofs'
@@ -139,6 +139,9 @@ try {
         throw "The installation stopped: $($_.Exception.Message) Run russian.cmd again to finish it, or russian-remove.cmd to go back to English."
     }
 } finally { $archive.Dispose() }
-Set-Content -LiteralPath $mark -Value $version -Encoding ASCII
+# a zip the player brought says its release in its name
+$installed = $version
+if ((Split-Path $Zip -Leaf) -match '^hogs-of-war-ru-([0-9]+[.][0-9]+[.][0-9]+)[.]zip$') { $installed = $Matches[1] }
+Set-Content -LiteralPath $mark -Value $installed -Encoding ASCII
 if ($fetched) { Drop $Zip }
 Say 'Russian translation installed (the English files are kept in english.orig; russian-remove.cmd puts them back)' 'Green'

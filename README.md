@@ -60,7 +60,7 @@ The game can be played in Russian: text, fonts, videos and voices. The translati
 
 - **Install:** double-click `HogsFix\russian.cmd`. It downloads the translation, checks it and puts it into the game folder. On a PC whose display language is Russian, `patch.cmd` asks whether to do this.
 - **Back to English:** double-click `HogsFix\russian-remove.cmd`. The translation replaces about 1900 files of the game; the English ones are kept in the `english.orig` folder of the game and are moved back.
-- **No internet on that PC:** download `hogs-of-war-ru-1.0.0.zip` from its [release page](https://github.com/accidev/hogs-of-war-ru/releases/tag/v1.0.0), put it next to `russian.cmd` and run `russian.cmd`.
+- **No internet on that PC:** download `hogs-of-war-ru-1.1.0.zip` from its [release page](https://github.com/accidev/hogs-of-war-ru/releases/tag/v1.1.0), put it next to `russian.cmd` and run `russian.cmd`.
 - It needs about 700 MB of free disk space while it installs, and 360 MB after that.
 - If Steam verifies the game files, it puts the English files back. Run `patch.cmd`, then `russian.cmd` again.
 

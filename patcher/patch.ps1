@@ -281,8 +281,16 @@ if ((Has $winmm) -and (Sha $winmm) -eq $badWinmm) {
 
 # 7. The Russian translation is a separate download, made by russian.ps1. It is offered on a PC whose display language
 #    is Russian, to a person who can answer: with the input taken from a file or from nul, a script runs this.
-if ((Has $russian) -and -not (Has (Join-Path $GameDir 'english.orig\version.txt')) -and
-    (Get-UICulture).TwoLetterISOLanguageName -eq 'ru' -and -not [Console]::IsInputRedirected) {
+#    It is offered again when russian.ps1 installs a newer release than the one in the game folder.
+$ruMark = Join-Path $GameDir 'english.orig\version.txt'
+$ruHave = ''
+if (Has $ruMark) { $ruHave = "$(Get-Content -LiteralPath $ruMark -TotalCount 1)".Trim() }
+$ruWant = ''
+if ((Has $russian) -and (Get-Content -LiteralPath $russian -Raw) -match '(?m)^[$]version = ''([^'']+)''') { $ruWant = $Matches[1] }
+if ($ruHave -and $ruWant -and $ruHave -ne $ruWant) {
+    Say "A newer Russian translation can be installed ($ruWant; the game has $ruHave): run russian.cmd" 'Yellow'
+}
+if ($ruWant -and $ruHave -ne $ruWant -and (Get-UICulture).TwoLetterISOLanguageName -eq 'ru' -and -not [Console]::IsInputRedirected) {
     # The texts are Russian, written as escapes because this file is ASCII: "The language of Windows is Russian.
     # Download and install the Russian translation of the game (text and voices, 330 MB)?", "1 = yes, 2 = no",
     # "The translation was not installed. To install it later: russian.cmd"

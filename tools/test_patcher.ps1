@@ -507,6 +507,12 @@ function ScenR {
     $r = & $ru @('-Zip', $zip)
     $r2 = RunPatch $pkg
     Check 'R5' 'patch.ps1 again over the translation: finishes, translation stays' (($r.Code -eq 0) -and ($r2.Code -eq 0) -and ((& $text 'FEText\BIG.tab') -eq 'russian tab')) "exit $($r.Code), $($r2.Code)"
+    [IO.File]::WriteAllText((Join-Path $g 'english.orig\version.txt'), "0.9.0`r`n")
+    $r = RunPatch $pkg
+    Check 'R5' 'patch.ps1 over an older translation: says that a newer one can be installed' (($r.Code -eq 0) -and ($r.Out -match 'newer Russian translation') -and ($r.Out -match 'the game has 0\.9\.0')) "exit $($r.Code)"
+    $r = & $ru @('-Zip', $zip)
+    $r2 = RunPatch $pkg
+    Check 'R5' 'after russian.ps1 the version is the current one and patch.ps1 says nothing about it' (($r.Code -eq 0) -and ($r2.Out -notmatch 'newer Russian translation')) "exit $($r.Code)"
     $r = RunPatch $pkg @('-Restore')
     Check 'R5' 'patch.ps1 -Restore removes the translation too: tree identical to the original' (($r.Code -eq 0) -and (SameSnap $s0 (Snap $g))) "exit $($r.Code) $(DiffSnap $s0 (Snap $g))"
 

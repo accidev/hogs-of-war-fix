@@ -2,6 +2,18 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`; the technical details of every change are in [docs/WORKLOG.md](docs/WORKLOG.md) (in Russian).
 
+## v1.3.1 — 2026-11-14
+
+### Changed
+
+- `russian.cmd` installs release 1.1.0 of the Russian translation: the whole Russian alphabet and the Latin letters in every font, the text corrected (real letters where the translation had «И» for «Й», «Е» for «Э» and the digits 3 and 4 for «З» and «Ч»), English names and the credits readable, and the help screens showing their own text. What changed in the translation is listed in [hogs-of-war-ru](https://github.com/accidev/hogs-of-war-ru#readme).
+
+### Good to know
+
+- To update a translation that is already installed, run `russian.cmd` again. The English files in `english.orig` are kept as they are.
+- A team or pig name typed with release 1.0.0 of the translation shows in Latin letters now: type it again.
+- Nothing in the game itself changed: the fixes and the renderer are those of v1.2.2.
+
 ## v1.3.0 — 2026-11-14
 
 ### Added
