@@ -7,6 +7,7 @@
 #define FRONTEND (*(DWORD *)0x51F120)    /* not 0: a menu is on screen */
 #define MENU (*(const int **)0x51AAD8)   /* the menu the keys go to, a 0x48-byte record */
 #define KEY_WANTED (*(DWORD *)0x51AC50)  /* Options, Controls waits for the key to bind */
+#define VIDEO (GAME_CONFIG && GAME_CONFIG[2]) /* PlayBinkVideo plays; the menu under it is not on the screen */
 
 extern char g_ini[MAX_PATH];
 
@@ -14,6 +15,9 @@ void say(const char *fmt, ...);
 BOOL patch(DWORD va, const void *old, const void *new_bytes, SIZE_T len, const char *what);
 BOOL hook(DWORD va, BYTE op, const void *old5, const void *fn, const char *what);
 BOOL hook_import(DWORD slot_va, const char *dll, const char *fn, const void *repl, void *orig, const char *what);
+
+/* hogs.c: TRUE for a key-down or click, the message now in the window procedure, too early to end the video */
+BOOL video_early(void);
 
 /* frames.c: battle loop, frames between game ticks, menu speed; vsync = [Render] VSync */
 void frames_init(BOOL vsync);

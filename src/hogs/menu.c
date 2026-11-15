@@ -31,7 +31,6 @@
 #define GRID_TEXT (*(const int **)0x51BA54)  /* the text object that draws the name grid */
 #define GRID_COLUMNS (*(const int *)0x51AAE8) /* FUN_004284D0 sets both from that object every frame */
 #define GRID_LETTERS (*(const int *)0x51AAF0)
-#define VIDEO (GAME_CONFIG && GAME_CONFIG[2]) /* PlayBinkVideo plays; the menu under it is not on the screen */
 #define SAVED_NAMES ((const char *)0x51A740) /* the team of each of the 8 saved games, 0x14 bytes; first byte -1: none */
 enum { NAME_GRID = 0, TEAM_SCREEN = 5, LOAD = 8, SAVE = 9, CAREER = 13, CONTROLS = 15, LINES = 12, S_ACTION = 0x15D, S_KEY = 0x169, S_NO_NAME = 0x1CA };
 enum { HINT_X = 350, HINT_Y = 12, HINT_W = 480 }; /* over the title, in the field of 1024 x 820 */
@@ -327,10 +326,14 @@ BOOL menu_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         last = lp;
         return TRUE;
     }
-    if (VIDEO) { /* MainWndProc ends a video on a key-down: a click is that key */
-        if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN)
+    if (VIDEO) { /* MainWndProc ends a video on a key-down: a click is that key; too early, neither is */
+        BOOL click = msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN;
+
+        if ((click || msg == WM_KEYDOWN) && video_early())
+            return TRUE;
+        if (click)
             press(hwnd, VK_RETURN);
-        return msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MOUSEWHEEL;
+        return click || msg == WM_MOUSEWHEEL;
     }
     if (!FRONTEND || !menu)
         return FALSE;

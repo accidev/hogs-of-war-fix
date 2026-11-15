@@ -2,6 +2,25 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v1.5.6 — 2026-11-15
+
+### Changed
+
+- In the view through a weapon's sight the Forward key raises the sight and the Back key lowers it. The game had the two the other way round. Walking, the look-around camera and the menus are as before. The d-pad and the left stick of a controller do the same as the keys.
+- No key and no click ends a video in its first 1.5 seconds.
+
+### Fixed
+
+- The tail of a pig seen from a distance bent and stretched when the body of the pig leaned. In the game's models for the middle and the far distance two corners of the tail are tied to the body; in the close models all four are tied to the hips. Now all four are tied to the hips in every model. One close model had the same fault.
+- A key press or a click made while the game loaded before a story video ended that video on its first frame.
+
+### Good to know
+
+- `hogs.log` has two lines for each video: its file, then how long it played and what ended it.
+- The video fix of v1.5.5 is confirmed in a campaign: the video after mission 20 plays.
+- The two keys are swapped before the game reads them, so a network game with players on v1.5.5 stays in step. A joystick set up in Options → Controls keeps the game's directions in the sight.
+- Tested on a copy of the game: the sight with a test controller; the tail by the numbers of the models and by a picture of one pig with each of its three models; the videos at start-up with early and late keys and a click. Not tested: the pause menu opened from the sight, a network game, the tail of every class by eye.
+
 ## v1.5.5 — 2026-11-15
 
 ### Fixed

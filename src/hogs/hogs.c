@@ -179,6 +179,48 @@ static void __cdecl ground_quad(const float *a, const float *b, const float *c, 
     g_ground_quad(a, b, c, d, page, split);
 }
 
+/* Pig models (afLoadAnimModels): 9 classes x 3 whole pigs, picked by distance. A tail is 4 triangles with TIM 117.
+ * 19 models tie its 2 far corners to the body (bone 1), so the tail bends as the body leans: all 4 to the pelvis. */
+static BYTE *g_renderer; /* _d3d.dll, once fix_renderer() knows its build */
+
+static void __cdecl load_pigs(int tim_base)
+{
+    static BOOL said; /* every battle loads the models again */
+    int model, corner, moved = 0;
+
+    (*(void(__cdecl **)(int))0x537FEC)(tim_base);
+    if (!g_renderer)
+        return;
+    for (model = 0; model < 27; model++) {
+        const short *body = (const short *)(g_renderer + 0x1C948E8 + 20 + 4); /* pig.hir: bone 1 from the pelvis */
+        BYTE *pig = *(BYTE **)(g_renderer + 0x1C94860 + 4 * model), *mesh = pig ? *(BYTE **)(pig + 0x44) : NULL, *face;
+        float (*verts)[4], (*normals)[4]; /* x, y, z from the bone, then the bone */
+        int faces;
+
+        if (!mesh)
+            continue;
+        verts = *(float (**)[4])mesh;
+        face = *(BYTE **)(mesh + 4) + 0x14; /* triangles, 32 bytes: +6 vertices, +0xC normals, +0x18 TIM */
+        normals = *(float (**)[4])(mesh + 8);
+        for (faces = *(int *)(face - 4); faces > 0; faces--, face += 32)
+            for (corner = 0; corner < 3 && *(int *)(face + 0x18) == tim_base + 117; corner++) {
+                float *v = verts[*(WORD *)(face + 6 + 2 * corner)];
+
+                if (v[3] != 1.0f)
+                    continue;
+                v[0] += body[0];
+                v[1] += body[1];
+                v[2] += body[2];
+                v[3] = 0;
+                normals[*(WORD *)(face + 0xC + 2 * corner)][3] = 0;
+                moved++;
+            }
+    }
+    if (moved && !said)
+        say("pig tails: %d corners tied to the pelvis", moved);
+    said = TRUE;
+}
+
 static void fix_renderer(HMODULE renderer)
 {
     DWORD base = (DWORD)(ULONG_PTR)renderer;
@@ -189,6 +231,7 @@ static void fix_renderer(HMODULE renderer)
         say("skip renderer fixes: unknown _d3d.dll (image size %08X)", nt->OptionalHeader.SizeOfImage);
         return;
     }
+    g_renderer = (BYTE *)renderer;
 
     /* CopyToScreen: AdjustWindowRectEx bMenu=TRUE, but the window has no menu; push 1 -> push 0 */
     patch(base + 0x321B, "\x50\x6A\x01\x8D\x4C\x24\x24", "\x50\x6A\x00\x8D\x4C\x24\x24", 7,
@@ -593,24 +636,57 @@ static int __cdecl skip_intro(const char *video)
     return 1;
 }
 
-/* PlayBinkVideo (0x43EE10) ends a video when FUN_00480870 sees a bound key held. A story video starts a few ms
- * after the key that closed the screen before it: a key ends a video only after all keys were up during it */
+/* PlayBinkVideo (0x43EE10) ends a video when FUN_00480870 sees a bound key held, and MainWndProc on a WM_KEYDOWN.
+ * The key or click that closed the screen before a story video did both: input of its first 1.5 s ends no video */
 static void *(__stdcall *g_bink_open)(const char *, DWORD);
-static BOOL g_video_keys; /* all keys were up since the video began */
+static void(__stdcall *g_bink_close)(void *);
+static BOOL g_video_keys;      /* all keys were up since the video began */
+static DWORD g_video_at;       /* GetTickCount at its beginning */
+static int g_video_ignored;    /* key-downs and clicks dropped as too early */
+static BOOL g_video_held;      /* a key held too early, or from before the video */
+static const char *g_video_end;
+
+#define VIDEO_GUARD 1500 /* ms */
+
+BOOL video_early(void)
+{
+    if ((int)(GetMessageTime() - g_video_at) >= VIDEO_GUARD)
+        return FALSE;
+    g_video_ignored++;
+    return TRUE;
+}
 
 static void *__stdcall bink_open(const char *name, DWORD flags)
 {
-    g_video_keys = FALSE;
+    g_video_keys = g_video_held = FALSE;
+    g_video_ignored = 0;
+    g_video_end = NULL;
+    g_video_at = GetTickCount();
+    say("video %s", name);
     return g_bink_open(name, flags);
+}
+
+/* PlayBinkVideo clears cfg+2 after this call: 0 here is MainWndProc's doing */
+static void __stdcall bink_close(void *bink)
+{
+    say("video: %u ms, ended by %s; too early: %d key-downs or clicks%s", GetTickCount() - g_video_at,
+        g_video_end ? g_video_end : GAME_CONFIG[2] ? "its end" : "a key-down", g_video_ignored, g_video_held ? ", a key held" : "");
+    g_bink_close(bink);
 }
 
 static BYTE __cdecl video_key(void)
 {
     BYTE held = ((BYTE(__cdecl *)(void))0x480870)();
 
-    if (!held)
+    if (!held) {
         g_video_keys = TRUE;
-    return g_video_keys ? held : 0;
+    } else if (!g_video_keys || (int)(GetTickCount() - g_video_at) < VIDEO_GUARD) {
+        g_video_held = TRUE;
+        held = 0;
+    } else {
+        g_video_end = "a key held";
+    }
+    return held;
 }
 
 /* EnumWindows callback 0x44CE80 disables foreign top-level windows, re-enabled on a clean exit only */
@@ -768,8 +844,17 @@ static void apply_fixes(int vsync, int widescreen)
                 g_skip_launcher ? "start without the launcher (Shift: show)" : "launcher: mode for the monitor at first");
     if (GetPrivateProfileIntA("Startup", "SkipIntro", 1, g_ini))
         hook(0x47DF2B, 0xE8, "\xE8\xE0\x0E\xFC\xFF", skip_intro, "no intro videos");
-    if (hook_import(0x54F664, "binkw32.dll", "_BinkOpen@8", bink_open, &g_bink_open, "videos: each waits for the keys to go up"))
+    if (hook_import(0x54F664, "binkw32.dll", "_BinkOpen@8", bink_open, &g_bink_open, "videos: each waits for the keys to go up")) {
         hook(0x43EFE6, 0xE8, "\xE8\x85\x18\x04\x00", video_key, "videos: a key held from before ends none");
+        hook_import(0x54F688, "binkw32.dll", "_BinkClose@4", bink_close, &g_bink_close, "videos: what ended each, in the log");
+    }
+    {
+        BYTE call[6] = { 0xE8, 0, 0, 0, 0, 0x90 }; /* over call [0x537FEC], afLoadAnimModels */
+        DWORD rel = (DWORD)(ULONG_PTR)load_pigs - (0x486261 + 5);
+
+        memcpy(call + 1, &rel, 4);
+        patch(0x486261, "\xFF\x15\xEC\x7F\x53\x00", call, 6, "pig tails: all on the pelvis bone");
+    }
 
     /* joystick setup (callback 0x44C700): DIPROP_DEADZONE 5000 of 10000; [Gamepad] Deadzone is in % */
     memcpy(deadzone_mov + 4, &deadzone_value, 4);

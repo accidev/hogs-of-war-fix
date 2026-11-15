@@ -99,6 +99,7 @@ Good to know:
 |---|---|
 | Mouse, in the menus | Pointing selects a line, a pig on the team screen, a letter of a name or a saved game; the left button enters, the right button goes back, the wheel moves the choice. In a multi-player game the arrows under a pig's name and the wheel over the pig change its class |
 | Options → Controls | Click an action, or choose it with the arrows and Enter, then press a key or a mouse button for it. Delete puts the default keys back. The keys of the four directions also move the cursor in the menus |
+| Forward and Back, in the view through a weapon's sight | Sight up and down. The game had them the other way round |
 | Mouse wheel, Numpad + and −, in a battle | Camera closer or farther, 50 to 200 % |
 | Shift, held while the game starts | Resolution and detail dialog. Fewer lines give a larger HUD |
 | F11 | 10 promotion points, if the cheat is on (see below) |
@@ -118,7 +119,7 @@ An Xbox (XInput) controller works without setup. Its buttons sit where the butto
 | Start | Pause |
 | Back | The Select button of the PlayStation version |
 
-In menus A or Start selects and B or Y goes back. On the results screen A continues and Y retries. A, B or Start skip a video.
+In menus A or Start selects and B or Y goes back. On the results screen A continues and Y retries. A, B or Start skip a video, after its first 1.5 seconds.
 
 ## Settings
 

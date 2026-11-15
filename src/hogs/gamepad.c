@@ -205,6 +205,21 @@ BYTE __cdecl read_keys(BYTE *keys)
     return ok;
 }
 
+/* The views through a sight (camera modes 0xE, 0x11; FUN_00495690) lower the sight on Up and raise it on Down.
+ * Swapped in the keys, not in the pitch: a network game sends the keys, every copy must do the same with them. */
+static void swap_sight_keys(BYTE *keys, const WORD *bound)
+{
+    const BYTE *turn = *(const BYTE **)0x537F24; /* one per battle; +0x43C: pause menu of a network game */
+    const int *camera = *(const int **)0x537F98; /* [0x21]: mode; the pause menu sets 7 */
+    BYTE up;
+
+    if (!turn || !camera || (camera[0x21] != 0xE && camera[0x21] != 0x11) || turn[0x43C] == 1 || bound[0] > 255 || bound[1] > 255)
+        return;
+    up = keys[bound[0]];
+    keys[bound[0]] = keys[bound[1]];
+    keys[bound[1]] = up;
+}
+
 /* Replaces the keyboard read; edi there is the player. */
 static BYTE __cdecl keyboard_state(BYTE *keys, const BYTE *player)
 {
@@ -217,14 +232,13 @@ static BYTE __cdecl keyboard_state(BYTE *keys, const BYTE *player)
     gamepad_poll();
     buttons = g_held | g_pressed;
     g_pressed = 0;
-    if (!buttons)
-        return ok;
-    if (!ok)
-        memset(keys, 0, 256);
+    if (buttons)
+        ok = 1;
     for (i = 0; i < 16; i++)
         if ((buttons & (1 << i)) && bound[i] && bound[i] < 256)
             keys[bound[i]] = 0x80;
-    return 1;
+    swap_sight_keys(keys, bound);
+    return ok;
 }
 
 static __declspec(naked) void keyboard_state_stub(void)
