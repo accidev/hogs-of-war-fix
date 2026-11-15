@@ -1,6 +1,12 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v1.5.1**
+**New in v1.5.2**
+
+- The sniper sight fits the screen. The game drew it at one size, made for 640×480 to 1024×768: on a larger or a wide screen the black frame ended before the edges and the lens was small. Now the black reaches every edge, the lens takes nine tenths of the height and has a soft shadow at the rim, and thin cross-hairs run across it.
+- Fixed: the message banner at the top of a battle lost letters. With the Russian translation 17 letters were missing, so the message about a crate could show a few letters or none.
+- Fixed: a long message in the banner went blank before its end.
+
+**v1.5.1**
 
 - Options → Controls shows every action on one screen: each of the twelve slots holds one action, the name over the key. The game showed six lines and scrolled.
 - Mouse buttons can be keys: choose an action and press a mouse button. The screen shows it as MOUSE 1 to MOUSE 5, and in a battle the button does that action.
@@ -67,7 +73,9 @@ Video of the whole install: https://youtu.be/oBo27HB4x_4
 
 Update: extract the new zip over the old `HogsFix` folder and run `patch.cmd` again; your `hogs.ini` settings are kept. Uninstall: `HogsFix\uninstall.cmd`. Settings, controls and help: [README](https://github.com/accidev/hogs-of-war-fix#readme).
 
-**Что нового в v1.5.1**: экран «Настройки → Управление» показывает все действия сразу. В каждом из двенадцати гнёзд доски одно действие: название и под ним клавиша; раньше игра показывала шесть строк и прокручивала их. Кнопки мыши назначаются как клавиши: выберите действие и нажмите кнопку мыши, на экране она называется MOUSE 1 – MOUSE 5 (с русским переводом — МЫШЬ), в бою кнопка делает это действие. Delete на этом экране возвращает исходные клавиши. Экран проверен клавишами и сообщениями мыши, посланными в окно игры, но ещё не руками с настоящей клавишей и кнопкой мыши: напишите, если что-то не работает.
+**Что нового в v1.5.2**: оптический прицел рисуется под разрешение боя. Игра рисовала его одного размера, рассчитанного на 640×480–1024×768: на большом или широком экране чернота не доходила до краёв, а линза была маленькой. Теперь чернота доходит до всех краёв, линза занимает девять десятых высоты, у её края мягкая тень, через линзу идёт тонкое перекрестие. Исправлен баннер сообщений вверху экрана в бою: он терял буквы. С русским переводом пропадали 17 букв (Б Г Д Ё Ж З И Й Л П У Ф Ц Ч Ш Щ Ъ), и сообщение о подобранном ящике могло показать несколько букв или ни одной. Длинное сообщение больше не гаснет перед концом.
+
+**v1.5.1**: экран «Настройки → Управление» показывает все действия сразу. В каждом из двенадцати гнёзд доски одно действие: название и под ним клавиша; раньше игра показывала шесть строк и прокручивала их. Кнопки мыши назначаются как клавиши: выберите действие и нажмите кнопку мыши, на экране она называется MOUSE 1 – MOUSE 5 (с русским переводом — МЫШЬ), в бою кнопка делает это действие. Delete на этом экране возвращает исходные клавиши. Экран проверен клавишами и сообщениями мыши, посланными в окно игры, но ещё не руками с настоящей клавишей и кнопкой мыши: напишите, если что-то не работает.
 
 **v1.5.0**: в меню работает мышь. Наведение выбирает строку, щелчок входит, правая кнопка возвращает назад, колесо двигает выбор. Сетевая игра стала устойчивее: меню не замирает при подключении, обрыв связи замечается за 15 секунд, и бой продолжается для оставшихся (раньше у игрока с оборванной связью игра зависала); новая игра появляется в списке за секунду-две, а не за десять. **У всех игроков сетевой игры должна быть версия 1.5.0**: она и 1.4.0 не видят игры друг друга. Игры онлайн видны и на веб-странице: откройте в браузере адрес из `[Network] Server` файла `hogs.ini`, заменив `wss://` на `https://`. Исправление ставится и на копию игры не из Steam: версию 1.2 с `warhogs.exe` без защиты от копирования. Если видеокарту использовать нельзя, игра запускается на программном рендере Windows.
 

@@ -2,6 +2,21 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v1.5.2 — 2026-11-15
+
+### Changed
+
+- The sniper sight is drawn for the resolution of the battle. The game drew it at one size, made for 640×480 to 1024×768: on a larger or a wide screen the black frame ended before the edges and the lens was small. Now the black reaches every edge, the lens takes nine tenths of the height, its rim has a soft shadow, and thin cross-hairs with three posts run across it. The game's own centre mark stays.
+
+### Fixed
+
+- The message banner at the top of a battle lost letters. It showed only the first 59 characters of the font; with the Russian translation the letters Б Г Д Ё Ж З И Й Л П У Ф Ц Ч Ш Щ Ъ were missing, so a message about a crate could come out as a few letters or none.
+- A long message in the banner went blank before its end: the game kept the text in a picture 1024 pixels wide. It is 4096 now.
+
+### Good to know
+
+- Tested in the English game at 1920×1080 and with the Russian translation at 854×480.
+
 ## v1.5.1 — 2026-11-15
 
 ### Added

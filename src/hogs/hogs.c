@@ -3,6 +3,7 @@
  * entry point and calls hogs_init(). Fixes go in only for an exe importing CallDLL; each checks the
  * original bytes first. Settings hogs.ini, log hogs.log, next to the exe. */
 #include "hogs.h"
+#include <math.h>
 #include <mmsystem.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -334,6 +335,91 @@ static void set_name_box(int lines)
     FlushInstructionCache(GetCurrentProcess(), g_name_box, sizeof *g_name_box);
 }
 
+/* Sniper sight: FUN_00457EB0 gives 46 black polys at 0x51CB58 to afAdd2dPolyToSortList. They come from
+ * chars\sight.mad at one size, 1295 x 824 with a hole of radius 192, 9 lines above the centre: ours replace them */
+typedef struct {
+    float x, y, z, rhw;
+    DWORD color, specular;
+    float u, v;
+} SightVertex; /* D3DTLVERTEX */
+
+typedef struct {
+    BYTE unused[0x10];
+    int tex; /* -1: no texture, vertex colours with alpha */
+    BYTE unused2[8];
+    short flags; /* 0x20: a fan of the 4 vertices at +0x20 */
+    short pad;
+    SightVertex *verts;
+    DWORD pad2;
+} SightPoly; /* 0x28 bytes */
+
+enum { SIGHT_RING = 60, SIGHT_POLYS = 2 * SIGHT_RING + 7 }; /* at most 127: the count is a push imm8 */
+
+static SightVertex g_sight_verts[SIGHT_POLYS][4];
+static SightPoly g_sight[SIGHT_POLYS];
+static BOOL g_sight_on;
+
+static void sight_vertex(SightVertex *v, float x, float y, DWORD color)
+{
+    v->x = x;
+    v->y = y;
+    v->z = 1.526e-5f; /* depth and rhw of the game's own HUD polys */
+    v->rhw = 15.0f;
+    v->color = color;
+    v->specular = 0xFFFFFFFF;
+    v->u = v->v = 0;
+}
+
+static void sight_bar(int n, float left, float top, float right, float bottom)
+{
+    SightVertex *v = g_sight_verts[n];
+
+    sight_vertex(v, left, top, 0xFF000000);
+    sight_vertex(v + 1, right, top, 0xFF000000);
+    sight_vertex(v + 2, right, bottom, 0xFF000000);
+    sight_vertex(v + 3, left, bottom, 0xFF000000);
+}
+
+/* Black from the lens to past the screen corners, a shadow inside the rim, cross-hairs with three posts;
+ * the game's own 48 x 48 centre mark stays in the gap */
+static void build_sight(int w, int h)
+{
+    float cx = (float)(w / 2), cy = (float)(h / 2), lens = (float)h * 0.45f, shade = lens * 0.92f, edge = (float)(w + h);
+    float hair = (float)(h >= 1080 ? h / 540 : 1) / 2, post = (float)(h >= 540 ? h / 180 : 3) / 2;
+    float gap = 26, inner = lens * 0.35f;
+    int i, n = 2 * SIGHT_RING;
+
+    if (!g_sight_on)
+        return;
+    for (i = 0; i < SIGHT_POLYS; i++) {
+        g_sight[i].tex = -1;
+        g_sight[i].flags = 0x20;
+        g_sight[i].verts = g_sight_verts[i];
+    }
+    for (i = 0; i < SIGHT_RING; i++) {
+        double a0 = i * 6.283185307179586 / SIGHT_RING, a1 = (i + 1) * 6.283185307179586 / SIGHT_RING;
+        float c0 = (float)cos(a0), s0 = (float)sin(a0), c1 = (float)cos(a1), s1 = (float)sin(a1);
+        SightVertex *v = g_sight_verts[i];
+
+        sight_vertex(v, cx + edge * c0, cy + edge * s0, 0xFF000000);
+        sight_vertex(v + 1, cx + edge * c1, cy + edge * s1, 0xFF000000);
+        sight_vertex(v + 2, cx + lens * c1, cy + lens * s1, 0xFF000000);
+        sight_vertex(v + 3, cx + lens * c0, cy + lens * s0, 0xFF000000);
+        v = g_sight_verts[SIGHT_RING + i];
+        sight_vertex(v, cx + lens * c0, cy + lens * s0, 0xFF000000);
+        sight_vertex(v + 1, cx + lens * c1, cy + lens * s1, 0xFF000000);
+        sight_vertex(v + 2, cx + shade * c1, cy + shade * s1, 0);
+        sight_vertex(v + 3, cx + shade * c0, cy + shade * s0, 0);
+    }
+    sight_bar(n++, cx - lens, cy - hair, cx - gap, cy + hair);
+    sight_bar(n++, cx + gap, cy - hair, cx + lens, cy + hair);
+    sight_bar(n++, cx - hair, cy - lens, cx + hair, cy - gap);
+    sight_bar(n++, cx - hair, cy + gap, cx + hair, cy + lens);
+    sight_bar(n++, cx - lens, cy - post, cx - inner, cy + post);
+    sight_bar(n++, cx + inner, cy - post, cx + lens, cy + post);
+    sight_bar(n++, cx - post, cy + inner, cx + post, cy + lens);
+}
+
 static void __stdcall size_game_window(int w, int h)
 {
     HWND hwnd = GAME_WINDOW;
@@ -345,6 +431,7 @@ static void __stdcall size_game_window(int w, int h)
     g_game_h = h;
     set_fx_factor(w, h);
     set_name_box(h);
+    build_sight(w, h);
     if (!hwnd || g_game_proc)
         return;
     wide_battle(&w, &h);
@@ -573,7 +660,23 @@ static void apply_fixes(int vsync, int widescreen)
         } else {
             say("skip %-40s %08X: unexpected bytes, unknown game build?", "names above the pigs at any resolution", 0x459D6D);
         }
+        /* only with the hook above: size_game_window() builds the polys */
+        {
+            BYTE push[7] = { 0x6A, SIGHT_POLYS, 0x68 }; /* push count / push polys */
+            DWORD polys = (DWORD)(ULONG_PTR)g_sight;
+
+            memcpy(push + 3, &polys, 4);
+            g_sight_on = patch(0x457EDF, "\x6A\x2E\x68\x58\xCB\x51\x00", push, 7, "sniper sight for any resolution");
+        }
     }
+
+    /* Message banner: FUN_0045EB10 runs the text through _strupr, which takes 0x20 off text bytes 0x61-0x7A, and
+     * FUN_0045ECB0 adds 0x20 to every font record above 0x3C: records 0x3D-0x60 fell outside the 105 of BIG.tab */
+    if (patch(0x45EB38, "\xE8\x03\xB9\x05\x00", "\x8B\xC1\x90\x90\x90", 5, "banner: text bytes as they are"))
+        patch(0x45ED4C, "\x7E\x02", "\xEB\x02", 2, "banner: every letter of the font");
+    /* banner text surface, 1024 x 23 (FUN_0045E530): letters past the edge were lost, and the scroll blit
+     * reads 206 pixels past the scroll offset, outside the surface from offset 818 on */
+    patch(0x45E5EE, "\x68\x00\x04\x00\x00", "\x68\x00\x10\x00\x00", 5, "banner: room for long texts");
 
     g_widescreen = widescreen;
     if (g_widescreen) {
