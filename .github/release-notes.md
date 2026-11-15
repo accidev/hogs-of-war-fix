@@ -1,6 +1,10 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v1.5.4**
+**New in v1.5.5**
+
+- Fixed: the story videos of the campaign were not shown. A video ended on its first frame when the key that closed the mission results was still held. The campaign shows a video after missions 5, 10, 15, 20 and 24, and at the end.
+
+**v1.5.4**
 
 - The mouse does more in the menus. On the team screen of a multi-player game click the arrows under a pig's name, or turn the wheel over the pig, to change its class. When a pig is promoted, click the picture of its career path. A name is typed by clicking the letters. On the Load and Save screens point at a saved game and click it.
 - On the team screen of a multi-player game the Left key on a button moves the cursor to the pigs.
@@ -84,7 +88,9 @@ Video of the whole install: https://youtu.be/oBo27HB4x_4
 
 Update: extract the new zip over the old `HogsFix` folder and run `patch.cmd` again; your `hogs.ini` settings are kept. Uninstall: `HogsFix\uninstall.cmd`. Settings, controls and help: [README](https://github.com/accidev/hogs-of-war-fix#readme).
 
-**Что нового в v1.5.4**: мышь в меню умеет больше. На экране команды в игре на несколько игроков класс свиньи меняется щелчком по стрелкам под её именем или колесом над свиньёй. При повышении свиньи путь карьеры выбирается щелчком по его картинке. Имя набирается щелчками по буквам: стрелка справа стирает, черта ставит пробел, OK принимает имя. На экранах загрузки и сохранения наведите указатель на сохранённую игру и щёлкните. Клавиша «влево» на кнопке экрана команды в игре на несколько игроков переводит курсор на свиней.
+**Что нового в v1.5.5**: исправлено: в кампании не показывались сюжетные ролики. Ролик закрывался на первом кадре, если клавиша, которой закрыли итоги миссии, была ещё зажата. Теперь клавиша или кнопка мыши закрывает ролик, только если нажата во время него. Ролики идут после побед в миссиях 5, 10, 15, 20 и 24 и в финале.
+
+**v1.5.4**: мышь в меню умеет больше. На экране команды в игре на несколько игроков класс свиньи меняется щелчком по стрелкам под её именем или колесом над свиньёй. При повышении свиньи путь карьеры выбирается щелчком по его картинке. Имя набирается щелчками по буквам: стрелка справа стирает, черта ставит пробел, OK принимает имя. На экранах загрузки и сохранения наведите указатель на сохранённую игру и щёлкните. Клавиша «влево» на кнопке экрана команды в игре на несколько игроков переводит курсор на свиней.
 
 **v1.5.3**: исправлены дыры в земле в оптическом прицеле на широком экране: куски земли пропадали, и сквозь них было видно небо. Рендеру там не хватало места под вершины земли; теперь он не берёт то, что за краем картинки. Клавиши, назначенные на четыре направления в «Настройки → Управление» (например W A S D), двигают курсор и в меню; стрелки работают как раньше. На экране команды работает мышь: наведите указатель на свинью или кнопку, щелчок по свинье открывает её меню (повышение, смена места, имя). Игра хранит клавиши вместе с командой: после перезапуска меню слушается назначенных клавиш, когда загружена сохранённая команда.
 

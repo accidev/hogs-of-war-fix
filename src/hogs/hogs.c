@@ -593,6 +593,26 @@ static int __cdecl skip_intro(const char *video)
     return 1;
 }
 
+/* PlayBinkVideo (0x43EE10) ends a video when FUN_00480870 sees a bound key held. A story video starts a few ms
+ * after the key that closed the screen before it: a key ends a video only after all keys were up during it */
+static void *(__stdcall *g_bink_open)(const char *, DWORD);
+static BOOL g_video_keys; /* all keys were up since the video began */
+
+static void *__stdcall bink_open(const char *name, DWORD flags)
+{
+    g_video_keys = FALSE;
+    return g_bink_open(name, flags);
+}
+
+static BYTE __cdecl video_key(void)
+{
+    BYTE held = ((BYTE(__cdecl *)(void))0x480870)();
+
+    if (!held)
+        g_video_keys = TRUE;
+    return g_video_keys ? held : 0;
+}
+
 /* EnumWindows callback 0x44CE80 disables foreign top-level windows, re-enabled on a clean exit only */
 static BOOL CALLBACK keep_foreign_windows(HWND hwnd, LPARAM arg)
 {
@@ -748,6 +768,8 @@ static void apply_fixes(int vsync, int widescreen)
                 g_skip_launcher ? "start without the launcher (Shift: show)" : "launcher: mode for the monitor at first");
     if (GetPrivateProfileIntA("Startup", "SkipIntro", 1, g_ini))
         hook(0x47DF2B, 0xE8, "\xE8\xE0\x0E\xFC\xFF", skip_intro, "no intro videos");
+    if (hook_import(0x54F664, "binkw32.dll", "_BinkOpen@8", bink_open, &g_bink_open, "videos: each waits for the keys to go up"))
+        hook(0x43EFE6, 0xE8, "\xE8\x85\x18\x04\x00", video_key, "videos: a key held from before ends none");
 
     /* joystick setup (callback 0x44C700): DIPROP_DEADZONE 5000 of 10000; [Gamepad] Deadzone is in % */
     memcpy(deadzone_mov + 4, &deadzone_value, 4);

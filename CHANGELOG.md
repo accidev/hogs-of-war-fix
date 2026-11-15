@@ -2,6 +2,18 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v1.5.5 — 2026-11-15
+
+### Fixed
+
+- The story videos of the campaign were not shown. The game ends a video while a key of an action is held, and a video starts a few milliseconds after the key that closed the results of the mission: the video ended on its first frame. A key, or a mouse button set for an action, now ends a video only when it is pressed during the video.
+- While a video plays the mouse does not move the cursor of the menu under it. A click ends the video.
+
+### Good to know
+
+- The campaign shows a video after missions 5, 10, 15, 20 and 24, and at the end. The files are in `Language\Streams` of the game folder.
+- Tested with a button held when a video starts. Not tested: a video after a won mission of the campaign.
+
 ## v1.5.4 — 2026-11-15
 
 ### Added
