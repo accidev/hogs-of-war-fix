@@ -161,6 +161,24 @@ static void set_fx_factor(int w, int h)
     VirtualProtect(g_fx_factor, sizeof *g_fx_factor, prot, &prot);
 }
 
+/* Ground quads: FUN_1000A910(4 x D3DTLVERTEX, page, split) fills 25500 vertices a page, unchecked. All blocks
+ * drawn (wide) plus the sniper view's split of near tiles (afSetGroundSubDiv) ran a page over into the next */
+static void(__cdecl *g_ground_quad)(const float *, const float *, const float *, const float *, int, int);
+static const int *g_view_size;  /* _d3d.dll: width and height of the view, FUN_100075D0 */
+static const int *g_page_count; /* _d3d.dll: vertices of each ground page this frame */
+
+static void __cdecl ground_quad(const float *a, const float *b, const float *c, const float *d, int page, int split)
+{
+    float w = (float)g_view_size[0], h = (float)g_view_size[1];
+
+    if ((a[0] < 0 && b[0] < 0 && c[0] < 0 && d[0] < 0) || (a[0] > w && b[0] > w && c[0] > w && d[0] > w) ||
+        (a[1] < 0 && b[1] < 0 && c[1] < 0 && d[1] < 0) || (a[1] > h && b[1] > h && c[1] > h && d[1] > h))
+        return;
+    if (!split && g_page_count[page] > 25500 - 6)
+        return;
+    g_ground_quad(a, b, c, d, page, split);
+}
+
 static void fix_renderer(HMODULE renderer)
 {
     DWORD base = (DWORD)(ULONG_PTR)renderer;
@@ -200,6 +218,28 @@ static void fix_renderer(HMODULE renderer)
         /* a second load of the patched module must leave the pointer alone */
         if (patch(base + 0xB4C2, loop, call, 7, "renderer: water moves by the clock"))
             g_water_y = (float *)(ULONG_PTR)grid;
+    }
+
+    {
+        static BYTE *go; /* the two instructions the jump replaces, then a jump back */
+        static const BYTE head[10] = { 0x8B, 0x44, 0x24, 0x18, 0x81, 0xEC, 0x8C, 0, 0, 0 }; /* mov eax, [esp+0x18] / sub esp, 0x8C */
+        BYTE jump[10] = { 0xE9, 0, 0, 0, 0, 0x90, 0x90, 0x90, 0x90, 0x90 };
+        DWORD at = base + 0xA910, rel;
+
+        if (!go)
+            go = (BYTE *)VirtualAlloc(NULL, 16, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        if (go) {
+            memcpy(go, head, 10);
+            go[10] = 0xE9;
+            rel = at + 10 - ((DWORD)(ULONG_PTR)go + 15);
+            memcpy(go + 11, &rel, 4);
+            rel = (DWORD)(ULONG_PTR)ground_quad - (at + 5);
+            memcpy(jump + 1, &rel, 4);
+            g_ground_quad = (void(__cdecl *)(const float *, const float *, const float *, const float *, int, int))go;
+            g_view_size = (const int *)(ULONG_PTR)(base + 0x2C4F0);
+            g_page_count = (const int *)(ULONG_PTR)(base + 0x13E440);
+            patch(at, head, jump, 10, "renderer: ground outside the view skipped");
+        }
     }
 
     if (g_widescreen) {
@@ -309,6 +349,8 @@ static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
             wp = 'A'; /* any letter for MainWndProc; name_cell() takes g_cell */
         else if (wp == VK_ADD || wp == VK_SUBTRACT)
             zoom_camera(wp == VK_ADD ? -10 : 10);
+        else
+            wp = menu_key(wp, lp);
     }
     r = CallWindowProcA(g_game_proc, hwnd, msg, wp, lp);
     g_cell = 0;

@@ -30,7 +30,7 @@
 - **Wide-screen battles.** If your monitor is wider than 4:3, battles run in a resolution of its shape (16:9, 16:10, 21:9): the picture fills the screen and shows more to the sides instead of stretching. Menus and videos stay 4:3, with black bars. The game starts in the largest such resolution. Hold Shift while it starts to choose a smaller one: fewer lines give a larger HUD, and the picture stays as sharp. Wide screen was tested on 16:9 and on a simulated 21:9, so please report problems on other monitors.
 - **Computer pigs walk.** In the original PC game they stayed where they were on their turn, because their path finder never ran. Now they walk, at the same speed as your pigs (`[Battle] ComputerWalks`). This was checked in three computer turns; a whole campaign mission with walking computer pigs has not been played through yet.
 - **Network games over the internet.** The game's Network menu lists the games of other players of the fix, wherever they are. The player who watches another player's turn sees it as smoothly as their own. This is new, see below.
-- **The mouse in the menus.** Point at a line and click it; the right button goes back. The game's menus knew keys only.
+- **The mouse in the menus.** Point at a line and click it; the right button goes back. On the team screen click a pig to promote or rename it. The game's menus knew keys only.
 - **A Controls screen with every action on it.** The game showed six of twelve lines and scrolled. Mouse buttons can be bound like keys, and Delete puts the default keys back.
 - **Camera zoom** with the mouse wheel or Numpad + and −.
 - **A usable gamepad.** Xbox controllers (XInput) work without setup, with the button layout of the PlayStation version (see Controls). The stick dead zone of other joysticks is 15 % instead of 50 %. The Xbox support is new and has been tested only with a simulated controller, not a real one, so please tell us how it works for you.
@@ -97,8 +97,8 @@ Good to know:
 
 | Key | Action |
 |---|---|
-| Mouse, in the menus | Pointing selects a line, the left button enters, the right button goes back, the wheel moves up and down |
-| Options → Controls | Click an action, or choose it with the arrows and Enter, then press a key or a mouse button for it. Delete puts the default keys back |
+| Mouse, in the menus | Pointing selects a line, or a pig on the team screen; the left button enters, the right button goes back, the wheel moves up and down |
+| Options → Controls | Click an action, or choose it with the arrows and Enter, then press a key or a mouse button for it. Delete puts the default keys back. The keys of the four directions also move the cursor in the menus |
 | Mouse wheel, Numpad + and −, in a battle | Camera closer or farther, 50 to 200 % |
 | Shift, held while the game starts | Resolution and detail dialog. Fewer lines give a larger HUD |
 | F11 | 10 promotion points, if the cheat is on (see below) |

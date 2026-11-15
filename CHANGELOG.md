@@ -2,6 +2,19 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v1.5.3 — 2026-11-15
+
+### Fixed
+
+- Holes in the ground in the sniper sight on a wide screen: pieces of the land were missing and the sky showed through. In the sight the game splits the ground tiles near the camera into smaller ones, and a wide battle draws every block of the map. Together they wrote past the renderer's list of ground vertices (25,500 for one sheet of textures), and tiles of the next sheet were lost. The renderer now leaves out the tiles that are outside the picture and never writes past the list. In the test level one sheet took 32,652 vertices in the sight before and 3,888 after.
+- The keys set for the four directions in Options, Controls move the cursor in the menus too, for example W A S D. The arrow keys work as before. On a screen where a name is typed such a key stays a letter.
+- The mouse works on the team screen: point at a pig or a button to select it, and click a pig to open its menu (promote, swap position, rename). A click there was Enter for whatever was selected.
+
+### Good to know
+
+- The game keeps the keys with the team, in its save. After a restart the menus take the arrow keys only, until a saved team is loaded.
+- Tested in the English game at 640×480, 1920×1080 and 2560×1440, with keys and mouse messages sent to the game window.
+
 ## v1.5.2 — 2026-11-15
 
 ### Changed

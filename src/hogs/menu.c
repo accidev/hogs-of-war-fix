@@ -28,7 +28,8 @@
 #define KEYS_CHANGED (*(int *)0x51AC54)
 #define BLINK (*(int *)0x51AC4C)
 #define INPUT (*(BYTE **)0x51A5B0) /* +0x148 the joystick, -1: none */
-enum { CONTROLS = 15, LINES = 12, S_ACTION = 0x15D, S_KEY = 0x169, S_NO_NAME = 0x1CA };
+#define TEAM_BUTTONS (*(const int *)0x4C0D44) /* team screen: its first items are buttons, 2 or 4; pigs follow */
+enum { TEAM_SCREEN = 5, CONTROLS = 15, LINES = 12, S_ACTION = 0x15D, S_KEY = 0x169, S_NO_NAME = 0x1CA };
 enum { HINT_X = 350, HINT_Y = 12, HINT_W = 480 }; /* over the title, in the field of 1024 x 820 */
 
 /* The game's text object: +0x2C, +0x30, +0x34 colour, +0x38 alpha, +0x44 top and +0x4C height of the window */
@@ -42,6 +43,8 @@ static const ascii_fn text_ascii = (ascii_fn)0x430ED0;    /* '/' is a command th
 static const lookup_fn text_of = (lookup_fn)0x431680;     /* a string of fetext, every char less 0x1F */
 static void(__fastcall *const text_line)(int *text) = (void(__fastcall *)(int *))0x431AC0; /* next line */
 static void(__cdecl *const sound)(int which, int volume) = (void(__cdecl *)(int, int))0x420060;
+/* FUN_00427C90: the cursor of a menu went from item `was`; the board follows it */
+static void(__fastcall *const cursor_moved)(int *menu, void *, int was, int opened) = (void(__fastcall *)(int *, void *, int, int))0x427C90;
 
 int hogsdraw_game_point(int *x, int *y); /* ddraw/gpu.cpp */
 
@@ -70,10 +73,35 @@ static int lines(const int *menu)
     case 20:
     case 21: /* more items than the screen type has boxes: a list that scrolls, not known here */
         return menu[0] > 0 && menu[0] <= FIRST_BOX[menu[9] + 1] - FIRST_BOX[menu[9]] ? menu[0] : 0;
+    case TEAM_SCREEN:
+        return menu[0];
     case CONTROLS: /* [0] is 1 there */
         return g_controls ? LINES : 0;
     }
     return 0;
+}
+
+/* Team screen, a point of the 1024 x 820 field. FUN_0042A560: pig n has its name at {102 + 424 column,
+ * 168 + 125 row}, 400 wide, 5 rows a column; FUN_00428CF0: two buttons stand 410 under their boxes */
+static int team_item_at(const int *menu, int x, int y)
+{
+    const int (*box)[4] = BOXES + FIRST_BOX[TEAM_SCREEN];
+    int buttons = TEAM_BUTTONS, i;
+
+    for (i = buttons; i < menu[0]; i++) {
+        int left = (i - buttons) / 5 ? 600 : 60, top = 123 + (i - buttons) % 5 * 125; /* portrait and name */
+
+        if (x >= left && x < left + 370 && y >= top && y < top + 125)
+            return i;
+    }
+    for (i = 0; i < buttons && i < menu[0]; i++) {
+        int left = box[i][0] + (buttons < 3 || !BOARDS_MOVE ? 0 : menu[14]);
+        int top = box[i][1] + (buttons < 3 ? 410 : BOARDS_MOVE ? menu[15] : 0);
+
+        if (x >= left && x < left + box[i][2] + BOX_MORE && y >= top - 25 && y < top + box[i][3] + 25)
+            return i;
+    }
+    return -1;
 }
 
 /* The item under a point of the 640 x 480 menu picture, or -1. */
@@ -84,6 +112,8 @@ static int item_at(const int *menu, int x, int y)
     int board_x = BOARDS_MOVE ? menu[14] : 0, board_y = BOARDS_MOVE ? menu[15] : 0;
     int step = n > 1 ? abs(box[1][1] - box[0][1]) * 480 / 820 : 0;
 
+    if (menu[9] == TEAM_SCREEN)
+        return team_item_at(menu, x * 1024 / 640, y * 820 / 480);
     for (i = 0; i < n; i++) {
         int width = (box[i][2] + BOX_MORE) * 640 / 1024, height = box[i][3] * 480 / 820;
         int off = abs(x - ((box[i][0] + board_x) * 640 / 1024 + width / 2));
@@ -107,6 +137,15 @@ static BOOL point_at(HWND hwnd, LPARAM lp)
 
     if (!menu || !hogsdraw_game_point(&x, &y) || (item = item_at(menu, x, y)) < 0)
         return FALSE;
+    if (menu[9] == TEAM_SCREEN) { /* FUN_0042ACE0: the arrows walk two columns there; the cursor is set as it sets it */
+        int was = menu[3];
+
+        if (was != item) {
+            ((int *)menu)[3] = item;
+            cursor_moved((int *)menu, NULL, was, 0);
+        }
+        return TRUE;
+    }
     across = menu[9] == 4 || menu[9] == 12; /* FUN_0042AB40: only Left and Right move there */
     for (steps = abs(item - menu[3]); steps > 0 && MENU == menu && menu[3] != item; steps--)
         press(hwnd, item > menu[3] ? (across ? VK_RIGHT : VK_DOWN) : (across ? VK_LEFT : VK_UP));
@@ -218,6 +257,22 @@ static BYTE __cdecl wanted_keys(BYTE *keys)
         if (keys[MOUSE_KEY + i])
             g_mouse_bound = GetTickCount() | 1;
     return ok;
+}
+
+/* MainWndProc knows the arrow keys only: a key bound to a direction is that arrow. Not on the name grid
+ * (type 0), where a key is a letter. The game's key code: scan code, bit 7 for an extended key */
+WPARAM menu_key(WPARAM vk, LPARAM lp)
+{
+    static const BYTE kArrow[4] = { VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT };
+    const int *menu = MENU;
+    WORD key = (WORD)((lp >> 16 & 0x7F) | (lp >> 17 & 0x80));
+    int i;
+
+    if (FRONTEND && menu && menu[9] && vk != VK_RETURN && vk != VK_BACK && vk != VK_ESCAPE)
+        for (i = 0; i < 4; i++)
+            if (KEYS[i] == key)
+                return kArrow[i];
+    return vk;
 }
 
 /* TRUE: the message is done; MainWndProc must not get it. */

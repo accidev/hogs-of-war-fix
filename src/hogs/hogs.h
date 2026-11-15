@@ -27,6 +27,7 @@ void net_init(void);
 extern WNDPROC g_game_proc; /* MainWndProc, once hogs.c has taken the window's procedure over */
 void menu_init(void);
 BOOL menu_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+WPARAM menu_key(WPARAM vk, LPARAM lp); /* the key MainWndProc is to see for a WM_KEYDOWN */
 
 /* gamepad.c: XInput controllers, and mouse buttons as keys */
 #define MOUSE_KEY 0xF0 /* the five mouse buttons in the game's 256 key bytes: codes no keyboard has */

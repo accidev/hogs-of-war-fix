@@ -1,6 +1,12 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v1.5.2**
+**New in v1.5.3**
+
+- Fixed: holes in the ground in the sniper sight on a wide screen, with the sky showing through. The renderer ran out of room for the ground there; now it leaves out what is outside the picture.
+- The keys set for the four directions in Options → Controls (for example W A S D) also move the cursor in the menus. The arrow keys work as before.
+- The mouse works on the team screen: point at a pig or a button, click a pig to open its menu (promote, swap position, rename).
+
+**v1.5.2**
 
 - The sniper sight fits the screen. The game drew it at one size, made for 640×480 to 1024×768: on a larger or a wide screen the black frame ended before the edges and the lens was small. Now the black reaches every edge, the lens takes nine tenths of the height and has a soft shadow at the rim, and thin cross-hairs run across it.
 - Fixed: the message banner at the top of a battle lost letters. With the Russian translation 17 letters were missing, so the message about a crate could show a few letters or none.
@@ -73,7 +79,9 @@ Video of the whole install: https://youtu.be/oBo27HB4x_4
 
 Update: extract the new zip over the old `HogsFix` folder and run `patch.cmd` again; your `hogs.ini` settings are kept. Uninstall: `HogsFix\uninstall.cmd`. Settings, controls and help: [README](https://github.com/accidev/hogs-of-war-fix#readme).
 
-**Что нового в v1.5.2**: оптический прицел рисуется под разрешение боя. Игра рисовала его одного размера, рассчитанного на 640×480–1024×768: на большом или широком экране чернота не доходила до краёв, а линза была маленькой. Теперь чернота доходит до всех краёв, линза занимает девять десятых высоты, у её края мягкая тень, через линзу идёт тонкое перекрестие. Исправлен баннер сообщений вверху экрана в бою: он терял буквы. С русским переводом пропадали 17 букв (Б Г Д Ё Ж З И Й Л П У Ф Ц Ч Ш Щ Ъ), и сообщение о подобранном ящике могло показать несколько букв или ни одной. Длинное сообщение больше не гаснет перед концом.
+**Что нового в v1.5.3**: исправлены дыры в земле в оптическом прицеле на широком экране: куски земли пропадали, и сквозь них было видно небо. Рендеру там не хватало места под вершины земли; теперь он не берёт то, что за краем картинки. Клавиши, назначенные на четыре направления в «Настройки → Управление» (например W A S D), двигают курсор и в меню; стрелки работают как раньше. На экране команды работает мышь: наведите указатель на свинью или кнопку, щелчок по свинье открывает её меню (повышение, смена места, имя). Игра хранит клавиши вместе с командой: после перезапуска меню слушается назначенных клавиш, когда загружена сохранённая команда.
+
+**v1.5.2**: оптический прицел рисуется под разрешение боя. Игра рисовала его одного размера, рассчитанного на 640×480–1024×768: на большом или широком экране чернота не доходила до краёв, а линза была маленькой. Теперь чернота доходит до всех краёв, линза занимает девять десятых высоты, у её края мягкая тень, через линзу идёт тонкое перекрестие. Исправлен баннер сообщений вверху экрана в бою: он терял буквы. С русским переводом пропадали 17 букв (Б Г Д Ё Ж З И Й Л П У Ф Ц Ч Ш Щ Ъ), и сообщение о подобранном ящике могло показать несколько букв или ни одной. Длинное сообщение больше не гаснет перед концом.
 
 **v1.5.1**: экран «Настройки → Управление» показывает все действия сразу. В каждом из двенадцати гнёзд доски одно действие: название и под ним клавиша; раньше игра показывала шесть строк и прокручивала их. Кнопки мыши назначаются как клавиши: выберите действие и нажмите кнопку мыши, на экране она называется MOUSE 1 – MOUSE 5 (с русским переводом — МЫШЬ), в бою кнопка делает это действие. Delete на этом экране возвращает исходные клавиши. Экран проверен клавишами и сообщениями мыши, посланными в окно игры, но ещё не руками с настоящей клавишей и кнопкой мыши: напишите, если что-то не работает.
 
