@@ -28,8 +28,11 @@
 #define KEYS_CHANGED (*(int *)0x51AC54)
 #define BLINK (*(int *)0x51AC4C)
 #define INPUT (*(BYTE **)0x51A5B0) /* +0x148 the joystick, -1: none */
-#define TEAM_BUTTONS (*(const int *)0x4C0D44) /* team screen: its first items are buttons, 2 or 4; pigs follow */
-enum { TEAM_SCREEN = 5, CONTROLS = 15, LINES = 12, S_ACTION = 0x15D, S_KEY = 0x169, S_NO_NAME = 0x1CA };
+#define GRID_TEXT (*(const int **)0x51BA54)  /* the text object that draws the name grid */
+#define GRID_COLUMNS (*(const int *)0x51AAE8) /* FUN_004284D0 sets both from that object every frame */
+#define GRID_LETTERS (*(const int *)0x51AAF0)
+#define SAVED_NAMES ((const char *)0x51A740) /* the team of each of the 8 saved games, 0x14 bytes; first byte -1: none */
+enum { NAME_GRID = 0, TEAM_SCREEN = 5, LOAD = 8, SAVE = 9, CAREER = 13, CONTROLS = 15, LINES = 12, S_ACTION = 0x15D, S_KEY = 0x169, S_NO_NAME = 0x1CA };
 enum { HINT_X = 350, HINT_Y = 12, HINT_W = 480 }; /* over the title, in the field of 1024 x 820 */
 
 /* The game's text object: +0x2C, +0x30, +0x34 colour, +0x38 alpha, +0x44 top and +0x4C height of the window */
@@ -50,6 +53,7 @@ int hogsdraw_game_point(int *x, int *y); /* ddraw/gpu.cpp */
 
 static BOOL g_controls;      /* the Controls screen is ours */
 static DWORD g_mouse_bound;  /* tick of a mouse button seen down while the screen waited for a key */
+static int g_team_turn;      /* team screen: the point is on an arrow of a pig's class, -1 or 1 */
 
 static void press(HWND hwnd, WPARAM vk)
 {
@@ -59,15 +63,25 @@ static void press(HWND hwnd, WPARAM vk)
     CallWindowProcA(g_game_proc, hwnd, WM_KEYUP, vk, (LPARAM)0xC0000001);
 }
 
+/* FUN_0042AB40: on these screens only Left and Right move the cursor (4 and 12: Yes and No side by side) */
+static BOOL across(const int *menu)
+{
+    return menu[9] == 4 || menu[9] == 12 || menu[9] == CAREER;
+}
+
 /* How many items of the menu stand in the box table one after another: the mouse can point at these. */
 static int lines(const int *menu)
 {
     switch (menu[9]) {
+    case NAME_GRID: /* the letters, then Delete, Space and End */
+        return GRID_LETTERS + 3;
     case 1:
     case 2:
     case 4: /* 4 and 12: Yes and No side by side */
     case 6:
     case 7:
+    case LOAD:
+    case SAVE:
     case 12:
     case 18: /* network lists */
     case 20:
@@ -75,33 +89,31 @@ static int lines(const int *menu)
         return menu[0] > 0 && menu[0] <= FIRST_BOX[menu[9] + 1] - FIRST_BOX[menu[9]] ? menu[0] : 0;
     case TEAM_SCREEN:
         return menu[0];
+    case CAREER: /* menu 25, the four career paths; menu 40 fills its items itself, not known here */
+        return menu[0] == 4 ? 4 : 0;
     case CONTROLS: /* [0] is 1 there */
         return g_controls ? LINES : 0;
     }
     return 0;
 }
 
-/* Team screen, a point of the 1024 x 820 field. FUN_0042A560: pig n has its name at {102 + 424 column,
- * 168 + 125 row}, 400 wide, 5 rows a column; FUN_00428CF0: two buttons stand 410 under their boxes */
-static int team_item_at(const int *menu, int x, int y)
+/* Name grid (screen type 0), FUN_00431380: letter n stands in column n % GRID_COLUMNS; a column is the
+ * widest letter and three gaps, a row two lines. Delete, Space and End stand one column further right. */
+static int grid_item_at(const int *menu, int x, int y)
 {
-    const int (*box)[4] = BOXES + FIRST_BOX[TEAM_SCREEN];
-    int buttons = TEAM_BUTTONS, i;
+    const int *text = GRID_TEXT;
+    const short *font = (const short *)((const BYTE *)text + 0x3F88); /* widest letter, line height */
+    int gap = text[5], step = font[0] + gap * 3, line = (font[1] + text[6]) * 2, col, row;
 
-    for (i = buttons; i < menu[0]; i++) {
-        int left = (i - buttons) / 5 ? 600 : 60, top = 123 + (i - buttons) % 5 * 125; /* portrait and name */
-
-        if (x >= left && x < left + 370 && y >= top && y < top + 125)
-            return i;
-    }
-    for (i = 0; i < buttons && i < menu[0]; i++) {
-        int left = box[i][0] + (buttons < 3 || !BOARDS_MOVE ? 0 : menu[14]);
-        int top = box[i][1] + (buttons < 3 ? 410 : BOARDS_MOVE ? menu[15] : 0);
-
-        if (x >= left && x < left + box[i][2] + BOX_MORE && y >= top - 25 && y < top + box[i][3] + 25)
-            return i;
-    }
-    return -1;
+    x -= (BOXES[FIRST_BOX[NAME_GRID]][0] + menu[14]) * 640 / 1024 - (step - font[0]) / 2;
+    y -= (BOXES[FIRST_BOX[NAME_GRID]][1] + menu[15]) * 480 / 820 - (line - font[1]) / 2;
+    if (x < 0 || y < 0 || step <= 0 || line <= 0)
+        return -1;
+    col = x / step;
+    row = y / line;
+    if (col < GRID_COLUMNS)
+        return row * GRID_COLUMNS + col < GRID_LETTERS ? row * GRID_COLUMNS + col : -1;
+    return row < 3 && x >= (GRID_COLUMNS + 1) * step - gap * 4 && x < (GRID_COLUMNS + 4) * step ? GRID_LETTERS + row : -1;
 }
 
 /* The item under a point of the 640 x 480 menu picture, or -1. */
@@ -113,7 +125,11 @@ static int item_at(const int *menu, int x, int y)
     int step = n > 1 ? abs(box[1][1] - box[0][1]) * 480 / 820 : 0;
 
     if (menu[9] == TEAM_SCREEN)
-        return team_item_at(menu, x * 1024 / 640, y * 820 / 480);
+        return team_item_at(menu, x, y, &g_team_turn);
+    if (menu[9] == NAME_GRID)
+        return grid_item_at(menu, x, y);
+    if (menu[9] == CAREER) /* four pictures in a row on the board, 30 apart; their names share one box */
+        return n && x >= 272 && x < 392 && y >= 405 && y < 436 ? (x - 272) / 30 : -1;
     for (i = 0; i < n; i++) {
         int width = (box[i][2] + BOX_MORE) * 640 / 1024, height = box[i][3] * 480 / 820;
         int off = abs(x - ((box[i][0] + board_x) * 640 / 1024 + width / 2));
@@ -133,11 +149,20 @@ static BOOL point_at(HWND hwnd, LPARAM lp)
 {
     int x = (short)LOWORD(lp), y = (short)HIWORD(lp), item, steps;
     const int *menu = MENU;
-    BOOL across;
 
+    g_team_turn = 0;
     if (!menu || !hogsdraw_game_point(&x, &y) || (item = item_at(menu, x, y)) < 0)
         return FALSE;
-    if (menu[9] == TEAM_SCREEN) { /* FUN_0042ACE0: the arrows walk two columns there; the cursor is set as it sets it */
+    if (menu[9] == NAME_GRID) { /* FUN_0042AE00 only writes the cursor */
+        if (menu[3] != item)
+            sound(0xD, 10);
+        ((int *)menu)[3] = item;
+        return TRUE;
+    }
+    if (menu[9] == LOAD && SAVED_NAMES[item * 0x14] == -1) /* FUN_0042A820: the arrows pass a game that is not there */
+        return FALSE;
+    /* FUN_0042ACE0: the arrows walk two columns of the team screen; the cursor is set as the game sets it */
+    if (menu[9] == TEAM_SCREEN || menu[9] == LOAD || menu[9] == SAVE) {
         int was = menu[3];
 
         if (was != item) {
@@ -146,9 +171,8 @@ static BOOL point_at(HWND hwnd, LPARAM lp)
         }
         return TRUE;
     }
-    across = menu[9] == 4 || menu[9] == 12; /* FUN_0042AB40: only Left and Right move there */
     for (steps = abs(item - menu[3]); steps > 0 && MENU == menu && menu[3] != item; steps--)
-        press(hwnd, item > menu[3] ? (across ? VK_RIGHT : VK_DOWN) : (across ? VK_LEFT : VK_UP));
+        press(hwnd, item > menu[3] ? (across(menu) ? VK_RIGHT : VK_DOWN) : (across(menu) ? VK_LEFT : VK_UP));
     return MENU == menu && menu[3] == item;
 }
 
@@ -320,17 +344,22 @@ BOOL menu_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             abs(x - (HINT_X + HINT_W / 2) * 640 / 1024) < HINT_W * 640 / 1024 / 2)
             default_keys();
         /* on a screen of lines only a line can be clicked; elsewhere a click in the picture is Enter */
-        else if (point_at(hwnd, lp) || (!lines(menu) && hogsdraw_game_point(&x, &y)))
-            press(hwnd, VK_RETURN);
+        else if (point_at(hwnd, lp) || (!lines(menu) && hogsdraw_game_point(&x, &y))) {
+            if (!g_team_turn || !team_turn((int *)menu, g_team_turn))
+                press(hwnd, VK_RETURN);
+        }
         break;
     case WM_RBUTTONDOWN:
         press(hwnd, VK_BACK);
         break;
     case WM_MOUSEWHEEL:
+        /* over a pig of a multi-player team the wheel goes through its classes */
         for (wheel += GET_WHEEL_DELTA_WPARAM(wp); wheel >= WHEEL_DELTA; wheel -= WHEEL_DELTA)
-            press(hwnd, VK_UP);
+            if (menu[9] != TEAM_SCREEN || !team_turn((int *)menu, -1))
+                press(hwnd, across(menu) ? VK_LEFT : VK_UP);
         for (; wheel <= -WHEEL_DELTA; wheel += WHEEL_DELTA)
-            press(hwnd, VK_DOWN);
+            if (menu[9] != TEAM_SCREEN || !team_turn((int *)menu, 1))
+                press(hwnd, across(menu) ? VK_RIGHT : VK_DOWN);
         break;
     }
     return TRUE;

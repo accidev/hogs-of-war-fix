@@ -2,6 +2,25 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v1.5.4 — 2026-11-15
+
+### Added
+
+- The mouse changes the class of a pig on the team screen of a multi-player game: click the left or the right arrow under the pig's name, or turn the wheel over the pig. Only the Left and Right keys did it.
+- The mouse picks the career path when a pig is promoted for the first time: point at one of the four pictures and click it. A click there was Enter for the path the keys had chosen.
+- The mouse types a name: point at a letter and click it. At the right of the letters the arrow deletes, the dash is a space, and OK takes the name. A click anywhere used to type the letter under the cursor.
+- The mouse on the Load and Save screens: point at a saved game and click it. On the Load screen an empty place cannot be chosen.
+
+### Changed
+
+- On the team screen of a multi-player game the Left key on a button moves the cursor to the pigs. The game let it there only through the Change Ranks button. Backspace goes back to the buttons as before.
+- The wheel moves the choice on the screens where the cursor goes left and right: Yes and No, the career paths.
+
+### Good to know
+
+- The team screen is now drawn by the fix: its picture, the names of the pigs and the buttons. It was compared with the game's own picture point by point and looks the same. Write if something on it looks wrong.
+- Tested by hand with a real mouse, and in the English and the Russian game with keys and mouse messages sent to the game window. Not tested: a 4:3 screen, the team screen of a network game.
+
 ## v1.5.3 — 2026-11-15
 
 ### Fixed

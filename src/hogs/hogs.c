@@ -781,6 +781,7 @@ static void apply_fixes(int vsync, int widescreen)
     frames_init(vsync);
     gamepad_init();
     menu_init();
+    team_init();
     net_init();
 
     if (GetPrivateProfileIntA("Cheats", "PromotionPoints", 0, g_ini)) {

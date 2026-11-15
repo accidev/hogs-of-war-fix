@@ -29,6 +29,11 @@ void menu_init(void);
 BOOL menu_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 WPARAM menu_key(WPARAM vk, LPARAM lp); /* the key MainWndProc is to see for a WM_KEYDOWN */
 
+/* team.c: the team screen (screen type 5) drawn and walked by our code; x, y: the 640 x 480 picture */
+void team_init(void);
+int team_item_at(const int *menu, int x, int y, int *turn); /* *turn: -1 or 1 on an arrow of a pig's class */
+BOOL team_turn(int *menu, int by);                          /* the class of the pig under the cursor; FALSE: none */
+
 /* gamepad.c: XInput controllers, and mouse buttons as keys */
 #define MOUSE_KEY 0xF0 /* the five mouse buttons in the game's 256 key bytes: codes no keyboard has */
 void gamepad_init(void);
