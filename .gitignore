@@ -6,9 +6,12 @@ ghidra/
 build/
 dist/
 
-# Working notes stay out too: of docs/ only the pictures of the README are kept.
+# Working notes stay out too: of docs/ only the pictures of the README and
+# the page about hidden content are kept.
 docs/*
 !docs/images/
+!docs/hidden-content.md
+!docs/hidden-content.ru.md
 
 # Editors, logs, scratch files
 .vs/

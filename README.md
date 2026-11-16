@@ -163,6 +163,10 @@ PromotionPoints=1
 - **The game does not start after you added dgVoodoo2 or another `ddraw.dll`.** The fixed game needs the `ddraw.dll` of this fix: it holds the fixes and the renderer. Run `patch.cmd` again; it keeps the other files as `*.orig`.
 - **The game does not start or crashes.** Open an [issue](https://github.com/accidev/hogs-of-war-fix/issues) and attach `hogs.log` and `hogsdraw.log` from the game folder.
 
+## Hidden and cut content
+
+The game holds more than it shows: two classes above the Hero, cheat names for a team, five maps that are in no list, a boat without a model and a demo that never plays. What we found while working on the fix is in [Hidden and cut content of Hogs of War](docs/hidden-content.md).
+
 ## How it works
 
 | File in the game folder | Role |
