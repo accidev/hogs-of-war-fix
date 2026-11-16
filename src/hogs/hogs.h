@@ -38,6 +38,11 @@ void team_init(void);
 int team_item_at(const int *menu, int x, int y, int *turn); /* *turn: -1 or 1 on an arrow of a pig's class */
 BOOL team_turn(int *menu, int by);                          /* the class of the pig under the cursor; FALSE: none */
 
+/* ace.c: the Ace's own look, a tenth pig model */
+extern BOOL g_ace_look; /* the models now loaded have it */
+void ace_init(void);
+void ace_renderer(BYTE *renderer); /* _d3d.dll, of the build fix_renderer() knows */
+
 /* gamepad.c: XInput controllers, and mouse buttons as keys */
 #define MOUSE_KEY 0xF0 /* the five mouse buttons in the game's 256 key bytes: codes no keyboard has */
 void gamepad_init(void);

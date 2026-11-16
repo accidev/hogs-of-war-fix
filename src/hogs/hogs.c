@@ -191,7 +191,7 @@ static void __cdecl load_pigs(int tim_base)
     (*(void(__cdecl **)(int))0x537FEC)(tim_base);
     if (!g_renderer)
         return;
-    for (model = 0; model < 27; model++) {
+    for (model = 0; model < 27 + 3 * g_ace_look; model++) { /* the Ace's look of ace.c has the Legend's tail */
         const short *body = (const short *)(g_renderer + 0x1C948E8 + 20 + 4); /* pig.hir: bone 1 from the pelvis */
         BYTE *pig = *(BYTE **)(g_renderer + 0x1C94860 + 4 * model), *mesh = pig ? *(BYTE **)(pig + 0x44) : NULL, *face;
         float (*verts)[4], (*normals)[4]; /* x, y, z from the bone, then the bone */
@@ -232,6 +232,7 @@ static void fix_renderer(HMODULE renderer)
         return;
     }
     g_renderer = (BYTE *)renderer;
+    ace_renderer(g_renderer);
 
     /* CopyToScreen: AdjustWindowRectEx bMenu=TRUE, but the window has no menu; push 1 -> push 0 */
     patch(base + 0x321B, "\x50\x6A\x01\x8D\x4C\x24\x24", "\x50\x6A\x00\x8D\x4C\x24\x24", 7,
@@ -745,6 +746,49 @@ static DWORD WINAPI promotion_points_key(LPVOID unused)
     }
 }
 
+/* Class table 0x4D02E0, 0x80 bytes a class: health * 128, a number for the AI, 15 {weapon, ammo}; -1: not counted */
+enum { SWORD = 4, HEAVY_GUN = 10, SNIPER_RIFLE, DART = 17, CLUSTER = 20, POISON_GAS = 26, BAZOOKA = 29, AIRBURST = 31,
+       TNT = 37, SUPER_TNT, JETPACK = 50, SELF_HEAL = 53, HIDE = 55, SHOCKWAVE, SPECIAL_OPS, AIRSTRIKE, FIRE_RAIN };
+static const int kAce[32] = { 175 * 128, 15, SWORD, -1, BAZOOKA, -1, TNT, 1, AIRBURST, 1, JETPACK, 3, CLUSTER, 1,
+                              HEAVY_GUN, 1, SNIPER_RIFLE, -1, HIDE, -1, SPECIAL_OPS, 1, AIRSTRIKE, 1, FIRE_RAIN, 1,
+                              DART, 3, POISON_GAS, 1, SELF_HEAL, 2 };
+static const int kLegend[32] = { 200 * 128, 15, SWORD, -1, BAZOOKA, -1, SUPER_TNT, 1, AIRBURST, 1, JETPACK, 3, CLUSTER, 1,
+                                 HEAVY_GUN, 2, SNIPER_RIFLE, -1, HIDE, -1, SPECIAL_OPS, 2, AIRSTRIKE, 2, FIRE_RAIN, 1,
+                                 DART, 3, SELF_HEAL, 2, SHOCKWAVE, -1 };
+
+/* In place of the two calls of the pig constructor FUN_00466950(pig, pig of a team record, class, ...) in
+ * FUN_00498DE0. The last mission's Legends take row 16 too: ours only for the player's pigs */
+static void *__fastcall new_pig(void *pig, void *unused, const BYTE *record, int class_, int a3, int a4, int a5, int a6,
+                                int a7, int a8, int a9, int a10, int a11)
+{
+    typedef void *(__fastcall *make_t)(void *, void *, const BYTE *, int, int, int, int, int, int, int, int, int, int);
+    int *row = (int *)(0x4D02E0 + 16 * 0x80), game[32];
+    /* campaign ([0x5206F0] 1): the player's team is the first record, its pigs at 0x51F198, 0x40 each */
+    BOOL ours = class_ == 16 && *(const int *)0x5206F0 == 1 && (DWORD)(ULONG_PTR)record - 0x51F198 < 8 * 0x40;
+
+    (void)unused;
+    /* ponytail: FUN_00467220 reads the row again for a pig that comes back to life; no campaign does that */
+    if (ours) {
+        memcpy(game, row, sizeof game);
+        memcpy(row, kLegend, sizeof game);
+    }
+    pig = ((make_t)0x466950)(pig, NULL, record, class_, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+    if (ours)
+        memcpy(row, game, sizeof game);
+    return pig;
+}
+
+/* In place of malloc(size) in FUN_00439DE0, which reads a sound list (.srl, text with no 0) and walks it with
+ * strtok: strtok ran on into the heap and could write a 0 there */
+static void *__cdecl list_text(size_t size)
+{
+    char *text = ((void *(__cdecl *)(size_t))0x4AE3C0)(size + 1);
+
+    if (text)
+        text[size] = 0;
+    return text;
+}
+
 /* Game message loops (menus 0x427380, battle 0x47DE90, 0x480780) poll PeekMessageA without waiting: wait
  * here when minimized. The gamepad is read here, in the game's thread */
 static BOOL(WINAPI *g_peek_message)(LPMSG, HWND, UINT, UINT, UINT);
@@ -885,10 +929,24 @@ static void apply_fixes(int vsync, int widescreen)
               "\x7E\x1C\x3D\x00\x70\x00\x00\x7D\x15\x8B\xC2\x25\x00\xFE\xFF\xFF\x3D\x00\x0E\x00\x00\x7E\x07\x3D\x00\x70\x00\x00\x7C\x0A",
               30, "computer pigs find their way");
 
+    hook(0x439FC3, 0xE8, "\xE8\xF8\x43\x07\x00", list_text, "sound lists: the text ends in the buffer");
+    /* no map has an Ace: row changed in place; health and AI number tell the build */
+    if (patch(0x4D02E0 + 15 * 0x80, "\x00\x4B\x00\x00\x0F\x00\x00\x00", kAce, 8, "Ace: all of a Hero and more"))
+        memcpy((int *)(0x4D02E0 + 15 * 0x80) + 2, kAce + 2, sizeof kAce - 8);
+    hook(0x498E73, 0xE8, "\xE8\xD8\xDA\xFC\xFF", new_pig, "Legend of the player: all of an Ace and more");
+    hook(0x498F2C, 0xE8, "\xE8\x1F\xDA\xFC\xFF", new_pig, "Legend of the player: all of an Ace and more");
+    /* FUN_004768C0 and FUN_004A7730 show the mines beside pigs of the team on turn, classes 4-7 and 14:
+     * jne after cmp class, 14 becomes jl, or a promoted Hero would lose this */
+    patch(0x476902, "\x83\xF8\x0E\x0F\x85", "\x83\xF8\x0E\x0F\x8C", 5, "mines: Ace and Legend see them as a Hero does");
+    patch(0x476A99, "\x83\xF9\x0E\x0F\x85", "\x83\xF9\x0E\x0F\x8C", 5, "mines: Ace and Legend see them as a Hero does");
+    patch(0x476BEC, "\x83\xF9\x0E\x0F\x85", "\x83\xF9\x0E\x0F\x8C", 5, "mines: Ace and Legend see them as a Hero does");
+    patch(0x4A7775, "\x83\xF8\x0E\x75\x09", "\x83\xF8\x0E\x7C\x09", 5, "mines: Ace and Legend see them as a Hero does");
+
     frames_init(vsync);
     gamepad_init();
     menu_init();
     team_init();
+    ace_init();
     net_init();
 
     if (GetPrivateProfileIntA("Cheats", "PromotionPoints", 0, g_ini)) {

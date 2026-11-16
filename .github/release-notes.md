@@ -1,6 +1,18 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v1.5.6**
+**New in v2.0.0**
+
+As a kid you wanted to play as a Legend. Or at least as an Ace. The game never let you: Legends stood only in the enemy team of the last mission, and no map had an Ace. Now you can.
+
+- **Hero → Ace → Legend.** Once you have finished the campaign, every team of a campaign, a new one too, promotes a Hero to an Ace and an Ace to a Legend, for 8 promotion points each. Finished means that the game gave you the purple Team Lard: it does so after the last mission if you lost no more than two pigs. Keep a saved game of that team in the game folder, the fix knows by it.
+- **Ace:** 175 health, all the weapons of a Hero, three Jetpacks, two Self Heals and an F-Rain Airstrike.
+- **Legend:** 200 health, all the weapons of an Ace, two Heavy M-Guns, two Special Ops, two Airstrikes, a Super TNT in place of the TNT, and Shockwave without a count in place of the Poison Gas.
+- A promotion takes nothing away, and both classes see mines as a Hero does. The team screen shows the names ACE and LEGEND and their rank stripes.
+- **The Ace has its own look:** the head of a Commando, in a balaclava, on the body of a Legend, in a greatcoat.
+- Fixed: the game could close at any moment in a menu or a battle. It read its lists of sounds past their end and sometimes damaged its own memory.
+- To try the new classes at once: the cheat of the `[Cheats]` section of `hogs.ini`, F11 adds 10 promotion points.
+
+**v1.5.6**
 
 - In the view through a weapon's sight Forward raises the sight and Back lowers it. The game had them the other way round.
 - Fixed: the tail of a pig seen from a distance bent and stretched with the body of the pig.
@@ -94,7 +106,9 @@ Video of the whole install: https://youtu.be/oBo27HB4x_4
 
 Update: extract the new zip over the old `HogsFix` folder and run `patch.cmd` again; your `hogs.ini` settings are kept. Uninstall: `HogsFix\uninstall.cmd`. Settings, controls and help: [README](https://github.com/accidev/hogs-of-war-fix#readme).
 
-**Что нового в v1.5.6**: в виде через прицел оружия «вперёд» поднимает прицел, «назад» опускает — в игре было наоборот. Исправлено: хвост свиньи вдали гнулся и растягивался вместе с туловищем. Нажатие или щелчок прямо перед сюжетным роликом больше его не закрывают: первые 1,5 секунды ролик не реагирует на клавиши и щелчки.
+**Что нового в v2.0.0**: в детстве вы мечтали сыграть за Легенду. Ну или хотя бы за Аса. Игра не давала: Легенды стояли только у врага в последней миссии, а Аса не было ни на одной карте. Теперь можно. Когда кампания пройдена, любая команда кампании, и новая тоже, повышает Героя до Аса и Аса до Легенды, по 8 очков повышения за шаг. Пройдена — значит, игра дала вам фиолетовую команду Team Lard (в переводе «Марди»): она даёт её после последней миссии, если потеряно не больше двух свиней. Держите в папке игры сохранение этой команды: по нему исправление это и узнаёт. Ас: 175 здоровья, всё оружие Героя, три джетпака, два самолечения и огненный удар. Легенда: 200 здоровья, всё оружие Аса, по два тяжёлых пулемёта, спец-опс и авиаудара, супер-ТНТ вместо ТНТ и шок без счёта вместо ядовитого газа. Повышение ничего не отнимает, оба класса видят мины, как Герой. Экран команды показывает названия классов и их нашивки: одна у Аса, две у Легенды. У Аса свой вид: голова Коммандо в балаклаве на теле Легенды в шинели. Исправлено: игра могла закрыться в любой момент в меню или в бою. Она читала списки звуков дальше их конца и иногда портила свою память. Чтобы попробовать новые классы сразу, включите чит из раздела `[Cheats]` файла `hogs.ini`: F11 даёт 10 очков повышения.
+
+**v1.5.6**: в виде через прицел оружия «вперёд» поднимает прицел, «назад» опускает — в игре было наоборот. Исправлено: хвост свиньи вдали гнулся и растягивался вместе с туловищем. Нажатие или щелчок прямо перед сюжетным роликом больше его не закрывают: первые 1,5 секунды ролик не реагирует на клавиши и щелчки.
 
 **v1.5.5**: исправлено: в кампании не показывались сюжетные ролики. Ролик закрывался на первом кадре, если клавиша, которой закрыли итоги миссии, была ещё зажата. Теперь клавиша или кнопка мыши закрывает ролик, только если нажата во время него. Ролики идут после побед в миссиях 5, 10, 15, 20 и 24 и в финале.
 

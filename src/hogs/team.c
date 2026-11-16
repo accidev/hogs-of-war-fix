@@ -7,9 +7,11 @@
  *   0x41E73C  switch of FUN_0041BEF0(screen type), type 5: the picture of the screen  -> team_art
  *   0x42ACE0  jmp, FUN_0042ACE0(menu, dx, dy): an arrow key on the screen             -> team_move
  *   0x427B7A  call of FUN_00428CF0(menu, item, text, chosen): the text of an item     -> item_text
+ *   0x4289E7  call of FUN_00431320 in FUN_004285A0: the class under a pig's name      -> class_name
  */
 #include "hogs.h"
 #include <math.h>
+#include <stdio.h>
 
 #define MENUS (*(const int **)0x51AAE0)      /* the menu records, 0x48 bytes each */
 #define ROOT (*(const int **)0x51AADC)       /* the menu of the screen; MENU may be a menu opened over it */
@@ -25,9 +27,10 @@
 #define RANK_PICTURES ((void *const *)0x5119CC)  /* by the second byte */
 #define CLASS_LOOK ((const BYTE *)0x4D29C0)      /* campaign: {picture, rank, ?} of each class */
 #define CLASS_LOOK_NET ((const BYTE *)0x4D29F8)
-#define PROMOTIONS ((const BYTE *)0x4D29A8)      /* how many classes a class can become */
-#define FIRST_PROMOTION ((const BYTE *)0x51AAC0) /* the first of them in the list below */
+#define PROMOTIONS ((BYTE *)0x4D29A8)            /* how many classes a class can become */
+#define FIRST_PROMOTION ((BYTE *)0x51AAC0)       /* the first of them in the list below; FUN_00482440 fills it */
 #define PROMOTION_COST ((const BYTE *)0x4D2981)  /* {class, cost} pairs: the cost bytes */
+#define SESSION (*(const int *)0x51ABC4)         /* not 0: a network game; its class names are fetext 482 + class */
 #define FIRST_TEAM (*(const BYTE **)0x51C55C)
 #define NETWORK (*(const int *)0x51AC48)
 #define BOXES ((const int (*)[4])0x4C1728)  /* {x, y, w, h} of every item's text, in the field of 1024 x 820 */
@@ -37,9 +40,10 @@ enum { TEAM_SCREEN = 5, NET_TEAM = 34, FIELD_W = 1024, FIELD_H = 820 };
 
 /* The game's text object: [9] how far the text is faded, [11]-[13] colour, [14] alpha */
 static void(__fastcall *const text_window)(int *text, void *, int x, int y, int w, int h) = (void(__fastcall *)(int *, void *, int, int, int, int))0x430E00;
-static void(__fastcall *const text_string)(int *text, void *, int string, int x, int y) = (void(__fastcall *)(int *, void *, int, int, int))0x431320;
+/* both return the text object */
+static int *(__fastcall *const text_string)(int *text, void *, int string, int x, int y) = (int *(__fastcall *)(int *, void *, int, int, int))0x431320;
 /* chars as the game keeps a name */
-static void(__fastcall *const text_chars)(int *text, void *, const BYTE *chars, int x, int y) = (void(__fastcall *)(int *, void *, const BYTE *, int, int))0x431350;
+static int *(__fastcall *const text_chars)(int *text, void *, const BYTE *chars, int x, int y) = (int *(__fastcall *)(int *, void *, const BYTE *, int, int))0x431350;
 static void(__fastcall *const text_picture)(int *text, void *, int which) = (void(__fastcall *)(int *, void *, int))0x431C30;
 static void(__fastcall *const text_lines)(int *text) = (void(__fastcall *)(int *))0x431BA0; /* FUN_00431B80(text, 2), before a menu line */
 
@@ -67,6 +71,68 @@ static const BYTE *shown_team(void)
     return TEAM[0x28E] == 100 ? TEAM - 0x2A8 : TEAM;
 }
 
+/* Classes 15 Ace and 16 Legend: the game shut them with counts of 0. Open once a team has finished a
+ * campaign, +0x54 not 0 (FUN_00450970): a saved game savearmy0-7 (a team record), or the team on screen */
+static BOOL g_late;     /* the list has our costs of the two */
+static BOOL g_finished; /* such a team was seen */
+
+static void saved_teams(void)
+{
+    char name[] = "savearmy0";
+    BYTE team[0x55];
+    FILE *file;
+
+    for (; name[8] <= '7'; name[8]++)
+        if ((file = fopen(name, "rb")) != NULL) {
+            g_finished |= fread(team, 1, sizeof team, file) == sizeof team && team[0x54];
+            fclose(file);
+        }
+}
+
+static void late_promotions(void)
+{
+    if (!g_late)
+        return;
+    g_finished |= TEAM[0x54] != 0;
+    PROMOTIONS[14] = PROMOTIONS[15] = TEAMS == 1 && g_finished;
+    FIRST_PROMOTION[14] = 17;
+    FIRST_PROMOTION[15] = 18;
+}
+
+/* gtext (battle text) 78 ACE, 79 LEGEND, chars as the game keeps them (code - 0x1F); .ofs 16-bit offsets
+ * into .bin. The menus load only fetext */
+static BYTE g_late_name[2][24] = { { 'A' - 0x1F, 'C' - 0x1F, 'E' - 0x1F },
+                                   { 'L' - 0x1F, 'E' - 0x1F, 'G' - 0x1F, 'E' - 0x1F, 'N' - 0x1F, 'D' - 0x1F } };
+
+static void late_names(void)
+{
+    FILE *ofs = fopen("Language/Text/gtext.ofs", "rb"), *bin = fopen("Language/Text/gtext.bin", "rb");
+    WORD at[2];
+    int i;
+
+    if (ofs && bin && !fseek(ofs, 78 * 2, SEEK_SET) && fread(at, 2, 2, ofs) == 2)
+        for (i = 0; i < 2; i++) {
+            BYTE name[24] = { 0 };
+
+            if (!fseek(bin, at[i], SEEK_SET) && fread(name, 1, sizeof name - 1, bin) && name[0])
+                memcpy(g_late_name[i], name, sizeof name);
+        }
+    if (ofs)
+        fclose(ofs);
+    if (bin)
+        fclose(bin);
+}
+
+/* In place of the call of FUN_00431320(text, string, x, y) for a pig's class on the board. A campaign takes
+ * fetext 467 + class; 482, 483 are names of a multi-player game: Ace and Legend have none there */
+static int *__fastcall class_name(int *text, void *unused, int string, int x, int y)
+{
+    (void)unused;
+    if (TEAMS == 1 && !SESSION && (string == 482 || string == 483))
+        return text_chars(text, NULL, g_late_name[string - 482], x, y);
+    return text_string(text, NULL, string, x, y);
+}
+
 /* In place of the type 5 part of FUN_0041BEF0. Columns of pigs stand 462 apart, rows 74; a multi-player
  * team has one column of 5, a campaign team 5 and 3. */
 static void __cdecl team_art(void)
@@ -81,6 +147,7 @@ static void __cdecl team_art(void)
     const BYTE *team = shown_team();
     void *frame = SURFACE(0x512910), *tab = SURFACE(0x5119E8), *rail = SURFACE(0x512880), *plate = SURFACE(0x511DF4);
 
+    late_promotions();
     for (col = 0; PART[0] == 6 && col < (net ? 1 : 2); col++)
         for (row = 0; row < (col ? 3 : 5); row++) {
             int n = col * 5 + row, turn = 0x1000, w, x;
@@ -309,4 +376,10 @@ void team_init(void)
     patch(0x41E73C, "\x85\xD2\x41\x00", &go, 4, "team screen: drawn by our code");
     hook(0x42ACE0, 0xE9, "\x53\x55\x56\x57\x8B", team_move, "team screen: the cursor goes from the buttons to the pigs");
     hook(0x427B7A, 0xE8, "\xE8\x71\x11\x00\x00", item_text, "team screen: its names and buttons by our code");
+    /* list entries 17 {Ace, cost} and 18 {Legend, cost} */
+    g_late = patch(0x4D29A2, "\x0F\x00\x10\x00", "\x0F\x08\x10\x08", 4, "promotions: Hero to Ace to Legend, 8 points each");
+    saved_teams();
+    patch(0x4D29ED, "\x05\x00\x01\x05\x00\x02", "\x05\x01\x01\x05\x02\x02", 6, "team screen: rank stripes of Ace and Legend");
+    if (hook(0x4289E7, 0xE8, "\xE8\x34\x89\x00\x00", class_name, "team screen: the names of Ace and Legend"))
+        late_names();
 }

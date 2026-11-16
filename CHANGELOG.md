@@ -2,6 +2,29 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v2.0.0 — 2026-11-16
+
+### Added
+
+- **Hero → Ace → Legend.** Once you have finished the campaign, every team of a campaign, a new one too, can promote a Hero to an Ace and an Ace to a Legend, for 8 promotion points each. The game has both classes but gave no way to get them: Legends stood only in the enemy team of the last mission, and no map had an Ace.
+- The campaign counts as finished when the game has given you the purple Team Lard: it does so after the last mission if you lost no more than two pigs. The fix knows it by a saved game of that team, so keep one in the game folder.
+- **Ace:** 175 health, where a Hero has 150. All the weapons of a Hero, three Jetpacks and two Self Heals in place of one, and an F-Rain Airstrike.
+- **Legend:** 200 health. All the weapons of an Ace, with two Heavy M-Guns, two Special Ops and two Airstrikes, a Super TNT in place of the TNT, and Shockwave without a count in place of the Poison Gas. The Legends of the enemy in the last mission are as the game made them.
+- An Ace and a Legend see the mines on the ground near them, as a Hero does.
+- The team screen names the two classes, ACE and LEGEND, and shows one rank stripe for an Ace and two for a Legend.
+- **The Ace has its own look:** the head of a Commando, in a balaclava, on the body of a Legend, in a greatcoat. In the game an Ace looked the same as a Hero.
+
+### Fixed
+
+- The game could close at any moment in a menu or a battle. It read each list of sounds without a mark at its end, went on into the memory after the list and sometimes wrote there. This happened at the start of every menu and every battle, and the game closed later, in another place: for example on the team screen, when a pig was chosen.
+
+### Good to know
+
+- No file of the game is changed for the new look. The model is put together from two of the game's own when the game loads its models.
+- To try the new classes at once, turn on the cheat of the `[Cheats]` section: F11 adds 10 promotion points.
+- A promotion takes nothing away: each class has everything of the one before it. The game's own unused Ace and Legend had lost the Sniper Rifle, Hide and the Medicine Darts of a Hero.
+- Tested on a copy of the game: the promotions and their price, the team screen, a battle with a Hero, an Ace and a Legend, the weapon menu of a Legend, the new look at all three distances, and that there is no promotion after Hero before the campaign is finished. Not tested: firing each of the added weapons, a crate picked up by a pig that holds 15 weapons, maps other than the first mission with the new look, a network game.
+
 ## v1.5.6 — 2026-11-15
 
 ### Changed
