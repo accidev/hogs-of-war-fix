@@ -11,17 +11,29 @@
 #include <string.h>
 
 static FILE *g_log;
+static BOOL g_timed; /* start-up written: lines get the time, so logs of several players line up */
 char g_ini[MAX_PATH];
 
+/* One fputs a line: the network threads write too. */
 void say(const char *fmt, ...)
 {
+    char line[512];
+    int n = 0;
     va_list ap;
+    SYSTEMTIME t;
+
     if (!g_log)
         return;
+    if (g_timed && strncmp(fmt, "ok ", 3) && strncmp(fmt, "skip ", 5)) { /* the list of fixes stays comparable */
+        GetLocalTime(&t);
+        n = sprintf(line, "%02u:%02u:%02u.%03u ", t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
+    }
     va_start(ap, fmt);
-    vfprintf(g_log, fmt, ap);
+    vsnprintf(line + n, sizeof line - n - 1, fmt, ap);
     va_end(ap);
-    fputc('\n', g_log);
+    line[sizeof line - 2] = 0;
+    strcat(line, "\n");
+    fputs(line, g_log);
     fflush(g_log);
 }
 
@@ -991,6 +1003,10 @@ void hogs_init(int vsync, int widescreen)
 {
     char dir[MAX_PATH], log[MAX_PATH];
     char *slash;
+    SYSTEMTIME now;
+    TIME_ZONE_INFORMATION zone;
+    DWORD kind;
+    LONG utc;
 
     if (!patched_game())
         return; /* before hogs.log is opened: the log of the last game run stays */
@@ -1002,6 +1018,11 @@ void hogs_init(int vsync, int widescreen)
     snprintf(log, sizeof log, "%shogs.log", dir);
     snprintf(g_launch_bin, sizeof g_launch_bin, "%slaunch.bin", dir);
     g_log = fopen(log, "w"); /* stays open; say() flushes */
-    say("ddraw.dll %s %s", __DATE__, __TIME__);
+    GetLocalTime(&now);
+    kind = GetTimeZoneInformation(&zone); /* players in other zones: their logs line up by UTC */
+    utc = -zone.Bias - (kind == TIME_ZONE_ID_DAYLIGHT ? zone.DaylightBias : kind == TIME_ZONE_ID_STANDARD ? zone.StandardBias : 0);
+    say("ddraw.dll %s %s, game started %04u-%02u-%02u %02u:%02u UTC%c%02ld:%02ld", __DATE__, __TIME__, now.wYear, now.wMonth,
+        now.wDay, now.wHour, now.wMinute, utc < 0 ? '-' : '+', labs(utc) / 60, labs(utc) % 60);
     apply_fixes(vsync, widescreen);
+    g_timed = TRUE;
 }

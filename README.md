@@ -162,6 +162,7 @@ PromotionPoints=1
 - **"Hogs of War is running".** Close the game, then run `patch.cmd` again.
 - **The game does not start after you added dgVoodoo2 or another `ddraw.dll`.** The fixed game needs the `ddraw.dll` of this fix: it holds the fixes and the renderer. Run `patch.cmd` again; it keeps the other files as `*.orig`.
 - **The game does not start or crashes.** Open an [issue](https://github.com/accidev/hogs-of-war-fix/issues) and attach `hogs.log` and `hogsdraw.log` from the game folder.
+- **A network game goes wrong** (a player drops out, the players see different battles). The game writes `hogs.log` anew at every start, so every player copies it from the game folder before starting the game again. Open an [issue](https://github.com/accidev/hogs-of-war-fix/issues) with the logs of all players and the time it happened.
 
 ## Hidden and cut content
 

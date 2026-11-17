@@ -2,6 +2,16 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v2.0.2 — 2026-11-17
+
+### Changed
+
+- `hogs.log` tells more about network games, so that a problem can be found from the logs of all players. Every line has the time, and the first line has the date and the time zone. The log says why a connection was lost, with the error code, when the server has not answered for 2 seconds and when it answers again, which players are in the room with their numbers, and when the room is closed for the battle. In a network battle it says the players by place, when the game stood still for more than a second, when the input of the player on turn is missing and when it comes, and a line for every turn with a number made from the places of the pigs: in the logs of all players the numbers of a turn must be the same.
+
+### Good to know
+
+- The game writes `hogs.log` anew at every start. After a network game that went wrong, copy it before you start the game again.
+
 ## v2.0.1 — 2026-11-17
 
 ### Fixed

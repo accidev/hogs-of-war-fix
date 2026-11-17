@@ -1,6 +1,11 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v2.0.1**
+**New in v2.0.2**
+
+- `hogs.log` tells more about network games: the time of every line, why a connection was lost, who is in the room, when a copy of the game stood still or waited for the player on turn, and a number for every turn that must be the same in the logs of all players.
+- If a network game goes wrong, copy `hogs.log` before you start the game again: the game writes it anew at every start. Open an issue with the logs of all players and the time it happened.
+
+**v2.0.1**
 
 - Fixed: the keys set in Options → Controls were lost when the game was closed. The game kept them only in a saved team, so after a restart a network game, a multi-player game or a new team had the default keys. Now they are kept in the file `savekeys` next to the saved teams and work in every kind of game.
 - A team that is loaded takes the keys of Options → Controls.

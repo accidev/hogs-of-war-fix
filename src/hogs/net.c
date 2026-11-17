@@ -85,6 +85,7 @@ struct message {
 struct link {
     SOCKET s;
     HINTERNET ws, host;
+    DWORD error; /* of the read that failed; 0: the server closed the connection */
 };
 
 static const GUID kDirectPlay = { 0xD1EB6D20, 0x8923, 0x11D0, { 0x9D, 0x97, 0x00, 0xA0, 0xC9, 0x0A, 0x43, 0xCB } };
@@ -103,6 +104,8 @@ static BOOL g_connecting;    /* the link thread of g_epoch is still opening its 
 static HANDLE g_linked;      /* the last attempt to connect has ended, either way */
 static DWORD g_tried;        /* tick when it ended, 0 = none yet */
 static DWORD g_pinged, g_waiting; /* ticks: last PING; first PING not answered by any frame, 0 = none */
+static BOOL g_silent;        /* the log says the server is silent; it says so again when a frame comes */
+static DWORD g_heard;        /* tick of the last frame from the server */
 static DWORD g_ping;         /* round trip in ms, 0 = not measured */
 static DWORD g_id;
 static HANDLE g_answer;      /* CREATE or JOIN answered, or connection lost */
@@ -119,6 +122,9 @@ static DWORD g_open_room, g_open_limit;
 static BOOL g_open_create;
 static struct message g_queue[QUEUE];
 static int g_head, g_count;
+static DWORD g_listed;       /* players in the game's list when dp_receive last looked */
+static DWORD g_dropped, g_drop_said, g_drop_from, g_drop_type; /* messages dropped since the last line about them */
+static short g_drop_place;
 static LONG g_refs[2];
 
 /* ---- frames ---- */
@@ -147,37 +153,38 @@ static BYTE *put_str8(BYTE *p, const char *s)
 
 static void drop_connection(const char *why);
 
-static BOOL link_send(const struct link *l, BYTE type, const BYTE *payload, int size)
+/* 0, or the Winsock or WinHTTP error */
+static DWORD link_send(const struct link *l, BYTE type, const BYTE *payload, int size)
 {
     BYTE buf[3 + 2100];
-    int done = 0, n;
+    int done = 0, n = 0;
 
     if (size > (int)sizeof buf - 3)
-        return FALSE;
+        return ERROR_INSUFFICIENT_BUFFER;
     put16(buf, (DWORD)size + 1);
     buf[2] = type;
     memcpy(buf + 3, payload, (size_t)size);
     size += 3;
-    if (l->ws) {
-        if (WinHttpWebSocketSend(l->ws, WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, buf, (DWORD)size) == NO_ERROR)
-            done = size;
-    } else {
-        while (done < size && (n = send(l->s, (const char *)buf + done, size - done, 0)) > 0)
-            done += n;
-    }
-    return done == size;
+    if (l->ws)
+        return WinHttpWebSocketSend(l->ws, WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, buf, (DWORD)size);
+    while (done < size && (n = send(l->s, (const char *)buf + done, size - done, 0)) > 0)
+        done += n;
+    return done == size ? 0 : n < 0 ? (DWORD)WSAGetLastError() : ERROR_GEN_FAILURE;
 }
 
 /* The lock is held. ponytail: a send to a stalled link holds the lock for its timeout (3-5 s), once:
  * the connection is dropped then. A writer thread with a queue if that ever shows in play. */
 static BOOL send_frame(BYTE type, const BYTE *payload, int size)
 {
-    struct link l = { g_sock, g_ws, NULL };
+    struct link l = { g_sock, g_ws, NULL, 0 };
+    char why[40];
+    DWORD error;
 
     if (!CONNECTED)
         return FALSE;
-    if (!link_send(&l, type, payload, size)) {
-        drop_connection("cannot send");
+    if ((error = link_send(&l, type, payload, size)) != 0) {
+        sprintf(why, "cannot send: error %u", error);
+        drop_connection(why);
         return FALSE;
     }
     return TRUE;
@@ -208,9 +215,10 @@ static void count_message(BOOL received, const BYTE *data, DWORD size)
         return;
     if (now - since >= 1000) {
         if (since)
-            say("network: sent %u %u %u %u %u %u %u %u +%u (input %u..%u), received %u %u %u %u %u %u %u %u +%u, ping %u",
+            say("network: sent %u %u %u %u %u %u %u %u +%u (input %u..%u), received %u %u %u %u %u %u %u %u +%u, ping %u, "
+                "%d waiting for the game, %u players in its list",
                 c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], seq[0], seq[1],
-                c[9], c[10], c[11], c[12], c[13], c[14], c[15], c[16], c[17], g_ping);
+                c[9], c[10], c[11], c[12], c[13], c[14], c[15], c[16], c[17], g_ping, g_count, g_listed);
         memset(count, 0, sizeof count);
         seq[0] = 0xFFFFFFFF;
         seq[1] = 0;
@@ -271,6 +279,19 @@ static struct player *find_player(DWORD id)
     return NULL;
 }
 
+/* "PLAYER 1307 (61A), PLAYER 1310 (61D)": the ids name the senders in the other lines. The lock is held. */
+static const char *player_list(void)
+{
+    static char text[MAX_PLAYERS * 32];
+    char *p = text;
+    int i;
+
+    *p = 0;
+    for (i = 0; i < g_player_count; i++)
+        p += sprintf(p, "%s%s (%X)", i ? ", " : "", g_players[i].name, g_players[i].id);
+    return text;
+}
+
 static void leave_room(void)
 {
     g_in_room = FALSE;
@@ -307,6 +328,7 @@ static void drop_connection(const char *why)
             if (ids[i] != g_id)
                 push_system(DPSYS_DESTROYPLAYERORGROUP, ids[i]);
         push_system(DPSYS_SESSIONLOST, 0);
+        say("network: queued for the game: the other %d players have left, the session is lost", n - 1);
     }
     g_joined = -1;
     SetEvent(g_answer);
@@ -354,6 +376,28 @@ static DWORD game_players(void)
     DWORD n = net ? *(const DWORD *)(net + 0x1C) : 0;
 
     return n < MAX_PLAYERS ? n : MAX_PLAYERS;
+}
+
+/* The lock is held. One line a second at most: input comes 8 messages a second. */
+static void say_dropped(void)
+{
+    say("network: %u messages dropped that name a player the game does not have; the last from %X, type %u, "
+        "place %d, the game has %u players", g_dropped, g_drop_from, g_drop_type, g_drop_place, g_listed);
+    g_dropped = 0;
+    g_drop_said = GetTickCount();
+}
+
+/* frames.c, as a network battle starts (DirectPlay's or ours): its players by place, as the messages name them */
+void net_battle_players(void)
+{
+    const BYTE *net = *(const BYTE **)0x51D7C0, *list = net ? *(const BYTE *const *)(net + 0x18) : NULL;
+    char text[MAX_PLAYERS * 10] = "";
+    DWORD i, n = game_players();
+
+    for (i = 0; list && i < n; i++)
+        sprintf(text + strlen(text), "%s%X", i ? " " : "", *(const DWORD *)(list + i * 0x1C));
+    if (net)
+        say("network: the battle's players by place: %s; this one is %X", text, *(const DWORD *)(net + 0x2E4));
 }
 
 static BYTE seats(DWORD n)
@@ -473,7 +517,8 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
         g_head = g_count = 0;
         g_joined = 1;
         SetEvent(g_answer);
-        say("network: in room %u \"%s\" with %d players", g_room.id, g_room.name, g_player_count);
+        say("network: in room %u \"%s\"%s: %s", g_room.id, g_room.name, g_room.flags & ROOM_CLOSED ? ", closed" : "",
+            player_list());
         break;
     case FAILED:
         i = get(&f, 1);
@@ -492,13 +537,13 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
         get_player(&f, &joined);
         if (!f.bad && g_in_room && g_player_count < MAX_PLAYERS && !find_player(joined.id)) {
             g_players[g_player_count++] = joined;
-            say("network: %s joined", joined.name);
+            say("network: %s (%X) joined", joined.name, joined.id);
         }
         break;
     case PLAYER_LEFT:
         id = get(&f, 4);
         if (!f.bad && g_in_room && (pl = find_player(id)) != NULL) {
-            say("network: %s left", pl->name);
+            say("network: %s (%X) left", pl->name, id);
             /* the order is the server's: the game takes a player's number from his place in the list */
             memmove(pl, pl + 1, (size_t)(&g_players[--g_player_count] - pl) * sizeof *pl);
             push_system(DPSYS_DESTROYPLAYERORGROUP, id);
@@ -514,7 +559,10 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
         }
         break;
     case ROOM_CHANGED:
-        g_room.flags = (BYTE)get(&f, 1);
+        n = get(&f, 1);
+        if (!f.bad && (n ^ g_room.flags) & ROOM_CLOSED)
+            say("network: the host has %s the room", n & ROOM_CLOSED ? "closed" : "opened");
+        g_room.flags = (BYTE)n;
         g_room.limit = seats(get(&f, 1));
         break;
     case DATA:
@@ -531,7 +579,8 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
                     m->data[MESSAGE - 1] = 0; /* chat (type 6) is read as a string */
             } else if (GetTickCount() - said > 1000) {
                 said = GetTickCount();
-                say("network: a message of %u bytes from %X is not one of the game's: dropped", size, id);
+                say("network: a message of %u bytes, type %u, from %X is not one of the game's: dropped", size,
+                    size >= 4 ? *(const DWORD *)f.p : 0, id);
             }
         }
         break;
@@ -548,8 +597,9 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
     return !f.bad;
 }
 
-/* FALSE: no connection any more. `patient`: silence is no error while `epoch` is the current one. */
-static BOOL read_exact(const struct link *l, DWORD epoch, BYTE *to, int size, BOOL patient)
+/* FALSE: no connection any more, l->error says why. `patient`: silence is no error while `epoch` is the
+ * current one. */
+static BOOL read_exact(struct link *l, DWORD epoch, BYTE *to, int size, BOOL patient)
 {
     int done = 0, n;
 
@@ -558,13 +608,16 @@ static BOOL read_exact(const struct link *l, DWORD epoch, BYTE *to, int size, BO
             WINHTTP_WEB_SOCKET_BUFFER_TYPE kind;
             DWORD got = 0, error = WinHttpWebSocketReceive(l->ws, to + done, (DWORD)(size - done), &got, &kind);
 
-            if (error == NO_ERROR && kind != WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE)
+            if (error == NO_ERROR && kind != WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE) {
                 done += (int)got;
-            else if (error != ERROR_WINHTTP_TIMEOUT || !patient || epoch != g_epoch)
-                return FALSE; /* the 10 s timeout is where a dropped WebSocket link is noticed */
+            } else if (error != ERROR_WINHTTP_TIMEOUT || !patient || epoch != g_epoch) {
+                l->error = error; /* the 10 s timeout is where a dropped WebSocket link is noticed */
+                return FALSE;
+            }
         } else if ((n = recv(l->s, (char *)to + done, size - done, 0)) > 0) {
             done += n;
         } else {
+            l->error = n ? (DWORD)WSAGetLastError() : 0;
             return FALSE;
         }
     }
@@ -641,8 +694,9 @@ static DWORD WINAPI link_thread(void *arg)
 {
     DWORD epoch = (DWORD)(ULONG_PTR)arg, size = 0, forever = 0;
     BYTE head[2], hello[10], *frame = (BYTE *)HeapAlloc(GetProcessHeap(), 0, MAX_FRAME);
-    struct link l = { INVALID_SOCKET, NULL, NULL };
-    const char *why = "the server is gone";
+    struct link l = { INVALID_SOCKET, NULL, NULL, 0 };
+    const char *why = NULL;
+    char broke[48];
     BOOL ok = frame && (g_web ? open_web(&l) : open_tcp(&l));
 
     if (!ok) {
@@ -651,7 +705,7 @@ static DWORD WINAPI link_thread(void *arg)
         memcpy(hello, "HOGS", 4);
         put32(put16(hello + 4, PROTOCOL), g_compat);
         /* WELCOME: u16 size, type, u16 protocol, u32 our id, ... */
-        ok = link_send(&l, HELLO, hello, sizeof hello) && read_exact(&l, epoch, head, 2, FALSE) &&
+        ok = !link_send(&l, HELLO, hello, sizeof hello) && read_exact(&l, epoch, head, 2, FALSE) &&
              (size = head[0] | head[1] << 8) >= 7 && size <= MAX_FRAME && read_exact(&l, epoch, frame, (int)size, FALSE) &&
              frame[0] == WELCOME;
         if (!ok)
@@ -671,8 +725,9 @@ static DWORD WINAPI link_thread(void *arg)
                 sprintf(g_name, "PLAYER %u", (g_id - 0xFF) % 10000);
             if (!g_web) /* reads wait for as long as it takes: shutdown() in drop_connection ends them */
                 setsockopt(l.s, SOL_SOCKET, SO_RCVTIMEO, (const char *)&forever, sizeof forever);
-            g_pinged = GetTickCount();
+            g_pinged = g_heard = GetTickCount();
             g_waiting = 0;
+            g_silent = FALSE;
             g_listing_count = g_room_count = 0;
             say("network: connected to %s:%s as \"%s\" (player %X)", g_server, g_port, g_name, g_id);
         }
@@ -691,6 +746,10 @@ static DWORD WINAPI link_thread(void *arg)
         if (epoch != g_epoch) {
             size = 0; /* dropped: a WebSocket still brings frames until it is closed below */
         } else {
+            if (g_silent)
+                say("network: the server answers again after %.1f s of silence", (GetTickCount() - g_heard) / 1000.0);
+            g_heard = GetTickCount();
+            g_silent = FALSE;
             g_waiting = 0;
             if (!on_frame(frame[0], frame + 1, size - 1)) {
                 why = "a frame the client does not understand";
@@ -700,6 +759,10 @@ static DWORD WINAPI link_thread(void *arg)
         LeaveCriticalSection(&g_lock);
         if (!size)
             break;
+    }
+    if (!why) {
+        sprintf(broke, l.error ? "the connection broke: error %u" : "the server closed the connection", l.error);
+        why = broke;
     }
     EnterCriticalSection(&g_lock);
     if (ok && epoch == g_epoch)
@@ -727,10 +790,18 @@ static DWORD WINAPI keeper(void *arg)
         Sleep(1000);
         EnterCriticalSection(&g_lock);
         now = GetTickCount();
-        if (CONNECTED && g_waiting && now - g_waiting > 3 * PING_SECONDS * 1000)
+        if (CONNECTED && g_waiting && now - g_waiting > 3 * PING_SECONDS * 1000) {
             drop_connection("no answer to three pings");
-        else if (CONNECTED && now - g_pinged >= PING_SECONDS * 1000)
-            send_ping();
+        } else if (CONNECTED) {
+            if (g_waiting && !g_silent && now - g_waiting > 2000) { /* an answer takes 0.1-0.3 s */
+                g_silent = TRUE;
+                say("network: the server has been silent for %.1f s", (now - g_heard) / 1000.0);
+            }
+            if (now - g_pinged >= PING_SECONDS * 1000)
+                send_ping();
+        }
+        if (g_dropped && now - g_drop_said > 1000)
+            say_dropped(); /* the end of a burst */
         LeaveCriticalSection(&g_lock);
     }
 }
@@ -826,8 +897,10 @@ static HRESULT __stdcall dp_close(void *self)
 {
     (void)self;
     EnterCriticalSection(&g_lock);
-    if (g_in_room)
+    if (g_in_room) {
+        say("network: the game leaves room %u", g_room.id);
         send_frame(LEAVE, NULL, 0);
+    }
     leave_room();
     LeaveCriticalSection(&g_lock);
     return DP_OK;
@@ -1053,6 +1126,8 @@ static HRESULT __stdcall dp_set_session_desc(void *self, const SESSION *desc, DW
     (void)self, (void)flags;
     EnterCriticalSection(&g_lock);
     if (g_in_room) {
+        if ((desc->dwFlags & DPSESSION_JOINDISABLED ? ROOM_CLOSED : 0) != (g_room.flags & ROOM_CLOSED))
+            say("network: the game %s the room", g_room.flags & ROOM_CLOSED ? "opens" : "closes");
         g_room.flags = desc->dwFlags & DPSESSION_JOINDISABLED ? ROOM_CLOSED : 0;
         buf[0] = g_room.flags;
         buf[1] = g_room.limit;
@@ -1088,16 +1163,22 @@ static HRESULT __stdcall dp_receive(void *self, DWORD *from, DWORD *to, DWORD fl
     (void)self, (void)flags;
     EnterCriticalSection(&g_lock);
     /* checked here, not when it came: the game's list can have fewer players than the room by now */
+    g_listed = game_players();
     for (; g_count; g_head = (g_head + 1) % QUEUE, g_count--) {
-        static DWORD said;
+        DWORD head[2];
 
         m = &g_queue[g_head];
-        if (!m->from || game_message(m->from, m->data, m->size, game_players()))
+        if (!m->from || game_message(m->from, m->data, m->size, g_listed))
             break;
-        if (GetTickCount() - said > 1000) {
-            said = GetTickCount();
-            say("network: a message from %X names a player the game does not have: dropped", m->from);
-        }
+        memcpy(head, m->data, 8); /* game_message has checked the size */
+        g_drop_from = m->from;
+        g_drop_type = head[0];
+        g_drop_place = (short)head[1];
+        if (head[0] == 4 && head[1] < 15)
+            memcpy(&g_drop_place, m->data + 16 + head[1] * 0x14, 2);
+        g_dropped++;
+        if (GetTickCount() - g_drop_said > 1000)
+            say_dropped();
     }
     m = &g_queue[g_head];
     if (!g_count) {

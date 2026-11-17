@@ -26,6 +26,7 @@ void __cdecl water_slide(void); /* called from _d3d.dll in place of its loop */
 
 /* net.c: network games through a lobby server, [Network] Server */
 void net_init(void);
+void net_battle_players(void); /* frames.c: a network battle starts */
 
 /* menu.c: the mouse in the menus and the Controls screen; menu_input: TRUE = the message is done */
 extern WNDPROC g_game_proc; /* MainWndProc, once hogs.c has taken the window's procedure over */

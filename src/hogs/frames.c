@@ -30,6 +30,8 @@
 #define MESSAGES (*(BYTE **)0x51D3C4)       /* message banner, new at 0x485DF9 */
 #define MESSAGE_SCROLL (*(DWORD *)0x51D3C0)
 #define NESTED_STEP (*(BYTE *)0x51BCDC)     /* set while 0x448ED0 calls the step from inside a game tick */
+#define NETWORK_BATTLE (*(BYTE *)0x51ABC8)
+#define LOCAL_CLOCK (*(BYTE *)0x4D1900)     /* 0: a tick takes its clock and pad from the queue of the player on turn */
 #define HUD_SIZE 0xE18
 #define MESSAGES_SIZE 0x96C
 
@@ -348,6 +350,9 @@ static DWORD g_snapshot_tick;
 static BOOL g_hud_waits;      /* last tick's frame not drawn: HUD step pending */
 static DWORD g_step_tick;
 static int g_step_late;       /* ms after the tick was due when battle_step called the step */
+static DWORD g_step_called;   /* timeGetTime of the last battle_step or step of this battle, 0: none yet */
+static BYTE *g_turn_player;   /* network battle: the player on turn when the last turn line was written */
+static int g_turn;
 static Stats g_battle_stats;
 
 static int monitor_refresh_rate(void)
@@ -378,6 +383,11 @@ static void start_battle(BYTE *turn_manager)
     if (g_frame_us && g_vsync && rate >= monitor)
         g_frame_us = 900000 / monitor;
     g_next_frame = now_us();
+    g_step_called = 0;
+    g_turn_player = NULL;
+    g_turn = 0;
+    if (NETWORK_BATTLE)
+        net_battle_players();
     say("battle: monitor %d Hz, %s", monitor,
         !g_frame_us ? "one frame per game tick (25 a second)"
         : g_vsync && rate >= monitor ? "a frame per monitor refresh"
@@ -482,16 +492,13 @@ static void __fastcall mid_tick_frame(BYTE *renderer)
 
 /* ---- network battle: the other player's turn ---- */
 
-/* The player on turn sends each tick's pad state, 3 to a message (FUN_00461120); the others take
- * one per tick from a queue (FUN_0048CE00), spinning in FUN_0048CEF0 when it is empty. */
-#define NETWORK_BATTLE (*(BYTE *)0x51ABC8)
-#define LOCAL_CLOCK (*(BYTE *)0x4D1900) /* 0: a tick takes its clock and pad from the queue of the player on turn */
-/* ticks to have before playing: two messages. ponytail: a fixed number; if players on poor
- * connections see the picture stop and go, measure the gaps between messages and follow them */
+/* The player on turn sends a tick's pad, 3 to a message (FUN_00461120); the others take one a tick (FUN_0048CE00,
+ * spins in FUN_0048CEF0 when empty). Buffer: two messages. ponytail: fixed; on stutter, follow the message gaps */
 enum { REMOTE_BUFFER = 6 };
 
 static BOOL g_remote_buffering;
 static BOOL g_remote_held;     /* the step was held back: the elapsed time is not a debt of ticks */
+static DWORD g_remote_wait;    /* the log says the queue has been empty since then, 0: it does not */
 static int g_remote_seen;      /* the queue's length at the last look, -1: no queue is played */
 static DWORD g_remote_since;   /* timeGetTime when it last grew or ran empty */
 
@@ -518,6 +525,11 @@ static BOOL hold_remote_tick(BYTE *turn_manager)
     int backlog = remote_backlog(turn_manager), period, late, most = 1;
     DWORD ms = timeGetTime();
 
+    if (g_remote_wait && backlog) { /* -1: no queue is played now */
+        say("battle: %s after %.1f s without the input of the player on turn", backlog > 0 ? "input came" : "the wait ended",
+            (ms - g_remote_wait) / 1000.0);
+        g_remote_wait = 0;
+    }
     if (backlog < 0) {
         g_remote_seen = -1;
         g_remote_buffering = TRUE;
@@ -533,8 +545,13 @@ static BOOL hold_remote_tick(BYTE *turn_manager)
             g_remote_buffering = FALSE;
         if (g_remote_buffering && (backlog || ms - g_remote_since < 1000))
             return g_remote_held = TRUE;
-        if (!backlog) /* empty for a second: the step has its own ways with a silent player */
+        if (!backlog) { /* empty for a second: the step has its own ways with a silent player */
+            if (!g_remote_wait) {
+                g_remote_wait = g_remote_since | 1;
+                say("battle: no input from the player on turn for 1 s");
+            }
             return g_remote_held = FALSE;
+        }
         if (!g_remote_held)
             most = backlog; /* never more ticks than the queue has: the step would spin for the rest */
     }
@@ -550,6 +567,28 @@ static BOOL hold_remote_tick(BYTE *turn_manager)
     return FALSE;
 }
 
+/* Network battle: all copies play the same ticks, so pigs stand in the same places as a turn begins.
+ * ponytail: positions after the step that changed the turn; a pig still moving can differ by a tick */
+static void note_turn(BYTE *turn_manager)
+{
+    BYTE *player = *(BYTE **)(turn_manager + 0x4FC), *obj, *place;
+    DWORD sum = 0, hash;
+    int pigs = 0, i, n;
+
+    if (!player || player == g_turn_player)
+        return;
+    g_turn_player = player;
+    for (obj = DRAW_LIST, n = 0; obj && n < 4096; obj = *(BYTE **)(obj + 4), n++) {
+        if (*(DWORD *)(obj + 0x38) != 0x1357 || !(place = *(BYTE **)(obj + 0x18)))
+            continue; /* not a pig */
+        for (hash = 2166136261u, i = 0; i < 3; i++)
+            hash = (hash ^ (DWORD)(int)((const float *)(place + 4))[i]) * 16777619u;
+        sum += hash; /* a sum: the list's order is the drawing order */
+        pigs++;
+    }
+    say("battle: turn %d, %d pigs, places %08X", ++g_turn, pigs, sum);
+}
+
 static DWORD __cdecl battle_step(void)
 {
     BYTE *turn_manager = TURN_MANAGER, *renderer = RENDERER;
@@ -558,6 +597,13 @@ static DWORD __cdecl battle_step(void)
     BOOL frames;
     int period;
 
+    if (NETWORK_BATTLE && turn_manager && turn_manager == g_battle) {
+        DWORD ms = timeGetTime(); /* a window held by the mouse, a hang: the others wait for this copy */
+
+        if (g_step_called && ms - g_step_called > 1000)
+            say("battle: the game stood still for %.1f s", (ms - g_step_called) / 1000.0);
+        g_step_called = ms;
+    }
     if (hold_remote_tick(turn_manager)) {
         now = now_us();
         frames = g_frame_us && renderer && turn_manager == g_battle && g_snapshot_tick == TICK_TIME &&
@@ -574,13 +620,20 @@ static DWORD __cdecl battle_step(void)
     g_step_tick = tick0;
     g_step_late = turn_manager ? (int)(timeGetTime() - tick0) - *(int *)(turn_manager + 0x314) : 0;
     result = game_step();
+    if (g_step_called) /* the step itself may wait for the network: those lines are the input's */
+        g_step_called = timeGetTime();
     g_step_late = 0;
     turn_manager = TURN_MANAGER;
     if ((result >= 2 && result <= 5) || !turn_manager) {
+        if (g_battle && NETWORK_BATTLE)
+            say("battle: over, result %u", result);
         g_battle = NULL; /* the battle is over */
         g_remote_held = FALSE;
+        g_remote_wait = 0;
         return result;
     }
+    if (NETWORK_BATTLE && turn_manager == g_battle)
+        note_turn(turn_manager);
     period = *(int *)(turn_manager + 0x314);
     if (period <= 0)
         period = 40;
