@@ -2,7 +2,7 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
-## v2.0.1 — not released yet
+## v2.0.1 — 2026-11-17
 
 ### Fixed
 
