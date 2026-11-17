@@ -2,6 +2,37 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v2.1.0 — 2026-11-17
+
+### Fixed
+
+- **A network battle no longer comes apart when the game of one player stands still.** The game waits 15 seconds for the moves of the player on turn and then removes him, but only in the copy that waited. He was not told: he stayed in the room and played on alone, and after his turn his copy removed the others, so his match ended while theirs went on. It took a game that stood still for 15 seconds on its own turn, with its connection alive: a hang, or a window held by the mouse. Now only the lobby server says who has left, and every copy hears it at the same moment. A copy that cannot play its own turn for 15 seconds leaves the room by itself.
+- While a battle waits for the moves of another player, the window is drawn and answers. It froze for up to 15 seconds, and Windows called the game "not responding".
+- A player who leaves while the battle loads no longer stops the others. The game waited 61 seconds for him with a frozen window and then gave the battle up. Now the battle begins without him as soon as the server knows that he is gone: at once when his game closed, after 15 seconds when his connection died without a word.
+- When the player on turn leaves, the others go on at once. The game stood frozen for 5 more seconds.
+- In a network battle every player hears the battle at their own sound volumes. The game took the effects and music volumes of the host for everyone. With the host's effects volume at zero the guests had no sound but the music themes.
+- A connection to a `wss://` lobby server that died without a word stayed open in the game for good, one more with every new connection. It is now closed.
+- The game closed when Enter was pressed again before the level menu of Multi-player was on the screen. It happened most easily when a game was made on a local network: the game stands still for some seconds after Enter there, and a second press waited for it.
+- After a crash the game stayed in the list of processes and could not be ended: its files stayed in use, and the patcher refused to run. The music library waited for a part of the game that was already gone. Now a crashed game ends at once.
+
+### Added
+
+- **Play on a local network.** With `Server=` empty in `hogs.ini` the game uses its own network play and asks for an IP address. Press Enter on an empty address: the game now looks for games on the local network. Before, it went to an address of its makers and found nothing.
+- The address you type is shown. With one connection type in the list it was not.
+- The dot keys type a dot in any keyboard layout.
+
+### Changed
+
+- Network games of this version and of older versions do not see each other: all players need 2.1.0.
+- `hogs.log` says when a copy leaves the room because its game stood still, and when the game is told that a player left before the battle began. After a crash its last line is `the game ends on error` with the error number.
+
+### Good to know
+
+- The pigs do not speak in a network battle. That is the game's own design.
+- On a local network the game reads the list of games once, when the list opens. Open it after the other player has made the game, or go back and open it again. It needs the DirectPlay feature of Windows (Windows Features, Legacy Components, DirectPlay).
+- When your connection to the lobby server is lost in a battle, your game is told that the others have left, and your battle ends. The others play on without you. A game cannot come back into a running battle.
+- Tested with two and three copies of the game on one PC: a game that stands still on its turn for 20 seconds, a player who is gone while the battle loads, a server that is silent for 10 seconds, a server that is gone. In every case the copies that play on have the same numbers in the `turn` lines of `hogs.log`.
+
 ## v2.0.2 — 2026-11-17
 
 ### Changed

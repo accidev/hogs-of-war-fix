@@ -1,6 +1,15 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v2.0.2**
+**New in v2.1.0**
+
+- **Network battles stay together.** When the game of one player stood still for 15 seconds on his turn, the other copies removed him, but he was not told and played on alone, so the players ended up in different battles. Now only the lobby server says who has left, and every copy hears it at the same moment. A copy that cannot play its own turn for 15 seconds leaves the room by itself.
+- While a battle waits for another player, the window is drawn and answers. A player who leaves while the battle loads no longer stops the others for a minute. When the player on turn leaves, the others go on at once.
+- **Sound in network battles:** every player hears the battle at their own volumes. The game took the volumes of the host for everyone, so with the host's effects at zero the guests heard only music.
+- **Local network play:** with `Server=` empty, press Enter on an empty address and the game finds the games on your local network. The address you type is shown, and the dot keys type a dot in any keyboard layout.
+- Fixed: the game closed when Enter was pressed twice before the level menu of Multi-player appeared. A crashed game no longer stays in the list of processes.
+- All players need 2.1.0: older versions do not see these games.
+
+**v2.0.2**
 
 - `hogs.log` tells more about network games: the time of every line, why a connection was lost, who is in the room, when a copy of the game stood still or waited for the player on turn, and a number for every turn that must be the same in the logs of all players.
 - If a network game goes wrong, copy `hogs.log` before you start the game again: the game writes it anew at every start. Open an issue with the logs of all players and the time it happened.

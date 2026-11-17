@@ -85,14 +85,15 @@ The settings are in the `[Network]` section of `hogs.ini` in the game folder:
 
 - `Name=` is your name in network games. Without it you are PLAYER and a number.
 - `Password=` is for games with friends only. Set the same word on every PC: your games are then listed only for players with that word, and you see only theirs. It keeps strangers out of the list; it is not a strong lock.
-- `Server=` is the lobby server. Empty it to get the game's own network play back: a local network, or the IP address of a player. Another server is written as `name`, `name:port` or `wss://name`.
+- `Server=` is the lobby server. Empty it to get the game's own network play back: a local network, or the IP address of a player. The game then asks for an address: press Enter on an empty one to find the games on your local network. Another server is written as `name`, `name:port` or `wss://name`.
 
 Good to know:
 
 - All players need the same version of this fix and the same `[Battle] ComputerWalks` setting.
 - The other players do not see your IP address: all messages go through the server.
 - The lobby server is run by fans, with no promise that it is always up.
-- This is new. It was tested with two copies of the game on one PC, not yet between different PCs or with more than two players. Please report how it works for you.
+- When your connection to the server is lost in a battle, your battle ends and the others play on without you.
+- This is new. It was tested with two and three copies of the game on one PC. Please report how it works for you.
 
 ## Controls
 

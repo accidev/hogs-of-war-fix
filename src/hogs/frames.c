@@ -30,12 +30,15 @@
 #define MESSAGES (*(BYTE **)0x51D3C4)       /* message banner, new at 0x485DF9 */
 #define MESSAGE_SCROLL (*(DWORD *)0x51D3C0)
 #define NESTED_STEP (*(BYTE *)0x51BCDC)     /* set while 0x448ED0 calls the step from inside a game tick */
-#define NETWORK_BATTLE (*(BYTE *)0x51ABC8)
 #define LOCAL_CLOCK (*(BYTE *)0x4D1900)     /* 0: a tick takes its clock and pad from the queue of the player on turn */
 #define HUD_SIZE 0xE18
 #define MESSAGES_SIZE 0x96C
 
+#define LEAVERS (*(int *)0x51D7A8)          /* players who left and are still in the battle; ids from 0x51D7B0 */
+
 static DWORD(__cdecl *const game_step)(void) = (DWORD(__cdecl *)(void))0x47F930;
+/* removes the leavers from the battle; one of them on turn: his turn ends (+0x541) */
+static void(__fastcall *const game_leavers)(BYTE *) = (void(__fastcall *)(BYTE *))0x4618B0;
 static void(__fastcall *const game_draw)(BYTE *) = (void(__fastcall *)(BYTE *))0x44E290;
 static int(__cdecl *const game_clock)(void) = (int(__cdecl *)(void))0x4AE530; /* clock(), ms */
 
@@ -498,6 +501,9 @@ enum { REMOTE_BUFFER = 6 };
 
 static BOOL g_remote_buffering;
 static BOOL g_remote_held;     /* the step was held back: the elapsed time is not a debt of ticks */
+static BYTE *g_begun;          /* the battle that has shed the players who left while it loaded */
+static volatile BOOL g_own_turn;  /* the other copies wait for this copy's input */
+static volatile DWORD g_stepped;  /* timeGetTime when the game's thread last came to or from the step */
 static DWORD g_remote_wait;    /* the log says the queue has been empty since then, 0: it does not */
 static int g_remote_seen;      /* the queue's length at the last look, -1: no queue is played */
 static DWORD g_remote_since;   /* timeGetTime when it last grew or ran empty */
@@ -519,10 +525,39 @@ static int remote_backlog(BYTE *turn_manager)
     return n & 0x7FF;
 }
 
+/* The DirectPlay id of the player on turn, 0: not known. */
+static DWORD turn_player_id(const BYTE *turn_manager)
+{
+    const BYTE *net = NET_OBJECT, *list = net ? *(const BYTE *const *)(net + 0x18) : NULL;
+    DWORD i, n = net ? *(const DWORD *)(net + 0x1C) : 0;
+
+    for (i = 0; list && i < n && i < 4; i++)
+        if (*(const BYTE *const *)(net + 0x41C + 4 * i) == *(const BYTE *const *)(turn_manager + 0x4FC))
+            return *(const DWORD *)(list + i * 0x1C);
+    return 0;
+}
+
+/* The game's thread, around the step. The others take a tick of this copy's turn only with its input. */
+static void note_step(const BYTE *turn_manager)
+{
+    const BYTE *net = NET_OBJECT, *game = GAME_CONFIG;
+    int state = turn_manager ? *(const int *)(turn_manager + 0x510) : 2;
+
+    g_stepped = timeGetTime();
+    g_own_turn = NETWORK_BATTLE && turn_manager && turn_manager == g_battle && net && net[0x438] && game && !game[1] &&
+                 !turn_manager[0x541] && state != 2 && state != 0x12 &&
+                 turn_player_id(turn_manager) == *(const DWORD *)(net + 0x2E4);
+}
+
+DWORD battle_turn_stall(void)
+{
+    return g_own_turn && !FRONTEND ? timeGetTime() - g_stepped : 0;
+}
+
 /* TRUE: do not call the step now. Else TICK_TIME lets the step run no more ticks than queued. */
 static BOOL hold_remote_tick(BYTE *turn_manager)
 {
-    int backlog = remote_backlog(turn_manager), period, late, most = 1;
+    int backlog = remote_backlog(turn_manager), period, late, most = 1, more;
     DWORD ms = timeGetTime();
 
     if (g_remote_wait && backlog) { /* -1: no queue is played now */
@@ -545,15 +580,23 @@ static BOOL hold_remote_tick(BYTE *turn_manager)
             g_remote_buffering = FALSE;
         if (g_remote_buffering && (backlog || ms - g_remote_since < 1000))
             return g_remote_held = TRUE;
-        if (!backlog) { /* empty for a second: the step has its own ways with a silent player */
+        if (!backlog) { /* empty for a second */
             if (!g_remote_wait) {
                 g_remote_wait = g_remote_since | 1;
                 say("battle: no input from the player on turn for 1 s");
             }
-            return g_remote_held = FALSE;
-        }
-        if (!g_remote_held)
+            /* The step drops him after 15 s in this copy alone (FUN_0048CEF0); the lobby server tells every copy
+             * who has left. ponytail: after a minute the step's own rule, for copies that have come apart. */
+            more = net_more_input(turn_player_id(turn_manager));
+            if (more > 0 && ms - g_remote_since < 60000)
+                return g_remote_held = TRUE;
+            if (more || !LEAVERS)
+                return g_remote_held = FALSE; /* the step has its own ways with a silent player */
+            game_leavers(NET_OBJECT); /* all his input is played: what the step does after 5 s of standing */
+            g_remote_held = TRUE;
+        } else if (!g_remote_held) {
             most = backlog; /* never more ticks than the queue has: the step would spin for the rest */
+        }
     }
     period = *(int *)(turn_manager + 0x314);
     period = period > 0 ? period : 40;
@@ -604,6 +647,7 @@ static DWORD __cdecl battle_step(void)
             say("battle: the game stood still for %.1f s", (ms - g_step_called) / 1000.0);
         g_step_called = ms;
     }
+    note_step(turn_manager);
     if (hold_remote_tick(turn_manager)) {
         now = now_us();
         frames = g_frame_us && renderer && turn_manager == g_battle && g_snapshot_tick == TICK_TIME &&
@@ -627,13 +671,22 @@ static DWORD __cdecl battle_step(void)
     if ((result >= 2 && result <= 5) || !turn_manager) {
         if (g_battle && NETWORK_BATTLE)
             say("battle: over, result %u", result);
-        g_battle = NULL; /* the battle is over */
+        g_battle = g_begun = NULL; /* the battle is over */
+        g_own_turn = FALSE;
         g_remote_held = FALSE;
         g_remote_wait = 0;
         return result;
     }
+    if (NETWORK_BATTLE && turn_manager != g_begun && NET_OBJECT && NET_OBJECT[0x438]) {
+        /* The first step ran one tick (TICK_TIME was 0). Who left while the battle loaded (net.c) goes now, in
+         * every copy at this tick; the game itself would keep his team until the next turn begins. */
+        g_begun = turn_manager;
+        if (LEAVERS && net_more_input(0) >= 0)
+            game_leavers(NET_OBJECT);
+    }
     if (NETWORK_BATTLE && turn_manager == g_battle)
         note_turn(turn_manager);
+    note_step(turn_manager);
     period = *(int *)(turn_manager + 0x314);
     if (period <= 0)
         period = 40;

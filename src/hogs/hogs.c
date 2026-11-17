@@ -407,6 +407,9 @@ static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
             zoom_camera(wp == VK_ADD ? -10 : 10);
         else
             wp = menu_key(wp, lp);
+    } else if (msg == WM_CHAR && MENU && MENU[9] == 0x12 && *(DWORD *)0x51ABCC == 1 &&
+               ((lp >> 16 & 0xFF) == 0x34 || (lp >> 16 & 0xFF) == 0x53)) {
+        wp = '.'; /* MainWndProc's test for the IP address prompt; the dot keys by scan code, any layout */
     }
     r = CallWindowProcA(g_game_proc, hwnd, msg, wp, lp);
     g_cell = 0;
@@ -822,6 +825,19 @@ static BOOL WINAPI peek_message(LPMSG msg, HWND hwnd, UINT first, UINT last, UIN
     return g_peek_message(msg, hwnd, first, last, remove);
 }
 
+/* The CRT ends a crashed game with ExitProcess(exception code) (FUN_004AEE90). The DLLs then detach with every
+ * other thread gone, and winmm.dll (ogg-winmm) waits for its player thread for ever: a process nobody can end. */
+static void(WINAPI *g_exit_process)(UINT);
+
+static void WINAPI exit_process(UINT code)
+{
+    if ((int)code < 0) {
+        say("the game ends on error %08X", code);
+        TerminateProcess(GetCurrentProcess(), code);
+    }
+    g_exit_process(code);
+}
+
 static void apply_fixes(int vsync, int widescreen)
 {
     /* call [SystemParametersInfoA] -> add esp,16 (4 stdcall arguments) */
@@ -932,6 +948,8 @@ static void apply_fixes(int vsync, int widescreen)
           "\xA1\x68\x06\x52\x00\x83\xFF\x01\x0F\x95\x80\x10\x03\x00\x00\x90\x90", 17, "menus go on after a minimize");
     hook_import(0x54F560, "user32.dll", "PeekMessageA", peek_message, &g_peek_message,
                 "idle while minimized, read the gamepad");
+    hook_import(0x54F4B4, "kernel32.dll", "ExitProcess", exit_process, &g_exit_process,
+                "a crashed game ends at once");
 
     g_name_cell = hook(0x42E4A3, 0xE8, "\xE8\xE8\x01\x08\x00", name_cell, "name typing: no crash, keyboard layout");
 

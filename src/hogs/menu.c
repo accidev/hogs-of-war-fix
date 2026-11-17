@@ -422,8 +422,25 @@ BOOL menu_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     return TRUE;
 }
 
+/* FUN_0042BB20, action 0x18: MENU = its child (+0x2C). FUN_00427C90 links the child when the menu is first shown;
+ * a second key-down taken in the same pass of the message loop finds none: the game read from 0 (0x42C8A0). */
+static __declspec(naked) void child_menu(void)
+{
+    __asm {
+        mov eax, dword ptr ds:[0x51AAD8]
+        cmp dword ptr [eax + 0x2C], 0
+        jne linked
+        mov eax, 0x42C8A9
+        jmp eax
+    linked:
+        mov ecx, 0x42C895
+        jmp ecx
+    }
+}
+
 void menu_init(void)
 {
+    hook(0x42C890, 0xE9, "\xA1\xD8\xAA\x51\x00", child_menu, "menus: no key before a menu is shown");
     g_controls = hook(0x42DEA0, 0xE9, "\x83\xEC\x18\x53\x55", controls_draw, "menus: every control on one screen") &&
                  hook(0x42A140, 0xE9, "\x8B\x41\x0C\x56\x8B", controls_move, "menus: four arrows on the controls screen");
     hook(0x42E11A, 0xE8, "\xE8\x91\xEA\x01\x00", wanted_keys, "menus: mouse buttons can be bound");

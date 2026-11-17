@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NET_VERSION 2 /* raise when a release changes a battle: such games must not meet */
+#define NET_VERSION 3 /* raise when a release changes a battle: such games must not meet */
 
 #define DP_OK 0
 #define DPERR_UNSUPPORTED ((HRESULT)0x80004001)
@@ -125,6 +125,10 @@ static int g_head, g_count;
 static DWORD g_listed;       /* players in the game's list when dp_receive last looked */
 static DWORD g_dropped, g_drop_said, g_drop_from, g_drop_type; /* messages dropped since the last line about them */
 static short g_drop_place;
+static DWORD g_gone[MAX_PLAYERS]; /* who left the room since the game last stood in a menu */
+static int g_gone_count;
+static int g_links;          /* link threads that have not ended; a new one waits for them */
+static HINTERNET g_aborted;  /* WebSocket closed under its link thread's read: not that thread's to close */
 static LONG g_refs[2];
 
 /* ---- frames ---- */
@@ -299,8 +303,14 @@ static void leave_room(void)
     g_head = g_count = 0;
 }
 
-/* The lock is held. The link thread closes its handles itself: a handle closed under its read could
- * be given to the next connection. shutdown() wakes a TCP read; a WebSocket read ends within 10 s. */
+static void gone(DWORD id)
+{
+    if (g_gone_count < MAX_PLAYERS)
+        g_gone[g_gone_count++] = id;
+}
+
+/* The lock is held. shutdown() wakes the link thread's TCP read. A WebSocket read has no timeout and no
+ * other way out than closing the handle; start_connect() lets no new handle take its value meanwhile. */
 static void drop_connection(const char *why)
 {
     g_epoch++;
@@ -311,6 +321,8 @@ static void drop_connection(const char *why)
     say("network: connection to %s closed: %s", g_server, why);
     if (g_sock != INVALID_SOCKET)
         shutdown(g_sock, SD_BOTH);
+    if (g_ws && WinHttpCloseHandle(g_ws))
+        g_aborted = g_ws;
     g_sock = INVALID_SOCKET;
     g_ws = NULL;
     g_room_count = 0;
@@ -325,8 +337,10 @@ static void drop_connection(const char *why)
         leave_room();
         /* a battle ignores "session lost" and waits for the others' turns for ever: they have left */
         for (i = 0; i < n; i++)
-            if (ids[i] != g_id)
+            if (ids[i] != g_id) {
+                gone(ids[i]);
                 push_system(DPSYS_DESTROYPLAYERORGROUP, ids[i]);
+            }
         push_system(DPSYS_SESSIONLOST, 0);
         say("network: queued for the game: the other %d players have left, the session is lost", n - 1);
     }
@@ -372,7 +386,7 @@ static BOOL game_message(DWORD from, const BYTE *data, DWORD size, DWORD players
  * builds it from EnumPlayers, in the menus only: in a battle it is the list of the battle's start. */
 static DWORD game_players(void)
 {
-    const BYTE *net = *(const BYTE **)0x51D7C0;
+    const BYTE *net = NET_OBJECT;
     DWORD n = net ? *(const DWORD *)(net + 0x1C) : 0;
 
     return n < MAX_PLAYERS ? n : MAX_PLAYERS;
@@ -390,7 +404,7 @@ static void say_dropped(void)
 /* frames.c, as a network battle starts (DirectPlay's or ours): its players by place, as the messages name them */
 void net_battle_players(void)
 {
-    const BYTE *net = *(const BYTE **)0x51D7C0, *list = net ? *(const BYTE *const *)(net + 0x18) : NULL;
+    const BYTE *net = NET_OBJECT, *list = net ? *(const BYTE *const *)(net + 0x18) : NULL;
     char text[MAX_PLAYERS * 10] = "";
     DWORD i, n = game_players();
 
@@ -398,6 +412,54 @@ void net_battle_players(void)
         sprintf(text + strlen(text), "%s%X", i ? " " : "", *(const DWORD *)(list + i * 0x1C));
     if (net)
         say("network: the battle's players by place: %s; this one is %X", text, *(const DWORD *)(net + 0x2E4));
+}
+
+/* frames.c, the game's thread. Messages still waiting for the game can be his. */
+int net_more_input(DWORD id)
+{
+    int more;
+
+    if (!g_server[0])
+        return -1;
+    EnterCriticalSection(&g_lock);
+    more = g_count || (g_in_room && find_player(id));
+    LeaveCriticalSection(&g_lock);
+    return more;
+}
+
+/* The lock is held. Who left while the battle loads: the game drops the notice (FUN_004613A0 wants net+0x438) and
+ * stands 61 s for his "loaded" (type 2, 0x47F990). He goes to its leavers (0x51D7B0) and "loaded" comes from us. */
+static struct message *loaded_for_gone(void)
+{
+    static struct message loaded;
+    BYTE *net = NET_OBJECT, *game = GAME_CONFIG, *list;
+    DWORD *left = (DWORD *)0x51D7B0, *left_count = (DWORD *)0x51D7A8, head[2] = { 2 }, n, i, k;
+    int g;
+
+    /* +0x478: this copy has loaded and waits; 0x537F30: the battle's players, the type 2 handler needs them */
+    if (FRONTEND || !net || net[0x438] || !game || !game[0x478] || !*(void **)0x537F30)
+        return NULL;
+    list = *(BYTE **)(net + 0x18);
+    n = game_players();
+    for (g = 0; g < g_gone_count; g++)
+        for (i = 0; list && i < n; i++) {
+            if (*(DWORD *)(list + i * 0x1C) != g_gone[g])
+                continue;
+            for (k = 0; k < *left_count && left[k] != g_gone[g]; k++)
+                ;
+            if (k == *left_count && k < MAX_PLAYERS)
+                left[(*left_count)++] = g_gone[g];
+            if (net[0x430 + i])
+                break;
+            memset(&loaded, 0, sizeof loaded);
+            loaded.from = g_gone[g];
+            loaded.size = MESSAGE;
+            head[1] = i;
+            memcpy(loaded.data, head, sizeof head);
+            say("network: %X left before the battle began: the game gets its \"loaded\" from us and removes him", g_gone[g]);
+            return &loaded;
+        }
+    return NULL;
 }
 
 static BYTE seats(DWORD n)
@@ -515,6 +577,7 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
             break;
         g_in_room = TRUE;
         g_head = g_count = 0;
+        g_gone_count = 0;
         g_joined = 1;
         SetEvent(g_answer);
         say("network: in room %u \"%s\"%s: %s", g_room.id, g_room.name, g_room.flags & ROOM_CLOSED ? ", closed" : "",
@@ -546,6 +609,7 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
             say("network: %s (%X) left", pl->name, id);
             /* the order is the server's: the game takes a player's number from his place in the list */
             memmove(pl, pl + 1, (size_t)(&g_players[--g_player_count] - pl) * sizeof *pl);
+            gone(id);
             push_system(DPSYS_DESTROYPLAYERORGROUP, id);
         }
         break;
@@ -597,8 +661,8 @@ static BOOL on_frame(BYTE type, const BYTE *body, DWORD size)
     return !f.bad;
 }
 
-/* FALSE: no connection any more, l->error says why. `patient`: silence is no error while `epoch` is the
- * current one. */
+/* FALSE: no connection any more, l->error says why. `patient`: a timeout is no error while `epoch` is the
+ * current one. Windows 11: a WebSocket read has none, WinHttpSetTimeouts does not reach it. */
 static BOOL read_exact(struct link *l, DWORD epoch, BYTE *to, int size, BOOL patient)
 {
     int done = 0, n;
@@ -611,7 +675,7 @@ static BOOL read_exact(struct link *l, DWORD epoch, BYTE *to, int size, BOOL pat
             if (error == NO_ERROR && kind != WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE) {
                 done += (int)got;
             } else if (error != ERROR_WINHTTP_TIMEOUT || !patient || epoch != g_epoch) {
-                l->error = error; /* the 10 s timeout is where a dropped WebSocket link is noticed */
+                l->error = error;
                 return FALSE;
             }
         } else if ((n = recv(l->s, (char *)to + done, size - done, 0)) > 0) {
@@ -767,6 +831,8 @@ static DWORD WINAPI link_thread(void *arg)
     EnterCriticalSection(&g_lock);
     if (ok && epoch == g_epoch)
         drop_connection(why);
+    if (l.ws && l.ws == g_aborted)
+        l.ws = g_aborted = NULL;
     LeaveCriticalSection(&g_lock);
     if (l.ws)
         WinHttpCloseHandle(l.ws);
@@ -776,8 +842,14 @@ static DWORD WINAPI link_thread(void *arg)
         closesocket(l.s);
     if (frame)
         HeapFree(GetProcessHeap(), 0, frame);
+    EnterCriticalSection(&g_lock);
+    g_links--;
+    LeaveCriticalSection(&g_lock);
     return 0;
 }
+
+/* the game's own limit for a player on turn who sends no input (FUN_0048CEF0, 5 + 10 s) */
+enum { STALL_SECONDS = 15 };
 
 /* The server's idle limit and our own check for a dead link need pings also when the game polls
  * nothing: it reads no messages while it loads a level or shows the results. */
@@ -802,26 +874,31 @@ static DWORD WINAPI keeper(void *arg)
         }
         if (g_dropped && now - g_drop_said > 1000)
             say_dropped(); /* the end of a burst */
+        /* the others wait for this copy's input and cannot tell a stuck game from a slow link: it leaves */
+        if (CONNECTED && g_in_room && battle_turn_stall() > STALL_SECONDS * 1000) {
+            say("network: the game stood still for %d s on its own turn: the others cannot play on", STALL_SECONDS);
+            drop_connection("this player leaves the room");
+        }
         LeaveCriticalSection(&g_lock);
     }
 }
 
-/* The lock is held. Starts a link thread, unless one runs or the last attempt ended under 10 s ago
- * (the menu asks twice a second). g_linked tells when the attempt has ended. */
+/* The lock is held. Starts a link thread, unless one runs or has not ended yet, or the last attempt ended
+ * under 10 s ago (the menu asks twice a second). g_linked tells when the attempt has ended. */
 static void start_connect(void)
 {
     static BOOL started;
     WSADATA wsa;
     HANDLE thread;
 
-    if (CONNECTED || g_connecting || (g_tried && GetTickCount() - g_tried < 10000))
+    if (CONNECTED || g_connecting || g_links || (g_tried && GetTickCount() - g_tried < 10000))
         return;
     if (!started) {
         started = TRUE;
         WSAStartup(MAKEWORD(2, 2), &wsa);
         if (g_web)
             g_http = WinHttpOpen(L"HogsFix", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-        if (g_http) /* a read returns after 10 s of silence */
+        if (g_http) /* for the connection and its upgrade */
             WinHttpSetTimeouts(g_http, 5000, 5000, 5000, 10000);
         if ((thread = CreateThread(NULL, 0, keeper, NULL, 0, NULL)) != NULL)
             CloseHandle(thread);
@@ -830,6 +907,7 @@ static void start_connect(void)
     g_connecting = TRUE;
     thread = CreateThread(NULL, 0, link_thread, (void *)(ULONG_PTR)++g_epoch, 0, NULL);
     if (thread) {
+        g_links++;
         CloseHandle(thread);
     } else {
         g_connecting = FALSE;
@@ -1159,12 +1237,17 @@ static HRESULT __stdcall dp_receive(void *self, DWORD *from, DWORD *to, DWORD fl
 {
     struct message *m;
     HRESULT r = DP_OK;
+    BOOL queued;
 
     (void)self, (void)flags;
     EnterCriticalSection(&g_lock);
+    if (FRONTEND)
+        g_gone_count = 0;
     /* checked here, not when it came: the game's list can have fewer players than the room by now */
     g_listed = game_players();
-    for (; g_count; g_head = (g_head + 1) % QUEUE, g_count--) {
+    m = loaded_for_gone();
+    queued = !m;
+    for (; queued && g_count; g_head = (g_head + 1) % QUEUE, g_count--) {
         DWORD head[2];
 
         m = &g_queue[g_head];
@@ -1180,8 +1263,9 @@ static HRESULT __stdcall dp_receive(void *self, DWORD *from, DWORD *to, DWORD fl
         if (GetTickCount() - g_drop_said > 1000)
             say_dropped();
     }
-    m = &g_queue[g_head];
-    if (!g_count) {
+    if (queued)
+        m = g_count ? &g_queue[g_head] : NULL;
+    if (!m) {
         r = DPERR_NOMESSAGES;
     } else if (!data || *size < m->size) {
         *size = m->size;
@@ -1191,8 +1275,10 @@ static HRESULT __stdcall dp_receive(void *self, DWORD *from, DWORD *to, DWORD fl
         *from = m->from;
         *to = m->to;
         *size = m->size;
-        g_head = (g_head + 1) % QUEUE;
-        g_count--;
+        if (queued) {
+            g_head = (g_head + 1) % QUEUE;
+            g_count--;
+        }
     }
     LeaveCriticalSection(&g_lock);
     return r;
@@ -1260,12 +1346,60 @@ static HRESULT WINAPI co_create_instance(const GUID *clsid, void *outer, DWORD c
     return S_OK;
 }
 
+/* Menu 47 (FUN_00428CF0) draws the prompt as line 0 (0x429892) and the typed address as line 1 (0x42985E).
+ * One provider is one line: it shows the address once a character is typed. esi: the line. */
+static __declspec(naked) void address_line(void)
+{
+    __asm {
+        test esi, esi
+        jnz other
+        mov eax, dword ptr ds:[0x51AAD8]
+        cmp dword ptr [eax], 1
+        jne prompt
+        cmp byte ptr ds:[0x51ABD0], 0
+        jne address
+    prompt:
+        mov eax, 0x429892
+        jmp eax
+    other:
+        dec esi
+        jz address
+        mov eax, 0x4290BD
+        jmp eax
+    address:
+        mov eax, 0x42985E
+        jmp eax
+    }
+}
+
+/* FUN_004307B0 takes a battle's sound volumes from the team in slot 0 ([0x51C55C] + 8, 9, 0xC). In a network
+ * battle that is the host's team in every copy (FUN_0042EC80); this copy's own team is in the slot of its place. */
+static void __cdecl battle_sound(void)
+{
+    BYTE *net = NET_OBJECT, *first = *(BYTE **)0x51C55C, *own = NULL, kept[5];
+
+    if (NETWORK_BATTLE && net && first && (WORD)*(short *)(net + 0x2FC) < MAX_PLAYERS)
+        own = (BYTE *)0x51F128 + *(short *)(net + 0x2FC) * 0x2A8;
+    if (own) {
+        memcpy(kept, first + 8, sizeof kept);
+        memcpy(first + 8, own + 8, sizeof kept);
+    }
+    ((void(__cdecl *)(void))0x4307B0)();
+    if (own)
+        memcpy(first + 8, kept, sizeof kept);
+}
+
 void net_init(void)
 {
     char name[32], *colon, *slash;
     DWORD hash = 2166136261u;
     int i;
 
+    /* The game's own network play (Server empty). FUN_0042E7E0 takes this address when none is typed;
+     * DirectPlay searches the local network when the address is empty. */
+    patch(0x4C0E9C, "10.11.11.116", "\0" "0.11.11.116", 12, "network: empty address searches the LAN");
+    hook(0x429852, 0xE9, "\x83\xEE\x00\x74\x3B", address_line, "network: the typed address is shown");
+    hook(0x47E2B2, 0xE8, "\xE8\xF9\x24\xFB\xFF", battle_sound, "network: own sound volumes in a battle");
     GetPrivateProfileStringA("Network", "Server", "", g_server, sizeof g_server, g_ini);
     if (!g_server[0])
         return;

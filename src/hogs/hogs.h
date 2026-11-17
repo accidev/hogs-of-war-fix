@@ -8,6 +8,10 @@
 #define MENU (*(const int **)0x51AAD8)   /* the menu the keys go to, a 0x48-byte record */
 #define KEY_WANTED (*(DWORD *)0x51AC50)  /* Options, Controls waits for the key to bind */
 #define VIDEO (GAME_CONFIG && GAME_CONFIG[2]) /* PlayBinkVideo plays; the menu under it is not on the screen */
+/* the game's network object: +0x18 player list (0x1C each: id, +0x1B loaded), +0x1C its length, +0x2E4 own id,
+ * +0x41C player objects by place, +0x430 "loaded" by place, +0x438 every player has loaded */
+#define NET_OBJECT (*(BYTE **)0x51D7C0)
+#define NETWORK_BATTLE (*(BYTE *)0x51ABC8)
 
 extern char g_ini[MAX_PATH];
 
@@ -24,9 +28,13 @@ void frames_init(BOOL vsync);
 extern float *g_water_y;      /* renderer's water grid, set when _d3d.dll is patched */
 void __cdecl water_slide(void); /* called from _d3d.dll in place of its loop */
 
+/* frames.c, from net.c's own thread: ms without a game tick while this copy is on turn in a network battle, else 0 */
+DWORD battle_turn_stall(void);
+
 /* net.c: network games through a lobby server, [Network] Server */
 void net_init(void);
 void net_battle_players(void); /* frames.c: a network battle starts */
+int net_more_input(DWORD id);  /* 1: his input can still come, 0: he has left the room, -1: no lobby server */
 
 /* menu.c: the mouse in the menus and the Controls screen; menu_input: TRUE = the message is done */
 extern WNDPROC g_game_proc; /* MainWndProc, once hogs.c has taken the window's procedure over */
