@@ -1,4 +1,4 @@
-/* menu.c - the mouse in the game's menus, and the Controls screen with every action on it.
+/* menu.c - the mouse in the game's menus, the Controls screen with every action on it, the keys of this PC.
  *
  * The menus know keys only. A menu is a 0x48-byte record, the current one at [0x51AAD8]: [0] items,
  * [3] cursor, [9] screen type, [14] and [15] where its board stands. An item's text box is {x, y, w, h}
@@ -8,6 +8,7 @@
  *   0x42DEA0  jmp, Controls (screen type 15) drawn: 6 of 12 lines, scrolling -> controls_draw
  *   0x42A140  jmp, an arrow key on that screen                               -> controls_move
  *   0x42E11A  call, keyboard read while the screen waits for a key to bind   -> wanted_keys
+ *   0x426E3C  call, default keys at the first menu; then those of savekeys   -> first_keys
  */
 #include "hogs.h"
 #include <stdio.h>
@@ -25,7 +26,7 @@
 #define LINE_ACTION ((const int *)0x4D3010) /* line -> action */
 #define NAMED_KEYS ((const int *)0x4C0110)  /* key codes that have a name, -1 ends; the name: string 0x169 + place */
 #define TEAM (*(BYTE **)0x51C560)           /* +0xE the keys, +0x2E the joystick buttons: saved with the team */
-#define KEYS_CHANGED (*(int *)0x51AC54)
+#define KEYS_CHANGED (*(BYTE *)0x51AC54)
 #define BLINK (*(int *)0x51AC4C)
 #define INPUT (*(BYTE **)0x51A5B0) /* +0x148 the joystick, -1: none */
 #define GRID_TEXT (*(const int **)0x51BA54)  /* the text object that draws the name grid */
@@ -259,16 +260,63 @@ static void __fastcall controls_move(int *menu, void *unused, int dx, int dy)
         sound(0x11, 100);
 }
 
+static void(__cdecl *const game_default_keys)(void) = (void(__cdecl *)(void))0x482340; /* into KEYS and JOY_BUTTONS */
+/* FUN_0045DE00: the menus' joystick buttons, as FUN_0042E270 sets them after a new button */
+static void(__fastcall *const menu_buttons)(BYTE *input, void *, WORD *buttons) = (void(__fastcall *)(BYTE *, void *, WORD *))0x45DE00;
+
 static void default_keys(void)
 {
     if (!TEAM)
         return;
-    ((void(__cdecl *)(void))0x482340)(); /* the game's own defaults, into KEYS and JOY_BUTTONS */
+    game_default_keys();
     memcpy(TEAM + 0xE, KEYS, 32);
     memcpy(TEAM + 0x2E, JOY_BUTTONS, 32);
-    ((void(__fastcall *)(BYTE *, void *, WORD *))0x45DE00)(INPUT, NULL, JOY_BUTTONS); /* as FUN_0042E270 does after a new button */
+    menu_buttons(INPUT, NULL, JOY_BUTTONS);
     KEYS_CHANGED = 1;
     sound(4, 100);
+}
+
+/* KEYS and JOY_BUTTONS, 64 bytes, in savekeys beside the game's savearmy files. The game kept them in the
+ * saved teams only: after a restart the defaults stood until a saved team was loaded. */
+static WORD g_keys_kept[32];
+static BOOL g_keys_ready;
+
+/* In place of FUN_00482340 at the first menu */
+static void __cdecl first_keys(void)
+{
+    WORD kept[32];
+    FILE *f = fopen("savekeys", "rb");
+    int i = 0;
+
+    game_default_keys();
+    if (f && fread(kept, sizeof kept, 1, f) == 1)
+        while (i < 16 && kept[i] && kept[i] < 256)
+            i++;
+    if (f)
+        fclose(f);
+    if (i == 16) {
+        memcpy(KEYS, kept, sizeof kept); /* JOY_BUTTONS follow KEYS */
+        if (INPUT)
+            menu_buttons(INPUT, NULL, JOY_BUTTONS);
+        KEYS_CHANGED = 1; /* FUN_0042BB20: a team loaded now takes these keys and gives none */
+        say("keys: those of savekeys");
+    }
+    memcpy(g_keys_kept, KEYS, sizeof g_keys_kept);
+    g_keys_ready = TRUE;
+}
+
+void menu_keys(void)
+{
+    FILE *f;
+
+    if (!g_keys_ready || !memcmp(g_keys_kept, KEYS, sizeof g_keys_kept))
+        return;
+    memcpy(g_keys_kept, KEYS, sizeof g_keys_kept);
+    f = fopen("savekeys", "wb");
+    if (!f || fwrite(g_keys_kept, sizeof g_keys_kept, 1, f) != 1)
+        say("keys: savekeys not written");
+    if (f)
+        fclose(f);
 }
 
 /* In place of the keyboard read of FUN_0042E100, which binds the first key that is down. */
@@ -379,4 +427,5 @@ void menu_init(void)
     g_controls = hook(0x42DEA0, 0xE9, "\x83\xEC\x18\x53\x55", controls_draw, "menus: every control on one screen") &&
                  hook(0x42A140, 0xE9, "\x8B\x41\x0C\x56\x8B", controls_move, "menus: four arrows on the controls screen");
     hook(0x42E11A, 0xE8, "\xE8\x91\xEA\x01\x00", wanted_keys, "menus: mouse buttons can be bound");
+    hook(0x426E3C, 0xE8, "\xE8\xFF\xB4\x05\x00", first_keys, "keys: kept in savekeys between games");
 }

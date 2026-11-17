@@ -2,6 +2,17 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v2.0.1 — not released yet
+
+### Fixed
+
+- The keys set in Options → Controls are kept when the game is closed, and they work in every kind of game. The game kept them only in a saved team and brought them back only when that team was loaded. So after a restart a network game, a multi-player game or a new team had the default keys. Now the keys are kept in the file `savekeys` next to the saved teams.
+
+### Good to know
+
+- A team that is loaded now takes the keys of Options → Controls. Before, the first team loaded after a start brought its own keys.
+- Keys set before this version are in your saved teams. Load one of them once, or set the keys once in Options → Controls: from then on they stay.
+
 ## v2.0.0 — 2026-11-16
 
 ### Added

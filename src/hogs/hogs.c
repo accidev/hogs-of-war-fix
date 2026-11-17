@@ -804,6 +804,8 @@ static BOOL WINAPI peek_message(LPMSG msg, HWND hwnd, UINT first, UINT last, UIN
     if (menus && !FRONTEND)
         SetCursor(NULL);
     menus = FRONTEND;
+    if (menus)
+        menu_keys();
     gamepad_poll();
     return g_peek_message(msg, hwnd, first, last, remove);
 }

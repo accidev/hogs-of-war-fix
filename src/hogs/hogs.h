@@ -32,6 +32,7 @@ extern WNDPROC g_game_proc; /* MainWndProc, once hogs.c has taken the window's p
 void menu_init(void);
 BOOL menu_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 WPARAM menu_key(WPARAM vk, LPARAM lp); /* the key MainWndProc is to see for a WM_KEYDOWN */
+void menu_keys(void);                  /* in the menus: savekeys follows the keys of Options, Controls */
 
 /* team.c: the team screen (screen type 5) drawn and walked by our code; x, y: the 640 x 480 picture */
 void team_init(void);
