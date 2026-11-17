@@ -1,6 +1,11 @@
 For the Steam version of Hogs of War on Windows 10 and 11.
 
-**New in v2.1.0**
+**New in v2.1.1**
+
+- **The music is no longer louder than the speech of the pigs.** A music theme at the start of a turn covered what the pig said, and a lower Master Volume made it worse: the speech fell much faster than the music. The game gives its sounds a volume in decibels and the music a volume in percent, and the music library took the percent as plain loudness. Now the music follows the same curve as the other sounds. The speech and the effects are as they were.
+- The game has no slider for the music alone: Master Volume moves the music, the speech and the effects together, SFX Volume moves the effects only. To lower the music alone, set `CDDAVolume` (0 to 100) in `winmm.ini` next to the game and start the game again.
+
+**v2.1.0**
 
 - **Network battles stay together.** When the game of one player stood still for 15 seconds on his turn, the other copies removed him, but he was not told and played on alone, so the players ended up in different battles. Now only the lobby server says who has left, and every copy hears it at the same moment. A copy that cannot play its own turn for 15 seconds leaves the room by itself.
 - While a battle waits for another player, the window is drawn and answers. A player who leaves while the battle loads no longer stops the others for a minute. When the player on turn leaves, the others go on at once.

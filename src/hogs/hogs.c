@@ -713,26 +713,35 @@ static BOOL CALLBACK keep_foreign_windows(HWND hwnd, LPARAM arg)
     return TRUE;
 }
 
-/* Music volume: mixerSetControlDetails on the CD line (one channel, one DWORD, 0..0xFFDC), read at start-up
- * (FUN_004398E0). Windows 10/11 has no CD line, the calls hit the system slider: use ogg-winmm's auxSetVolume */
-static MMRESULT WINAPI cd_volume_set(HMIXEROBJ mixer, LPMIXERCONTROLDETAILS d, DWORD flags)
-{
-    DWORD v = *(DWORD *)d->paDetails;
+/* Music volume: mixerSetControlDetails on the CD line (one channel, one DWORD, percent * 655), read once at
+ * start-up (FUN_0047F0B0). Windows 10/11 has no CD line, the calls hit the system slider: use ogg-winmm's aux */
+static DWORD g_cd_level = 0xFFFF;
 
-    (void)mixer;
-    (void)flags;
-    return auxSetVolume(0, v | v << 16);
+/* ogg-winmm multiplies the samples by the level. The game's own sounds get (percent - 100) * 0.35 dB and
+ * silence under 10 (FUN_0043DF60): the same here, or a lower Master Volume leaves the music above the speech. */
+static DWORD cd_gain(DWORD level)
+{
+    int percent = (int)(level * 100 / 0xFFDC);
+
+    return percent < 10 ? 0 : (DWORD)(0xFFFF * pow(10.0, (percent - 100) * 0.35 / 20.0));
 }
 
-static MMRESULT WINAPI cd_volume_get(HMIXEROBJ mixer, LPMIXERCONTROLDETAILS d, DWORD flags)
+static MMRESULT WINAPI cd_volume_set(HMIXEROBJ mixer, LPMIXERCONTROLDETAILS d, DWORD flags)
 {
     DWORD v;
 
     (void)mixer;
     (void)flags;
-    if (auxGetVolume(0, &v) != MMSYSERR_NOERROR)
-        v = 0xFFFF;
-    *(DWORD *)d->paDetails = LOWORD(v);
+    g_cd_level = *(DWORD *)d->paDetails;
+    v = cd_gain(g_cd_level);
+    return auxSetVolume(0, v | v << 16);
+}
+
+static MMRESULT WINAPI cd_volume_get(HMIXEROBJ mixer, LPMIXERCONTROLDETAILS d, DWORD flags)
+{
+    (void)mixer;
+    (void)flags;
+    *(DWORD *)d->paDetails = g_cd_level;
     return MMSYSERR_NOERROR;
 }
 

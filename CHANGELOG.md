@@ -2,6 +2,16 @@
 
 What changed in each release of the Hogs of War fix. Settings are in `hogs.ini`.
 
+## v2.1.1 — 2026-11-17
+
+### Fixed
+
+- **The music is no longer louder than the speech of the pigs.** The game gives its sounds and speech a volume in decibels, and the music a volume in percent. The music library took the percent as plain loudness, so the music stood well above everything else: a music theme at the start of a turn covered what the pig said. A lower Master Volume made it worse, because the speech fell much faster than the music. Now the music follows the same curve as the other sounds. With Master Volume at 8 to 10 the themes of a battle are 7 to 10 dB quieter than before, and more at a lower Master Volume; the menu theme is about 10 dB quieter. The speech and the effects are as they were.
+
+### Good to know
+
+- The game has no slider for the music alone. Master Volume moves the music, the speech and the effects together; SFX Volume moves the effects only. To lower the music alone, set `CDDAVolume` (0 to 100) in `winmm.ini` next to the game and start the game again. An update of the fix keeps that file.
+
 ## v2.1.0 — 2026-11-17
 
 ### Fixed

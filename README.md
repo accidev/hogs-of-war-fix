@@ -37,7 +37,7 @@
 - **A usable gamepad.** Xbox controllers (XInput) work without setup, with the button layout of the PlayStation version (see Controls). The stick dead zone of other joysticks is 15 % instead of 50 %. The Xbox support is new and has been tested only with a simulated controller, not a real one, so please tell us how it works for you.
 - **Straight to the title screen.** There is no resolution dialog and no intro videos. You can turn both back on.
 - **Menus at their original speed.** Their animations were tied to the frame rate and raced on a fast renderer. The game also no longer freezes after its window was minimized.
-- **Music** from `MUSIC\TrackNN.ogg`. The in-game music volume no longer changes the game's volume in the Windows mixer.
+- **Music** from `MUSIC\TrackNN.ogg`. The in-game music volume no longer changes the game's volume in the Windows mixer, and the music no longer covers the speech of the pigs. The game has no slider for the music alone: to lower only the music, set `CDDAVolume` (0 to 100) in `winmm.ini` next to the game.
 
 ## Install
 
